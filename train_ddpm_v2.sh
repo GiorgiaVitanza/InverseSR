@@ -8,7 +8,7 @@
 #SBATCH --cpus-per-task=8              # Core CPU per il dataloading
 #SBATCH --mem=32GB                     # Memoria RAM
 #SBATCH --time=24:00:00                # Tempo massimo (HH:MM:SS)
-#SBATCH --output=aekl_%j.out           # File dove finiranno i print dello script
+#SBATCH --output=ddpm_%j.out           # File dove finiranno i print dello script
 
 # 1. Carica i moduli necessari (Leonardo usa LMOD)
 # Sostituisci le righe del module load con queste:
