@@ -1,0 +1,1085 @@
+ANALISI MODELLO 3D (Conv3D detected)
+In Channels (Input volumetrico): 7
+Out Channels (Output volumetrico): 3
+==================================================
+
+Layer: betas | Tipo stimato: Bias/Altro | Shape: [1000]
+------------------------------
+Layer: alphas_cumprod | Tipo stimato: Bias/Altro | Shape: [1000]
+------------------------------
+Layer: alphas_cumprod_prev | Tipo stimato: Bias/Altro | Shape: [1000]
+------------------------------
+Layer: sqrt_alphas_cumprod | Tipo stimato: Bias/Altro | Shape: [1000]
+------------------------------
+Layer: sqrt_one_minus_alphas_cumprod | Tipo stimato: Bias/Altro | Shape: [1000]
+------------------------------
+Layer: log_one_minus_alphas_cumprod | Tipo stimato: Bias/Altro | Shape: [1000]
+------------------------------
+Layer: sqrt_recip_alphas_cumprod | Tipo stimato: Bias/Altro | Shape: [1000]
+------------------------------
+Layer: sqrt_recipm1_alphas_cumprod | Tipo stimato: Bias/Altro | Shape: [1000]
+------------------------------
+Layer: posterior_variance | Tipo stimato: Bias/Altro | Shape: [1000]
+------------------------------
+Layer: posterior_log_variance_clipped | Tipo stimato: Bias/Altro | Shape: [1000]
+------------------------------
+Layer: posterior_mean_coef1 | Tipo stimato: Bias/Altro | Shape: [1000]
+------------------------------
+Layer: posterior_mean_coef2 | Tipo stimato: Bias/Altro | Shape: [1000]
+------------------------------
+Layer: model.diffusion_model.time_embed.0.weight | Tipo stimato: Bias/Altro | Shape: [1024, 256]
+------------------------------
+Layer: model.diffusion_model.time_embed.0.bias | Tipo stimato: Bias/Altro | Shape: [1024]
+------------------------------
+Layer: model.diffusion_model.time_embed.2.weight | Tipo stimato: Bias/Altro | Shape: [1024, 1024]
+------------------------------
+Layer: model.diffusion_model.time_embed.2.bias | Tipo stimato: Bias/Altro | Shape: [1024]
+------------------------------
+Layer: model.diffusion_model.input_blocks.0.0.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 7, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.0.0.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.1.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.1.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.1.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 256, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.1.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.1.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [256, 1024]
+------------------------------
+Layer: model.diffusion_model.input_blocks.1.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.1.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.1.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.1.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 256, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.1.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.2.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.2.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.2.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 256, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.2.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.2.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [256, 1024]
+------------------------------
+Layer: model.diffusion_model.input_blocks.2.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.2.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.2.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.2.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 256, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.2.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.3.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.3.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.3.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 256, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.3.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.3.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [256, 1024]
+------------------------------
+Layer: model.diffusion_model.input_blocks.3.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.3.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.3.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.3.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 256, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.3.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 256, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [512, 1024]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.0.skip_connection.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 256, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.0.skip_connection.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.norm.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.norm.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.proj_in.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.proj_in.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.attn1.to_q.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.attn1.to_k.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.attn1.to_v.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.attn1.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.attn1.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.ff.net.0.proj.weight | Tipo stimato: Bias/Altro | Shape: [4096, 512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.ff.net.0.proj.bias | Tipo stimato: Bias/Altro | Shape: [4096]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.ff.net.2.weight | Tipo stimato: Bias/Altro | Shape: [512, 2048]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.ff.net.2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.attn2.to_q.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.attn2.to_k.weight | Tipo stimato: Bias/Altro | Shape: [512, 4]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.attn2.to_v.weight | Tipo stimato: Bias/Altro | Shape: [512, 4]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.attn2.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.attn2.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.norm1.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.norm1.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.norm2.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.norm2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.norm3.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.transformer_blocks.0.norm3.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.proj_out.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.input_blocks.4.1.proj_out.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [512, 1024]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.norm.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.norm.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.proj_in.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.proj_in.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.attn1.to_q.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.attn1.to_k.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.attn1.to_v.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.attn1.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.attn1.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.ff.net.0.proj.weight | Tipo stimato: Bias/Altro | Shape: [4096, 512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.ff.net.0.proj.bias | Tipo stimato: Bias/Altro | Shape: [4096]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.ff.net.2.weight | Tipo stimato: Bias/Altro | Shape: [512, 2048]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.ff.net.2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.attn2.to_q.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.attn2.to_k.weight | Tipo stimato: Bias/Altro | Shape: [512, 4]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.attn2.to_v.weight | Tipo stimato: Bias/Altro | Shape: [512, 4]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.attn2.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.attn2.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.norm1.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.norm1.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.norm2.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.norm2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.norm3.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.transformer_blocks.0.norm3.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.proj_out.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.input_blocks.5.1.proj_out.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.6.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.6.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.6.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.6.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.6.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [512, 1024]
+------------------------------
+Layer: model.diffusion_model.input_blocks.6.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.6.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.6.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.6.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.6.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 512, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [768, 1024]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.0.skip_connection.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 512, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.0.skip_connection.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.norm.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.norm.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.proj_in.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.proj_in.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.attn1.to_q.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.attn1.to_k.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.attn1.to_v.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.attn1.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.attn1.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.ff.net.0.proj.weight | Tipo stimato: Bias/Altro | Shape: [6144, 768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.ff.net.0.proj.bias | Tipo stimato: Bias/Altro | Shape: [6144]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.ff.net.2.weight | Tipo stimato: Bias/Altro | Shape: [768, 3072]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.ff.net.2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.attn2.to_q.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.attn2.to_k.weight | Tipo stimato: Bias/Altro | Shape: [768, 4]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.attn2.to_v.weight | Tipo stimato: Bias/Altro | Shape: [768, 4]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.attn2.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.attn2.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.norm1.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.norm1.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.norm2.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.norm2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.norm3.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.transformer_blocks.0.norm3.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.proj_out.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.input_blocks.7.1.proj_out.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [768, 1024]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.norm.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.norm.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.proj_in.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.proj_in.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.attn1.to_q.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.attn1.to_k.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.attn1.to_v.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.attn1.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.attn1.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.ff.net.0.proj.weight | Tipo stimato: Bias/Altro | Shape: [6144, 768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.ff.net.0.proj.bias | Tipo stimato: Bias/Altro | Shape: [6144]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.ff.net.2.weight | Tipo stimato: Bias/Altro | Shape: [768, 3072]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.ff.net.2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.attn2.to_q.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.attn2.to_k.weight | Tipo stimato: Bias/Altro | Shape: [768, 4]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.attn2.to_v.weight | Tipo stimato: Bias/Altro | Shape: [768, 4]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.attn2.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.attn2.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.norm1.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.norm1.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.norm2.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.norm2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.norm3.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.transformer_blocks.0.norm3.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.proj_out.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.input_blocks.8.1.proj_out.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.middle_block.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [768, 1024]
+------------------------------
+Layer: model.diffusion_model.middle_block.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.middle_block.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.norm.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.norm.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.proj_in.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.proj_in.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.attn1.to_q.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.attn1.to_k.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.attn1.to_v.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.attn1.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.attn1.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.ff.net.0.proj.weight | Tipo stimato: Bias/Altro | Shape: [6144, 768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.ff.net.0.proj.bias | Tipo stimato: Bias/Altro | Shape: [6144]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.ff.net.2.weight | Tipo stimato: Bias/Altro | Shape: [768, 3072]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.ff.net.2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.attn2.to_q.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.attn2.to_k.weight | Tipo stimato: Bias/Altro | Shape: [768, 4]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.attn2.to_v.weight | Tipo stimato: Bias/Altro | Shape: [768, 4]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.attn2.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.attn2.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.norm1.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.norm1.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.norm2.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.norm2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.norm3.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.transformer_blocks.0.norm3.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.proj_out.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.middle_block.1.proj_out.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.2.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.2.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.2.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.middle_block.2.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.2.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [768, 1024]
+------------------------------
+Layer: model.diffusion_model.middle_block.2.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.2.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.2.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.middle_block.2.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.middle_block.2.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [1536]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [1536]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 1536, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [768, 1024]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.0.skip_connection.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 1536, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.0.skip_connection.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.norm.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.norm.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.proj_in.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.proj_in.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.attn1.to_q.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.attn1.to_k.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.attn1.to_v.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.attn1.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.attn1.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.ff.net.0.proj.weight | Tipo stimato: Bias/Altro | Shape: [6144, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.ff.net.0.proj.bias | Tipo stimato: Bias/Altro | Shape: [6144]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.ff.net.2.weight | Tipo stimato: Bias/Altro | Shape: [768, 3072]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.ff.net.2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.attn2.to_q.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.attn2.to_k.weight | Tipo stimato: Bias/Altro | Shape: [768, 4]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.attn2.to_v.weight | Tipo stimato: Bias/Altro | Shape: [768, 4]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.attn2.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.attn2.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.norm1.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.norm1.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.norm2.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.norm2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.norm3.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.transformer_blocks.0.norm3.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.proj_out.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.0.1.proj_out.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [1536]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [1536]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 1536, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [768, 1024]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.0.skip_connection.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 1536, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.0.skip_connection.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.norm.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.norm.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.proj_in.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.proj_in.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.attn1.to_q.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.attn1.to_k.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.attn1.to_v.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.attn1.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.attn1.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.ff.net.0.proj.weight | Tipo stimato: Bias/Altro | Shape: [6144, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.ff.net.0.proj.bias | Tipo stimato: Bias/Altro | Shape: [6144]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.ff.net.2.weight | Tipo stimato: Bias/Altro | Shape: [768, 3072]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.ff.net.2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.attn2.to_q.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.attn2.to_k.weight | Tipo stimato: Bias/Altro | Shape: [768, 4]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.attn2.to_v.weight | Tipo stimato: Bias/Altro | Shape: [768, 4]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.attn2.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.attn2.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.norm1.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.norm1.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.norm2.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.norm2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.norm3.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.transformer_blocks.0.norm3.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.proj_out.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.1.1.proj_out.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [1280]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [1280]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 1280, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [768, 1024]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.0.skip_connection.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 1280, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.0.skip_connection.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.norm.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.norm.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.proj_in.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.proj_in.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.attn1.to_q.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.attn1.to_k.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.attn1.to_v.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.attn1.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.attn1.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.ff.net.0.proj.weight | Tipo stimato: Bias/Altro | Shape: [6144, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.ff.net.0.proj.bias | Tipo stimato: Bias/Altro | Shape: [6144]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.ff.net.2.weight | Tipo stimato: Bias/Altro | Shape: [768, 3072]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.ff.net.2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.attn2.to_q.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.attn2.to_k.weight | Tipo stimato: Bias/Altro | Shape: [768, 4]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.attn2.to_v.weight | Tipo stimato: Bias/Altro | Shape: [768, 4]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.attn2.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [768, 768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.attn2.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.norm1.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.norm1.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.norm2.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.norm2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.norm3.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.transformer_blocks.0.norm3.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.proj_out.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.1.proj_out.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.2.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.2.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.2.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.2.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.2.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [768, 1024]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.2.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.2.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.2.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.2.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [768, 768, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.2.2.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [1280]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [1280]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 1280, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [512, 1024]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.0.skip_connection.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 1280, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.0.skip_connection.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.norm.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.norm.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.proj_in.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.proj_in.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.attn1.to_q.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.attn1.to_k.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.attn1.to_v.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.attn1.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.attn1.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.ff.net.0.proj.weight | Tipo stimato: Bias/Altro | Shape: [4096, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.ff.net.0.proj.bias | Tipo stimato: Bias/Altro | Shape: [4096]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.ff.net.2.weight | Tipo stimato: Bias/Altro | Shape: [512, 2048]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.ff.net.2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.attn2.to_q.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.attn2.to_k.weight | Tipo stimato: Bias/Altro | Shape: [512, 4]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.attn2.to_v.weight | Tipo stimato: Bias/Altro | Shape: [512, 4]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.attn2.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.attn2.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.norm1.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.norm1.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.norm2.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.norm2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.norm3.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.transformer_blocks.0.norm3.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.proj_out.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.3.1.proj_out.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [1024]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [1024]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 1024, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [512, 1024]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.0.skip_connection.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 1024, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.0.skip_connection.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.norm.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.norm.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.proj_in.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.proj_in.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.attn1.to_q.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.attn1.to_k.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.attn1.to_v.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.attn1.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.attn1.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.ff.net.0.proj.weight | Tipo stimato: Bias/Altro | Shape: [4096, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.ff.net.0.proj.bias | Tipo stimato: Bias/Altro | Shape: [4096]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.ff.net.2.weight | Tipo stimato: Bias/Altro | Shape: [512, 2048]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.ff.net.2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.attn2.to_q.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.attn2.to_k.weight | Tipo stimato: Bias/Altro | Shape: [512, 4]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.attn2.to_v.weight | Tipo stimato: Bias/Altro | Shape: [512, 4]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.attn2.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.attn2.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.norm1.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.norm1.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.norm2.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.norm2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.norm3.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.transformer_blocks.0.norm3.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.proj_out.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.4.1.proj_out.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 768, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [512, 1024]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.0.skip_connection.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 768, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.0.skip_connection.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.norm.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.norm.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.proj_in.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.proj_in.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.attn1.to_q.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.attn1.to_k.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.attn1.to_v.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.attn1.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.attn1.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.ff.net.0.proj.weight | Tipo stimato: Bias/Altro | Shape: [4096, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.ff.net.0.proj.bias | Tipo stimato: Bias/Altro | Shape: [4096]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.ff.net.2.weight | Tipo stimato: Bias/Altro | Shape: [512, 2048]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.ff.net.2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.attn2.to_q.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.attn2.to_k.weight | Tipo stimato: Bias/Altro | Shape: [512, 4]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.attn2.to_v.weight | Tipo stimato: Bias/Altro | Shape: [512, 4]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.attn2.to_out.0.weight | Tipo stimato: Bias/Altro | Shape: [512, 512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.attn2.to_out.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.norm1.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.norm1.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.norm2.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.norm2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.norm3.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.transformer_blocks.0.norm3.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.proj_out.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.1.proj_out.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.2.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.2.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.2.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.2.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.2.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [512, 1024]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.2.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.2.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.2.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.2.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [512, 512, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.5.2.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.6.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.6.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [768]
+------------------------------
+Layer: model.diffusion_model.output_blocks.6.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 768, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.6.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.6.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [256, 1024]
+------------------------------
+Layer: model.diffusion_model.output_blocks.6.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.6.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.6.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.6.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 256, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.6.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.6.0.skip_connection.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 768, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.6.0.skip_connection.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.7.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.7.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.7.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 512, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.7.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.7.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [256, 1024]
+------------------------------
+Layer: model.diffusion_model.output_blocks.7.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.7.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.7.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.7.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 256, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.7.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.7.0.skip_connection.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 512, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.7.0.skip_connection.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.8.0.in_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.8.0.in_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [512]
+------------------------------
+Layer: model.diffusion_model.output_blocks.8.0.in_layers.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 512, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.8.0.in_layers.2.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.8.0.emb_layers.1.weight | Tipo stimato: Bias/Altro | Shape: [256, 1024]
+------------------------------
+Layer: model.diffusion_model.output_blocks.8.0.emb_layers.1.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.8.0.out_layers.0.weight | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.8.0.out_layers.0.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.8.0.out_layers.3.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 256, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.output_blocks.8.0.out_layers.3.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.output_blocks.8.0.skip_connection.weight | Tipo stimato: Conv3D/Pesi | Shape: [256, 512, 1, 1, 1]
+------------------------------
+Layer: model.diffusion_model.output_blocks.8.0.skip_connection.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.out.0.weight | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.out.0.bias | Tipo stimato: Bias/Altro | Shape: [256]
+------------------------------
+Layer: model.diffusion_model.out.2.weight | Tipo stimato: Conv3D/Pesi | Shape: [3, 256, 3, 3, 3]
+------------------------------
+Layer: model.diffusion_model.out.2.bias | Tipo stimato: Bias/Altro | Shape: [3]
+------------------------------

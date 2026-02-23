@@ -1,3 +1,6 @@
+# Modifica 1
+from torch.utils.checkpoint import checkpoint
+#-------------------------------------------------
 import math
 from abc import abstractmethod
 
@@ -556,14 +559,28 @@ class UNetModel(nn.Module):
             assert y.shape == (x.shape[0],)
             emb = emb + self.label_emb(y)
 
+        # --- MODIFICA 1: Assicuriamo che l'input abbia gradienti ---
+        # Necessario affinché il primo checkpoint funzioni correttamente
+        if x.requires_grad is False:
+             x.requires_grad_(True)
+
         h = x
+        # --- MODIFICA 2: Input Blocks con Checkpointing ---
         for module in self.input_blocks:
-            h = module(h, emb, context)
+            # Invece di h = module(h, emb, context)
+            # Usiamo checkpoint per non salvare la memoria interna del blocco
+            h = checkpoint(module, h, emb, context, use_reentrant=False)
             hs.append(h)
-        h = self.middle_block(h, emb, context)
+        
+        # --- MODIFICA 3: Middle Block con Checkpointing ---
+        # Invece di h = self.middle_block(h, emb, context)
+        h = checkpoint(self.middle_block, h, emb, context, use_reentrant=False)
+        
+        # --- MODIFICA 4: Output Blocks con Checkpointing ---
         for module in self.output_blocks:
             h = th.cat([h, hs.pop()], dim=1)
-            h = module(h, emb, context)
+            # Invece di h = module(h, emb, context)
+            h = checkpoint(module, h, emb, context, use_reentrant=False)
 
         if self.predict_codebook_ids:
             # return self.out(h), self.id_predictor(h)

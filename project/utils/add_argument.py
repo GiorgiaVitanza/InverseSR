@@ -1,53 +1,144 @@
 from argparse import ArgumentParser
 
+import torch
 
 def add_argument(parser: ArgumentParser):
+    # --- LOGGING & PATHS ---
     parser.add_argument(
         "--tensor_board_logger",
-        default=r"C:\Users\16446\Documents\GitHub\Medical-Image-Reconstruction\log",
-        help="TensorBoardLogger dir",
+        # Modificato: Path generico per astro
+        default=r"./logs/astro_diffusion",
+        help="Dir per i log di TensorBoard",
     )
+    
+    # --- DATI E FORMATI ---
     parser.add_argument(
         "--data_format",
-        default="pth",
+        default="npy", 
         type=str,
-        choices=["pth", "nii", "img"],
+        choices=["fits", "txt", "npy"],
+        help="Formato del datacube di input"
     )
+    parser.add_argument(
+        "--object_id", # Modificato: da subject_id a object_id
+        default="patch_000000",
+        type=str,
+        help="ID dell'oggetto celeste (es. nome galassia o ID catalogo)"
+    )
+    
+    # --- PARAMETRI DI TRAINING GENERICI ---
     parser.add_argument(
         "--learning_rate",
         dest="learning_rate",
-        default=0.1,
+        default=1e-4, # Spesso astro richiede LR più bassi
         type=float,
+    )
+    parser.add_argument(
+        "--batch_size",
+        default=1, # I datacube 3D occupano molta VRAM
+        type=int,
+    )
+    parser.add_argument(
+        "--seed",
+        default=42,
+        type=int,
+    )
+    
+    # --- OTTIMIZZAZIONE LATENTE (INVERSION) ---
+    parser.add_argument(
+        "--experiment_name",
+        default="astro_restoration",
+        type=str,
     )
     parser.add_argument(
         "--update_latent_variables",
         action="store_true",
+        help="Se attivo, ottimizza il vettore latente z"
     )
     parser.add_argument(
         "--update_conditioning",
         action="store_true",
+        help="Se attivo, ottimizza le condizioni fisiche (es. redshift)"
     )
+    
+    # --- CONDIZIONAMENTO ASTROFISICO ---
+    
     parser.add_argument(
-        "--subject_id",
-        default="019",
-        type=str,
+        "--update_frequency", 
+        action="store_true",
+        help="Ottimizza la stima della frequenza (f)"
     )
+    
     parser.add_argument(
-        "--experiment_name",
-        default="log_inversed_conditions",
-        type=str,
+        "--update_flux_norm", 
+        action="store_true",
+        help="Ottimizza la normalizzazione del flusso"
     )
+  
+
+    # --- PERCEPTUAL LOSS & GEOMETRIA ---
     parser.add_argument(
         "--lambda_perc",
         default=0.001,
         type=float,
     )
     parser.add_argument(
-        "--perc_dim",
-        default="axial",
+        "--slicing_dim", # Modificato: da perc_dim (axial/coronal)
+        default="spatial",
         type=str,
-        choices=["axial", "coronal", "sagittal"],
+        # spatial = piano RA-DEC (somma sui canali o slice singola)
+        # spectral = piano Posizione-Velocità (slice lungo RA o DEC)
+        choices=["spatial", "spectral_ra", "spectral_dec"], 
+        help="Direzione lungo cui calcolare la loss percettiva"
     )
+
+    # --- DEGRADAZIONE / CORRUZIONE (Telescope effects) ---
+    parser.add_argument(
+        "--corruption",
+        default="None",
+        type=str,
+        # beam_smear = convoluzione con PSF (Point Spread Function)
+        # noise = rumore termico del ricevitore
+        choices=["downsample", "mask", "beam_smear", "noise", "None"],
+    )
+    parser.add_argument(
+        "--mask_id",
+        default="survey_edge", # es. bordi del rilevatore
+        type=str,
+    )
+    parser.add_argument(
+        "--downsample_factor",
+        default=4,
+        type=int,
+        choices=[2, 4, 8, 16],
+        help="Fattore di riduzione risoluzione (binning spettrale o spaziale)"
+    )
+    
+    # --- DDIM SAMPLING ---
+    parser.add_argument(
+        "--ddim_num_timesteps",
+        default=100, # 250 è spesso eccessivo per test rapidi
+        type=int,
+    )
+    parser.add_argument(
+        "--ddim_eta",
+        default=0.0, # 0.0 = Deterministico, 1.0 = DDPM standard
+        type=float,
+    )
+    
+    # --- LOSS EXTRA ---
+    parser.add_argument(
+        "--downsampling_loss",
+        action="store_true",
+        help="Forza la coerenza tra output HR e input LR"
+    )
+    parser.add_argument(
+        "--mean_latent_vector",
+        action="store_true",
+        help="Inizia l'inversione dal vettore medio del dataset"
+    )
+    
+    # --- ALTRO ---
     parser.add_argument(
         "--start_steps",
         default=0,
@@ -59,108 +150,25 @@ def add_argument(parser: ArgumentParser):
         type=int,
     )
     parser.add_argument(
-        "--update_gender",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--update_age",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--update_ventricular",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--update_brain",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--corruption",
-        default="None",
-        type=str,
-        choices=["downsample", "mask", "None"],
-    )
-    parser.add_argument(
-        "--mask_id",
-        default="0",
-        type=str,
-    )
-    parser.add_argument(
         "--prior_every",
         default=20,
         type=int,
     )
     parser.add_argument(
-        "--ddim_num_timesteps",
-        default=250,
-        type=int,
-    )
-    parser.add_argument(
-        "--downsample_factor",
-        default=4,
-        type=int,
-        choices=[2, 4, 8, 16, 32, 64],
-    )
-    parser.add_argument(
-        "--kernel_size",
-        default=3,
-        type=int,
-    )
-    parser.add_argument(
-        "--downsampling_loss",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--mean_latent_vector",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--alpha_downsampling_loss",
-        default=0,
-        type=float,
-    )
-    parser.add_argument(
-        "--downsampling_loss_factor",
-        default=4,
-        type=int,
-    )
-    parser.add_argument(
-        "--prior_after",
-        default=50,
-        type=int,
-    )
-    parser.add_argument(
-        "--n_latent_samples",
-        default=10000,
-        type=int,
-    )
-    parser.add_argument(
-        "--batch_size",
-        default=10,
-        type=int,
-    )
-    parser.add_argument(
-        "--seed",
-        default=42,
-        type=int,
-    )
-    parser.add_argument(
         "--n_samples",
-        default=6,
+        default=1, # Solitamente 1 datacube alla volta per limiti di memoria
         type=int,
     )
+
     parser.add_argument(
-        "--bandwidth",
-        default=10,
-        type=float,
+        "--device",
+        default="cuda" if torch.cuda.is_available() else "cpu",
+        type=str,
     )
+
     parser.add_argument(
-        "--ddim_eta",
-        default=0.0,
-        type=float,
-    )
-    parser.add_argument(
-        "--k",
-        default=1,
-        type=int,
+        "--path_to_ddpm_checkpoint",    
+        default="C:\\Modelli 3D\\InverseSR - Astro\\data\\trained_models_astro\\ddpm\\data\\model.pth",
+        type=str,
+        help="Path al checkpoint della DDPM pre-allenata"
     )

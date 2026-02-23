@@ -19,6 +19,7 @@ project/masks/
 runs/
 result/
 decoder/
+venv_ubuntu/
 
 # C extensions
 *.so

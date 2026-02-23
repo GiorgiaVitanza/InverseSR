@@ -453,11 +453,28 @@ class DDPM(nn.Module):
 class DiffusionWrapper(nn.Module):
     def __init__(self, unet_config, conditioning_key):
         super().__init__()
-        self.diffusion_model = UNetModel(**unet_config.get("params", dict()))
+        # Estraiamo i parametri corretti se unet_config è un oggetto Config o un dict
+        params = unet_config.get("params", dict()) if isinstance(unet_config, dict) else unet_config
+        self.diffusion_model = UNetModel(**params)
         self.conditioning_key = conditioning_key
 
     def forward(self, x, t, c_concat: list = None, c_crossattn: list = None):
-        xc = torch.cat([x] + c_concat, dim=1)  # TODO:Can we update this latent space?
-        cc = torch.cat(c_crossattn, 1)
-        out = self.diffusion_model(xc, t, context=cc)
+        # 1. Gestione CONCAT (Spatial)
+        # Se conditioning_key è 'concat', concatena x con i condizionamenti
+        if self.conditioning_key == 'concat':
+            if c_concat is not None:
+                x = torch.cat([x] + c_concat, dim=1)
+            else:
+                # Se la chiave è concat ma non passi nulla, è un errore di setup
+                raise ValueError("conditioning_key is 'concat' but c_concat is None")
+        
+        # 2. Gestione CROSS-ATTENTION (Il tuo caso col catalogo)
+        cc = None
+        if c_crossattn is not None:
+            # c_crossattn è una lista di tensor, li uniamo lungo la dimensione della sequenza
+            cc = torch.cat(c_crossattn, dim=1)
+        
+        # 3. Chiamata alla UNet
+        # Passiamo cc come 'context' (usato dalla Cross-Attention interna alla UNet)
+        out = self.diffusion_model(x, t, context=cc)
         return out

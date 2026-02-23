@@ -1,3 +1,4 @@
+from torch.utils.checkpoint import checkpoint
 """
 AUTOENCODER WITH ARCHTECTURE FROM VERSION 2
 """
@@ -184,9 +185,25 @@ class Decoder(nn.Module):
         self.blocks = nn.ModuleList(blocks)
 
     def forward(self, x):
-        for block in self.blocks:
-            x = block(x)
-        return x
+        # NOTA: Qui NON facciamo più x.to(float16) o clean_and_cast.
+        # Ci fidiamo che utils.py ci passi già un Tensor puro in float16.
+        
+        # Disabilitiamo autocast per sicurezza (il modello è già half fisico)
+        with torch.autocast("cuda", enabled=False):
+            
+            for i, block in enumerate(self.blocks):
+                
+                # Checkpointing
+                if x.requires_grad:
+                    x = checkpoint(block, x, use_reentrant=True)
+                else:
+                    x = block(x)
+
+                # Pulizia Cache (Essenziale per la memoria)
+                if i % 2 == 0:
+                    torch.cuda.empty_cache()
+
+            return x
 
 
 class AutoencoderKL(nn.Module):

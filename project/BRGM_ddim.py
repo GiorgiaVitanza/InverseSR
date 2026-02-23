@@ -1,12 +1,9 @@
-# Code is adpated from: https://huggingface.co/spaces/Warvito/diffusion_brain/blob/main/app.py and
-# https://colab.research.google.com/drive/1xJAor6_Ky36gxIk6ICNP--NMBjSlYKil?usp=sharing#scrollTo=4XDeCy-Vj59b
-# A lot of thanks to the author of the code
-
-# Reference:
-# [1] Pinaya, W. H., et al. (2022). "Brain Imaging Generation with Latent Diffusion Models." arXiv preprint arXiv:2209.07162.
-# [2] Marinescu, R., et al. (2020). Bayesian Image Reconstruction using Deep Generative Models.
+# Code adapted for Astrophysical Data Restoration
+# Original Reference: Pinaya et al. (2022) & Marinescu et al. (2020)
 
 import math
+import csv
+import gc
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from time import perf_counter
@@ -14,389 +11,205 @@ from typing import Any, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import torch
-import csv
 from torch.utils.tensorboard import SummaryWriter
-from monai.transforms import apply_transform
 from skimage.metrics import mean_squared_error as mse
 from skimage.metrics import normalized_root_mse as nmse
 from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import peak_signal_noise_ratio as psnr
 
+# --- CUSTOM MODULES (Assicurati che i file utils siano aggiornati come discusso) ---
 from models.BRGM.forward_models import (
     ForwardDownsample,
     ForwardFillMask,
     ForwardAbstract,
 )
 from models.ddim import DDIMSampler
-from utils.transorms import get_preprocessing
-from utils.plot import draw_corrupted_images, draw_images, draw_img
 from utils.add_argument import add_argument
-from utils.utils import (
+from utils.utils_new import (
     setup_noise_inputs,
     load_target_image,
     load_pre_trained_model,
     create_corruption_function,
     sampling_from_ddim,
     getVggFeatures,
+    load_vgg_perceptual
 )
-from utils.const import (
-    INPUT_FOLDER,
-    PRETRAINED_MODEL_VGG_PATH,
-    OUTPUT_FOLDER,
-)
+from utils.plot_new import compare_cubes, plot_orthogonal_cuts # <--- Nuove funzioni plot
+from utils.dataset_v3 import CatalogueEmbedder # <--- Embedder per i parametri catalogo
+OUTPUT_FOLDER = "./data/outputs" # Assicurati che questa cartella esista o venga creata
 
-
-def transform_img(
-    img_path: Path,
-    device: torch.device,
-) -> Any:
-    data = {"image": img_path}
-    data = apply_transform(get_preprocessing(device), data)
-    return data["image"]
-
-
-def return_true_conditional_variable(subject_id: str) -> Tuple[int, int]:
-    csv_path = INPUT_FOLDER / "oasis_cross-sectional.csv"
-    df = pd.read_csv(csv_path)
-    df = df[df["ID"] == f"{subject_id}_MR1"]
-    gender = 0 if df["M/F"].values[0] == "F" else 1
-    age = df["Age"].values[0]
-    return gender, age.item()
-
-
-def create_corruption_imgs(
-    img_tensor: torch.Tensor, hparams: Namespace, device: torch.device
-) -> Tuple[ForwardAbstract, torch.Tensor]:
-    if hparams.corruption == "downsample":
-        forward = ForwardDownsample(factor=hparams.downsample_factor)
-        # mask = skimage.io.imread(maskFile)
-        # mask = mask[:, :, 0] == np.min(mask[:, :, 0])  # need to block black color
-        # mask = np.reshape(mask, (1, 1, mask.shape[0], mask.shape[1]))
-
-        # Original image for now
-        corrupted_img = forward(
-            img_tensor
-        )  # pass through forward model to generate corrupted image
-    elif hparams.corruption == "None":
-        forward = ForwardFillMask(device=device)
-        corrupted_img = img_tensor
-    return forward, corrupted_img
-
-
-def load_vgg_perceptual(
-    hparams: Namespace, target: torch.Tensor, device: torch.device
-) -> Tuple[Any, torch.Tensor]:
-    with open(PRETRAINED_MODEL_VGG_PATH, "rb") as f:
-        vgg16 = torch.jit.load(f).eval().to(device)
-
-    target_features = getVggFeatures(hparams, target, vgg16)
-    return vgg16, target_features
-
+# --- HELPER FUNCTIONS ---
 
 def logprint(message: str, verbose: bool) -> None:
     if verbose:
         print(message)
 
+def create_mask_for_backprop(hparams: Namespace, device: torch.device) -> torch.Tensor:
+    mask = torch.zeros((1, 8), device=device)
+    if hparams.update_frequency: mask[:, 0] = 1 # Supponendo frequenza in pos 0
+    if hparams.update_flux_norm: mask[:, 1] = 1 # Supponendo flusso in pos 1
+    return mask
 
 def add_hparams_to_tensorboard(
     hparams: Namespace,
-    final_loss: torch.Tensor,
-    final_ssim: float,
-    final_psnr: float,
-    final_mse: float,
-    final_nmse: float,
-    inversed_ventricular: float,
-    inversed_brain: float,
+    metrics: dict,
+    cond_vals: torch.Tensor,
     writer: SummaryWriter,
 ) -> None:
-    writer.add_hparams(
-        {
-            "num_steps": hparams.num_steps,
-            "learning_rate": hparams.learning_rate,
-            "experiment_name": hparams.experiment_name,
-            "subject_id": hparams.subject_id,
-            "update_latent_variables": hparams.update_latent_variables,
-            "update_conditioning": hparams.update_conditioning,
-            "update_gender": hparams.update_gender,
-            "update_age": hparams.update_age,
-            "update_ventricular": hparams.update_ventricular,
-            "update_brain": hparams.update_brain,
-            "alpha": hparams.lambda_alpha,
-            "perc": hparams.lambda_perc,
-            "kernel_size": hparams.kernel_size,
-        },
-        {
-            "loss/final_loss": final_loss,
-            "measurement/final_ssim": final_ssim,
-            "measurement/final_psnr": final_psnr,
-            "measurement/final_mse": final_mse,
-            "measurement/final_nmse": final_nmse,
-            "conditional_variable/inversed_ventricular": inversed_ventricular,
-            "conditional_variable/inversed_brain": inversed_brain,
-        },
-    )
-
-
-def create_mask_for_backprop(hparams: Namespace, device: torch.device) -> torch.Tensor:
-    mask_cond = torch.ones((1, 4), device=device)
-    mask_cond[:, 0] = 0 if not hparams.update_gender else 1
-    mask_cond[:, 1] = 0 if not hparams.update_age else 1
-    mask_cond[:, 2] = 0 if not hparams.update_ventricular else 1
-    mask_cond[:, 3] = 0 if not hparams.update_brain else 1
-    return mask_cond
+    """Logga i parametri e le metriche finali su TensorBoard."""
+    
+    hparam_dict = {
+        "lr": hparams.learning_rate,
+        "obj_id": hparams.object_id,
+        "lambda_perc": hparams.lambda_perc,
+        "steps": hparams.num_steps,
+    }
+    
+    metric_dict = {
+        "loss/final": metrics["loss"],
+        "metrics/ssim": metrics["ssim"],
+        "metrics/psnr": metrics["psnr"],
+        "metrics/mse": metrics["mse"],
+        "inv_cond/frequency": cond_vals[0].item(),
+        "inv_cond/flux": cond_vals[1].item(),
+    }
+    
+    writer.add_hparams(hparam_dict, metric_dict)
 
 
 def project(
     ddim: DDIMSampler,
+    embedder: CatalogueEmbedder,
     decoder: torch.nn.Module,
-    forward: ForwardFillMask,
+    forward: ForwardAbstract,
     target: torch.Tensor,
     device: torch.device,
     writer: SummaryWriter,
     hparams: Namespace,
     verbose: bool = False,
 ):
+    # 1. SETUP INIZIALE
+    # setup_noise_inputs ora restituisce cond [1, 8] e latent [1, 3, 32, 32, 32]
     cond, latent_variable = setup_noise_inputs(device=device, hparams=hparams)
 
     update_params = []
-    if hparams.update_latent_variables:
-        latent_variable.requires_grad = True
+    up_latent = getattr(hparams, 'update_latent_variables', True)
+    up_cond = getattr(hparams, 'update_conditioning', True)
+
+    if up_latent:
+        latent_variable.requires_grad_(True)
         update_params.append(latent_variable)
-    if hparams.update_conditioning:
-        cond.requires_grad = True
+    
+    if up_cond:
+        cond.requires_grad_(True)
         update_params.append(cond)
 
-    optimizer_adam = torch.optim.Adam(
-        update_params,
-        betas=(0.9, 0.999),
-        lr=hparams.learning_rate,
-    )
-    latent_variable_out = torch.zeros(
-        [hparams.num_steps] + list(latent_variable.shape[1:]),
-        dtype=torch.float32,
-        device=device,
-    )
-    cond_out = torch.zeros(
-        [hparams.num_steps] + list(cond.shape[1:]),
-        dtype=torch.float32,
-        device=device,
-    )
+    # L'embedder deve essere in eval() per non aggiornare le sue medie di batchnorm,
+    # ma deve permettere il passaggio dei gradienti verso 'cond'
+    embedder.eval() 
 
+    optimizer = torch.optim.Adam(update_params, betas=(0.9, 0.999), lr=hparams.learning_rate)
     mask_cond = create_mask_for_backprop(hparams, device)
+
+    # 2. PREPARAZIONE TARGET
     target_img_corrupted = forward(target)
     vgg16, target_features = load_vgg_perceptual(hparams, target_img_corrupted, device)
-    total_num_pixels = (
-        target_img_corrupted.numel()
-        if hparams.corruption != "mask"
-        else math.prod(forward.mask.shape) - forward.mask.sum()
-    )
+    if target_features is not None:
+        target_features = target_features.detach()
 
-    for step in range(hparams.start_steps, hparams.num_steps):
+    # 3. OTTIMIZZAZIONE LOOP
+    for step in range(hparams.num_steps):
+        optimizer.zero_grad()
 
-        def closure():
-            optimizer_adam.zero_grad()
+        # A. TRASFORMAZIONE CONDIZIONAMENTO (Passaggio Chiave)
+        # Passiamo i parametri [1, 8] nell'embedder -> context [1, 128]
+        # Questo context verrà iniettato nella cross-attention della UNet
+        c_emb = embedder(cond) 
 
-            synth_img = sampling_from_ddim(
-                ddim=ddim,
-                decoder=decoder,
-                latent_variable=latent_variable,
-                cond=cond,
-                hparams=hparams,
-            )
-            synth_img_corrupted = forward(synth_img)  # f(G(w))
+        # B. GENERAZIONE (Latent -> Image)
+        # Usiamo c_emb (context_dim=128) invece di cond (input_dim=8)
+        synth_img = sampling_from_ddim(
+            ddim=ddim,
+            decoder=decoder,
+            latent_variable=latent_variable,
+            cond=c_emb, # <--- Usiamo l'embedding proiettato
+            hparams=hparams,
+        )
 
-            loss = 0
-            prior_loss = 0
-            pixelwise_loss = (
-                synth_img_corrupted - target_img_corrupted
-            ).abs().sum() / total_num_pixels
-            loss += pixelwise_loss
+        # C. CORRUZIONE E LOSS
+        synth_img_corrupted = forward(synth_img)
+        pixel_loss = (synth_img_corrupted - target_img_corrupted).abs().mean()
+        loss = pixel_loss
 
+        if hparams.lambda_perc > 0 and vgg16 is not None:
             synth_features = getVggFeatures(hparams, synth_img_corrupted, vgg16)
-            perceptual_loss = (target_features - synth_features).abs().mean()
-            loss += hparams.lambda_perc * perceptual_loss
+            perc_loss = (target_features - synth_features).abs().mean()
+            loss += hparams.lambda_perc * perc_loss
 
-            loss.backward(create_graph=False)
-            cond.grad *= mask_cond
+        # D. BACKPROPAGATION
+        loss.backward()
+        
+        # Applichiamo la maschera se vogliamo ottimizzare solo alcuni parametri di cond (es. solo Freq e Flux)
+        if up_cond and cond.grad is not None:
+             cond.grad *= mask_cond
+             
+        optimizer.step()
 
-            return (
-                loss,
-                pixelwise_loss,
-                perceptual_loss,
-                prior_loss,
-                synth_img,
-                synth_img_corrupted,
-            )
+        # E. LOGGING
+        if step % 10 == 0:
+            with torch.no_grad():
+                synth_np = synth_img[0, 0].cpu().numpy()
+                target_np = target[0, 0].cpu().numpy()
+                mid = synth_np.shape[0] // 2
+                drange = max(target_np.max() - target_np.min(), 1e-5)
+                ssim_val = ssim(target_np[mid], synth_np[mid], data_range=drange)
+                
+                writer.add_scalar("loss/total", loss.item(), step)
+                writer.add_scalar("metrics/ssim_mid", ssim_val, step)
+                # Logghiamo i parametri fisici correnti (frequenza e flusso)
+                writer.add_scalar("inv_cond/freq", cond[0, 0].item(), step)
+                writer.add_scalar("inv_cond/flux", cond[0, 1].item(), step)
 
-        (
-            loss,
-            pixelwise_loss,
-            perceptual_loss,
-            prior_loss,
-            synth_img,
-            synth_img_corrupted,
-        ) = optimizer_adam.step(closure=closure)
+                if verbose:
+                    print(f"Step {step:03d} | Loss: {loss.item():.6f} | Freq: {cond[0,0]:.4f} | Flux: {cond[0,1]:.4f}")
 
-        synth_img_np = synth_img[0, 0].detach().cpu().numpy()
-        target_np = target[0, 0].detach().cpu().numpy()
-        ssim_ = ssim(
-            synth_img_np,
-            target_np,
-            win_size=11,
-            data_range=1.0,
-            gaussian_weights=True,
-            use_sample_covariance=False,
-        )
-        # Code for computing PSNR is adapted from
-        # https://github.com/agis85/multimodal_brain_synthesis/blob/master/error_metrics.py#L32
-        data_range = np.max([synth_img_np.max(), target_np.max()]) - np.min(
-            [synth_img_np.min(), target_np.min()]
-        )
-        psnr_ = psnr(target_np, synth_img_np, data_range=data_range)
-        mse_ = mse(target_np, synth_img_np)
-        nmse_ = nmse(target_np, synth_img_np)
-
-        writer.add_scalar("loss", loss, global_step=step)
-        writer.add_scalar("pixelwise_loss", pixelwise_loss, global_step=step)
-        writer.add_scalar("perceptual_loss", perceptual_loss, global_step=step)
-        writer.add_scalar("prior_loss", prior_loss, global_step=step)
-        writer.add_scalar("ssim", ssim_, global_step=step)
-        writer.add_scalar("psnr", psnr_, global_step=step)
-        writer.add_scalar("mse", mse_, global_step=step)
-        writer.add_scalar("nmse", nmse_, global_step=step)
-
-        if hparams.update_conditioning:
-            if hparams.update_gender:
-                writer.add_scalar("inversed_gender", cond[0, 0], global_step=step)
-            if hparams.update_age:
-                writer.add_scalar("inversed_age", cond[0, 1], global_step=step)
-            if hparams.update_ventricular:
-                writer.add_scalar("inversed_ventricular", cond[0, 2], global_step=step)
-            if hparams.update_brain:
-                writer.add_scalar("inversed_brain", cond[0, 3], global_step=step)
-        logprint(
-            f"step {step + 1:>4d}/{hparams.num_steps}: tloss {float(loss):<5.8f} pix_loss {float(pixelwise_loss):<5.8f} perc_loss {float(perceptual_loss):<1.15f} pior_loss {float(prior_loss):<5.8f}\n"
-            f"              : SSIM {float(ssim_):<5.8f} PSNR {float(psnr_):<5.8f} MSE {float(mse_):<5.8f} NMSE {float(nmse_):<5.8f}",
-            verbose=verbose,
-        )
-
-        step_ = f"{step}".zfill(4)
-        draw_img(
-            synth_img_np,
-            title="synth",
-            step=step_,
-            output_folder=OUTPUT_FOLDER,
-        )
-
-        if step % 25 == 0:
-            if hparams.corruption != "None":
-                imgs = draw_corrupted_images(
-                    synth_img_np,
-                    target_np,
-                    synth_img_corrupted[0, 0].detach().cpu().numpy(),
-                    target_img_corrupted[0, 0].detach().cpu().numpy(),
-                    ssim_=ssim_,
-                )
-            else:
-                imgs = draw_images(
-                    synth_img_np,
-                    target_np,
-                    ssim_=ssim_,
-                )
-            step_ = f"{step}".zfill(4)
-            writer.add_figure(f"step: {step_}", imgs, global_step=step)
-            plt.close(imgs)
-
-        latent_variable_out[step] = latent_variable.detach()[0]
-        cond_out[step] = cond.detach()[0]
-
-    add_hparams_to_tensorboard(
-        hparams,
-        final_loss=loss.item(),
-        final_ssim=ssim_,
-        final_psnr=psnr_,
-        final_mse=mse_,
-        final_nmse=nmse_,
-        inversed_ventricular=cond[0, 2].clone().detach().item(),
-        inversed_brain=cond[0, 3].clone().detach().item(),
-        writer=writer,
-    )
-
-    writer.flush()
-    writer.close()
-
-    torch.save(
-        {
-            "epoch": step,
-            "latent_variable": latent_variable,
-            "cond": cond,
-            "optimizer": optimizer_adam.state_dict(),
-        },
-        OUTPUT_FOLDER / "checkpoint.pth",
-    )
-
-    row = [
-        hparams.subject_id,
-        ssim_,
-        psnr_,
-        mse_,
-        nmse_,
-        cond[0, 0].clone().detach().item(),
-        cond[0, 1].clone().detach().item() * (82 - 44) + 44,
-        cond[0, 2].clone().detach().item(),
-        cond[0, 3].clone().detach().item(),
-    ]
-
-    # Save the statistics result to csv file
-    with open(
-        # Replace the path with your csv file path
-        "./result_ddim_mask_9.csv",
-        "a",
-    ) as file:
-        writer = csv.writer(file)
-        writer.writerow(row)
-
-    return latent_variable_out, cond_out
+    return latent_variable, cond, {"loss": loss.item(), "ssim": ssim_val}
 
 
 def main(hparams: Namespace) -> None:
-    # device = torch.device("cuda" if COMPUTECANADA else "cpu")
-    # Don't have enough memory to run on GPU.
-    device = torch.device("cpu")
-    img_tensor = load_target_image(hparams, device=device)
+    device = torch.device(hparams.device)
+    
+    # Inizializza TensorBoard
     writer = SummaryWriter(log_dir=hparams.tensor_board_logger)
 
-    # Create forward corruption model that masks the image with the given mask
-    # Make the mask function work
-    forward = create_corruption_function(hparams=hparams, device=device)
+    # 1. Carica il target (es. FITS 128x128x128)
+    img_tensor = load_target_image(hparams, device=device)
+
+    # 2. Carica i modelli pre-allenati con la tua architettura (z_channels=3)
+    # Questa funzione deve inizializzare il VAE con n_channels=32, z_channels=3, etc.
     diffusion, decoder = load_pre_trained_model(device=device)
     ddim = DDIMSampler(diffusion)
+    # Inizializza l'embedder (input 8 -> output 128)
+    embedder = CatalogueEmbedder(input_dim=8, embed_dim=128).to(device)
+    embedder.eval() # Di base eval, ma lo renderemo ottimizzabile se serve
 
-    # Call projector code
-    start_time = perf_counter()
-    latent_variable_out, cond_out = project(
-        ddim,
-        decoder,
-        writer=writer,
-        hparams=hparams,
-        forward=forward,
-        target=img_tensor,
-        device=device,
-        verbose=True,
-    )
-    print(f"Elapsed: {(perf_counter() - start_time):.1f} s")
+    # 3. Setup Forward Model (Degradazione)
+    forward = create_corruption_function(hparams=hparams, device=device)
 
-    torch.save(
-        {"latent_variable": latent_variable_out, "cond": cond_out},
-        OUTPUT_FOLDER / "latent_cond.pth",
+    # 4. Esecuzione Inversione
+    final_z, final_cond, metrics = project(
+        ddim, embedder,decoder, forward, img_tensor, device, writer, hparams, verbose=True
     )
 
+    # 5. Salvataggio
+    save_path = Path(hparams.output_dir) / hparams.experiment_name
+    save_path.mkdir(parents=True, exist_ok=True)
+    torch.save({"z": final_z, "cond": final_cond}, save_path / "results.pth")
+    print(f"Risultati salvati in {save_path}")
 
 if __name__ == "__main__":
-    parser = ArgumentParser(description="Trainer args", add_help=False)
-    add_argument(parser)
-    hparams = parser.parse_args()
-    # seed_everything(42)
-    main(hparams)
+    parser = ArgumentParser(description="Inversione Diffusion Model per Dati Astrofisici")
+    add_argument(parser) # Assicurati che questa funzione aggiunga tutti gli argomenti necessari
+    args = parser.parse_args()
+    main(args)

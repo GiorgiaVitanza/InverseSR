@@ -1,0 +1,330 @@
+ANALISI MODELLO 3D (Conv3D detected)
+In Channels (Input volumetrico): 1
+Out Channels (Output volumetrico): 3
+Z-Channels (Latenti stimati): 3
+==================================================
+
+Layer: encoder.blocks.0.weight | Tipo stimato: Conv3D/Pesi | Shape: [64, 1, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.0.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.1.norm1.weight | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.1.norm1.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.1.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [64, 64, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.1.conv1.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.1.norm2.weight | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.1.norm2.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.1.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [64, 64, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.1.conv2.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.2.norm1.weight | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.2.norm1.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.2.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [64, 64, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.2.conv1.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.2.norm2.weight | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.2.norm2.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.2.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [64, 64, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.2.conv2.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.3.conv.weight | Tipo stimato: Conv3D/Pesi | Shape: [64, 64, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.3.conv.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.4.norm1.weight | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.4.norm1.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: encoder.blocks.4.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 64, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.4.conv1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.4.norm2.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.4.norm2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.4.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.4.conv2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.4.nin_shortcut.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 64, 1, 1, 1]
+------------------------------
+Layer: encoder.blocks.4.nin_shortcut.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.5.norm1.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.5.norm1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.5.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.5.conv1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.5.norm2.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.5.norm2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.5.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.5.conv2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.6.conv.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.6.conv.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.7.norm1.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.7.norm1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.7.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.7.conv1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.7.norm2.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.7.norm2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.7.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.7.conv2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.8.norm1.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.8.norm1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.8.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.8.conv1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.8.norm2.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.8.norm2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.8.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.8.conv2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.9.conv.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.9.conv.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.10.norm1.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.10.norm1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.10.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.10.conv1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.10.norm2.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.10.norm2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.10.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.10.conv2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.11.norm1.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.11.norm1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.11.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.11.conv1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.11.norm2.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.11.norm2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.11.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.11.conv2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.12.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.12.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: encoder.blocks.13.weight | Tipo stimato: Conv3D/Pesi | Shape: [3, 128, 3, 3, 3]
+------------------------------
+Layer: encoder.blocks.13.bias | Tipo stimato: Bias/Altro | Shape: [3]
+------------------------------
+Layer: decoder.blocks.0.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 3, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.0.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.1.norm1.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.1.norm1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.1.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.1.conv1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.1.norm2.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.1.norm2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.1.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.1.conv2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.2.norm1.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.2.norm1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.2.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.2.conv1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.2.norm2.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.2.norm2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.2.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.2.conv2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.3.conv.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.3.conv.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.4.norm1.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.4.norm1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.4.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.4.conv1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.4.norm2.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.4.norm2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.4.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.4.conv2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.5.norm1.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.5.norm1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.5.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.5.conv1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.5.norm2.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.5.norm2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.5.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.5.conv2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.6.conv.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.6.conv.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.7.norm1.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.7.norm1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.7.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.7.conv1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.7.norm2.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.7.norm2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.7.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.7.conv2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.8.norm1.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.8.norm1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.8.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.8.conv1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.8.norm2.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.8.norm2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.8.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.8.conv2.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.9.conv.weight | Tipo stimato: Conv3D/Pesi | Shape: [128, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.9.conv.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.10.norm1.weight | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.10.norm1.bias | Tipo stimato: Bias/Altro | Shape: [128]
+------------------------------
+Layer: decoder.blocks.10.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [64, 128, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.10.conv1.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: decoder.blocks.10.norm2.weight | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: decoder.blocks.10.norm2.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: decoder.blocks.10.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [64, 64, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.10.conv2.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: decoder.blocks.10.nin_shortcut.weight | Tipo stimato: Conv3D/Pesi | Shape: [64, 128, 1, 1, 1]
+------------------------------
+Layer: decoder.blocks.10.nin_shortcut.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: decoder.blocks.11.norm1.weight | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: decoder.blocks.11.norm1.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: decoder.blocks.11.conv1.weight | Tipo stimato: Conv3D/Pesi | Shape: [64, 64, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.11.conv1.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: decoder.blocks.11.norm2.weight | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: decoder.blocks.11.norm2.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: decoder.blocks.11.conv2.weight | Tipo stimato: Conv3D/Pesi | Shape: [64, 64, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.11.conv2.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: decoder.blocks.12.weight | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: decoder.blocks.12.bias | Tipo stimato: Bias/Altro | Shape: [64]
+------------------------------
+Layer: decoder.blocks.13.weight | Tipo stimato: Conv3D/Pesi | Shape: [1, 64, 3, 3, 3]
+------------------------------
+Layer: decoder.blocks.13.bias | Tipo stimato: Bias/Altro | Shape: [1]
+------------------------------
+Layer: quant_conv_mu.weight | Tipo stimato: Conv3D/Pesi | Shape: [3, 3, 1, 1, 1]
+------------------------------
+Layer: quant_conv_mu.bias | Tipo stimato: Bias/Altro | Shape: [3]
+------------------------------
+Layer: quant_conv_log_sigma.weight | Tipo stimato: Conv3D/Pesi | Shape: [3, 3, 1, 1, 1]
+------------------------------
+Layer: quant_conv_log_sigma.bias | Tipo stimato: Bias/Altro | Shape: [3]
+------------------------------
+Layer: post_quant_conv.weight | Tipo stimato: Conv3D/Pesi | Shape: [3, 3, 1, 1, 1]
+------------------------------
+Layer: post_quant_conv.bias | Tipo stimato: Bias/Altro | Shape: [3]
+------------------------------
