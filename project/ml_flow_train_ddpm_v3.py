@@ -27,11 +27,12 @@ mlflow.set_experiment("Radio_DDPM_v2")
 # Carica il VAE
 hparams = get_hparams() # Assicurati che z_channels=3 e resolution=[128,128,128]
 hparams_dict = vars(hparams)
-vae = AutoencoderKL(embed_dim=hparams.z_channels, hparams=hparams_dict).to(hparams.device)
+train_cfg = train_config()
+vae = AutoencoderKL(embed_dim=hparams.z_channels, hparams=hparams_dict).to(train_cfg.device)
 #checkpoint = torch.load("outputs from leonardo/checkpoints/vae_1ch_ep100.pth")
 checkpoint = torch.load(
-    "outputs from leonardo/checkpoints/vae_3ch_ep100.pth", 
-    map_location=torch.device('cpu'), # Forza il caricamento su CPU
+    "C:/Modelli 3D/InverseSR - Astro/vae_ep100.pth", 
+    map_location=train_cfg.device, 
     weights_only=False
 )
 vae.load_state_dict(checkpoint['model_state_dict'])
@@ -47,13 +48,13 @@ def train():
         data_dir=train_cfg.data_dir, 
         catalogue_path=train_cfg.catalogue_path
     )
-    dataloader = DataLoader(dataset, batch_size=train_cfg.batch_size, shuffle=True, num_workers=4)
+    dataloader = DataLoader(dataset, batch_size=train_cfg.batch_size, shuffle=True, num_workers=1)
 
     
 
     model = DDPM(
         unet_config=unet_cfg,
-        conditioning_key="c_concat", 
+        conditioning_key="concat", 
         learn_logvar=True
     ).to(train_cfg.device)
 
@@ -67,7 +68,7 @@ def train():
             "epochs": train_cfg.epochs,
             "batch_size": train_cfg.batch_size,
             "lr": train_cfg.learning_rate,
-            "context_dim": 128,
+            "context_dim": unet_cfg["params"]["context_dim"],
             "device": str(train_cfg.device)
         })
 
@@ -113,7 +114,7 @@ def train():
             avg_loss = np.mean(epoch_loss)
             mlflow.log_metric("avg_loss", avg_loss, step=epoch)
 
-            if epoch % 20 == 0:
+            if epoch % 5 == 0:
                 model.eval()
                 vae.eval() # Assicurati che il VAE sia in eval
                 with torch.no_grad():
@@ -153,7 +154,7 @@ def train():
                     plt.close(fig)
 
             # 5. SALVATAGGIO PERIODICO (Modello)
-            if (epoch + 1) % 10 == 0:
+            if (epoch + 1) % 5 == 0:
                 ckpt_path = os.path.join(CHECKPOINT_DIR, f"ddpm_astro_ep{epoch+1}.pth")
                 
                 # Salviamo entrambi gli state_dict in un unico dizionario

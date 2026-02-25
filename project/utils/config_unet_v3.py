@@ -6,8 +6,7 @@ def get_config():
 
     # --- Dimensioni canali ---
     # Rilevato da input_blocks.0.0.weight: Shape [256, 7, 3, 3, 3]
-    # L'input ha 7 canali (probabilmente z_latenti + condizionamento spaziale)
-    parser.add_argument("--in_channels", type=int, default=7) 
+    parser.add_argument("--in_channels", type=int, default=7) # 3 canali latenti (z_channels del VAE) + 4 context
     
     # Rilevato dai parametri iniziali dell'analisi
     parser.add_argument("--out_channels", type=int, default=3)
@@ -40,18 +39,17 @@ def get_config():
     parser.add_argument("--attention_resolutions", type=int, nargs='+', default=[16, 8])
     
     # num_head_channels: calcolato dai pesi dell'attenzione [512, 512] 
-    # Se num_heads è 4, allora head_dim è 16.
     parser.add_argument("--num_heads", type=int, default=4)
-    parser.add_argument("--num_head_channels", type=int, default=16)
+    parser.add_argument("--num_head_channels", type=int, default=64)
 
     # --- Condizionamento (Cross-Attention) ---
-    parser.add_argument("--use_spatial_transformer", action="store_true", default=True)
+    parser.add_argument("--use_spatial_transformer", action="store_true", default=False)
     parser.add_argument("--transformer_depth", type=int, default=1)
     
-    # context_dim rilevato: 4!!
+    # context_dim rilevato: 4!! (SERVE SOLO PER LA CROSS ATTENTION E NON PER LA CONCATENAZIONE)
     # Guarda layer: attn2.to_k.weight | Shape: [512, 4]
     # Questo indica che il modello viene condizionato da un vettore molto piccolo (es. 4 parametri fisici o di catalogo)
-    parser.add_argument("--context_dim", type=int, default=4) 
+    parser.add_argument("--context_dim", type=int, default=None) 
 
     return {"params": vars(parser.parse_args())}
 

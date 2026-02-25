@@ -88,7 +88,7 @@ class DDPM(nn.Module):
         parameterization="eps",  # all assuming fixed variance schedules
         learn_logvar=False,
         logvar_init=0.0,
-        conditioning_key=None,
+        conditioning_key="concat",
     ):
         super().__init__()
         assert parameterization in [
@@ -459,22 +459,34 @@ class DiffusionWrapper(nn.Module):
         self.conditioning_key = conditioning_key
 
     def forward(self, x, t, c_concat: list = None, c_crossattn: list = None):
-        # 1. Gestione CONCAT (Spatial)
-        # Se conditioning_key è 'concat', concatena x con i condizionamenti
+        # 1. Inizializziamo le variabili per la UNet
+        x_input = x
+        context = None
+
+        # 2. Gestione CONCAT (Spatial) - Qui risolviamo l'errore dei 7 canali
         if self.conditioning_key == 'concat':
             if c_concat is not None:
-                x = torch.cat([x] + c_concat, dim=1)
+                # c_concat è una lista, prendiamo il primo elemento o li stackiamo
+                cc_tensor = c_concat[0] if isinstance(c_concat, list) else c_concat
+                
+                # Se cc_tensor è [1, 4], lo portiamo a [1, 4, 1, 1, 1]
+                if cc_tensor.dim() == 2:
+                    cc_tensor = cc_tensor.view(cc_tensor.size(0), cc_tensor.size(1), 1, 1, 1)
+                
+                # Espandiamo il condizionamento per matchare x [B, 3, D, H, W]
+                c_expanded = cc_tensor.expand(-1, -1, x.size(2), x.size(3), x.size(4))
+                
+                # CONCATENIAMO: [B, 3, D, H, W] + [B, 4, D, H, W] -> [B, 7, D, H, W]
+                x_input = torch.cat([x, c_expanded], dim=1)
             else:
-                # Se la chiave è concat ma non passi nulla, è un errore di setup
                 raise ValueError("conditioning_key is 'concat' but c_concat is None")
-        
-        # 2. Gestione CROSS-ATTENTION (Il tuo caso col catalogo)
-        cc = None
+
+        # 3. Gestione CROSS-ATTENTION (Se usata insieme al concat)
         if c_crossattn is not None:
-            # c_crossattn è una lista di tensor, li uniamo lungo la dimensione della sequenza
-            cc = torch.cat(c_crossattn, dim=1)
+            context = torch.cat(c_crossattn, dim=1)
+
+        # 4. UNICA CHIAMATA ALLA UNET
+        # Ora x_input ha 7 canali e context ha i tuoi dati del catalogo
+        out = self.diffusion_model(x_input, t, context=context)
         
-        # 3. Chiamata alla UNet
-        # Passiamo cc come 'context' (usato dalla Cross-Attention interna alla UNet)
-        out = self.diffusion_model(x, t, context=cc)
         return out

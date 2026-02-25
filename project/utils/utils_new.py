@@ -123,30 +123,34 @@ def create_corruption_function(hparams: Namespace, device: torch.device) -> Forw
 # --- CONDITIONING UTILS ---
 
 def setup_noise_inputs(device: torch.device, hparams: Namespace) -> Tuple[torch.Tensor, torch.Tensor]:
-    # Creiamo un vettore di 8 parametri (es. tutti a 0.5 o valori medi del catalogo)
-    cond_full = torch.full((1, 8), 0.5, device=device, dtype=torch.float32)
+    # Creiamo un vettore di 4 parametri (es. tutti a 0.5 o valori medi del catalogo)
+    cond_full = torch.full((1, 4), 0.5, device=device, dtype=torch.float32)
     
     # Se vuoi ottimizzare i primi due (es. Freq e Flux sono i primi due nel tuo dataset)
     # li rendiamo parte del grafo di calcolo
     cond_full.requires_grad_(True)
 
     # Rumore latente (z_channels=3, resolution=32)
-    latent_shape = (1, 3, 32, 32, 32)
+    latent_shape = LATENT_SHAPE
     latent_variable = torch.randn(latent_shape, device=device, requires_grad=True)
     
     return cond_full, latent_variable
 
 def _prepare_conditioning_dict(cond):
-    cond_tmp = cond.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)  # shape: [1, 4, 1, 1, 1]
-    cond_crossatten = (
-        cond_tmp.squeeze(-1).squeeze(-1).squeeze(-1).unsqueeze(1)
-    )  # shape: [1, 1, 4]
-    cond_concat = torch.tile(cond_tmp, (32, 32, 32))
+    # cond ha forma [1, 4]
+    
+    # 1. Cross-Attention: [Batch, Sequence, Features] -> [1, 1, 4]
+    cond_crossatten = cond.unsqueeze(1) 
+    
+    # 2. Concatenazione spaziale: [1, 4, 1, 1, 1]
+    cond_concat = cond.view(1, 4, 1, 1, 1)
+    cond_concat = cond_concat.expand(-1, -1, 32, 32, 32) # [1, 4, 32, 32, 32]
+
     conditioning = {
         "c_concat": [cond_concat],
         "c_crossattn": [cond_crossatten],
     }
-       
+    return conditioning
 
 def sampling_from_ddim(
     ddim: DDIMSampler,
