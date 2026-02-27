@@ -76,17 +76,22 @@ def add_argument(parser: ArgumentParser):
     )
     
     # --- CONDIZIONAMENTO ASTROFISICO ---
-    
+    # 'hi_size', 'line_flux_integral', 'i', 'w20'
     parser.add_argument(
-        "--update_frequency", 
+        "--update_hi_size",
         action="store_true",
-        help="Ottimizza la stima della frequenza (f)"
     )
-    
     parser.add_argument(
-        "--update_flux_norm", 
+        "--update_line_flux_integral",
         action="store_true",
-        help="Ottimizza la normalizzazione del flusso"
+    )
+    parser.add_argument(
+        "--update_i",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--update_w20",
+        action="store_true",
     )
   
 

@@ -35,7 +35,7 @@ else:
     DATA_ROOT = ROOT_DIR / "data"
     
     INPUT_FOLDER = DATA_ROOT / "inputs"
-    INPUT_FOLDER_PATCHES = INPUT_FOLDER / "patches" # Se usi patch pre-estratti
+    INPUT_FOLDER_PATCHES = INPUT_FOLDER / "patches_160_224_160_stride160" # Se usi patch pre-estratti
     MASK_FOLDER = DATA_ROOT / "masks"
     
     # Dataset specifici (Esempio: ALMA, LOFAR, Simulazioni TNG)

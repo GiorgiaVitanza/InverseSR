@@ -46,11 +46,14 @@ def logprint(message: str, verbose: bool) -> None:
     if verbose:
         print(message)
 
+
 def create_mask_for_backprop(hparams: Namespace, device: torch.device) -> torch.Tensor:
-    mask = torch.zeros((1, 4), device=device)
-    if hparams.update_frequency: mask[:, 0] = 1 # Supponendo frequenza in pos 0
-    if hparams.update_flux_norm: mask[:, 1] = 1 # Supponendo flusso in pos 1
-    return mask
+    mask_cond = torch.ones((1, 4), device=device)
+    mask_cond[:, 0] = 0 if not hparams.update_hi_size else 1
+    mask_cond[:, 1] = 0 if not hparams.update_line_flux_integral else 1
+    mask_cond[:, 2] = 0 if not hparams.update_i else 1
+    mask_cond[:, 3] = 0 if not hparams.update_w20 else 1
+    return mask_cond
 
 def add_hparams_to_tensorboard(
     hparams: Namespace,
