@@ -49,7 +49,7 @@ else:
     
     # Percorso per un eventuale modello di feature extraction (es. per loss percettiva)
     # Nota: VGG16 è per immagini 2D. Se usi cubi 3D, potresti non usarlo o usare una 3D-ResNet.
-    PRETRAINED_MODEL_VGG_PATH = PRETRAINED_MODEL_FOLDER / "vgg16_astro_1ch.pt"
+    PRETRAINED_MODEL_VGG_PATH = PRETRAINED_MODEL_FOLDER / "vgg" / "vgg16_slim_astro.pth"
 
     OUTPUT_FOLDER = DATA_ROOT / "outputs"
     FIGURES_FOLDER = DATA_ROOT / "figures" # Ex thesis_imgs
@@ -60,12 +60,12 @@ else:
 # IMAGE_SHAPE: [Batch, Channels, Depth (Freq/Vel), Height (Dec), Width (RA)]
 # Nota: I modelli di diffusione richiedono dimensioni fisse (spesso multipli di 32 o 64).
 
-IMAGE_SHAPE = [1, 1, 128, 128, 128] 
+IMAGE_SHAPE = [1, 1, 160, 224, 160] 
 
 # LATENT_SHAPE: La dimensione compressa nel "Latent Space" del VAE.
 # Dipende dal fattore di downsampling del tuo modello (spesso f=4 o f=8).
 # Esempio: Se IMAGE_SHAPE è 128^3 e il downsampling è 4 -> 128/4 = 32.
-LATENT_SHAPE = [1, 3, 32, 32, 32] 
+LATENT_SHAPE = [1, 3, 40, 56, 40] 
 
 
 # --- 4. LISTA OGGETTI (TARGETS) ---

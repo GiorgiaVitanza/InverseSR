@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 from models.unet_v2_conditioned import UNetModel
+from utils.const import IMAGE_SHAPE, LATENT_SHAPE
 
 
 def exists(x):
@@ -468,14 +469,14 @@ class DiffusionWrapper(nn.Module):
             if c_concat is not None:
                 # c_concat è una lista, prendiamo il primo elemento o li stackiamo
                 cc_tensor = c_concat[0] if isinstance(c_concat, list) else c_concat
-                
+
                 # Se cc_tensor è [1, 4], lo portiamo a [1, 4, 1, 1, 1]
                 if cc_tensor.dim() == 2:
                     cc_tensor = cc_tensor.view(cc_tensor.size(0), cc_tensor.size(1), 1, 1, 1)
-                
+
                 # Espandiamo il condizionamento per matchare x [B, 3, D, H, W]
                 c_expanded = cc_tensor.expand(-1, -1, x.size(2), x.size(3), x.size(4))
-                
+
                 # CONCATENIAMO: [B, 3, D, H, W] + [B, 4, D, H, W] -> [B, 7, D, H, W]
                 x_input = torch.cat([x, c_expanded], dim=1)
             else:
@@ -488,5 +489,5 @@ class DiffusionWrapper(nn.Module):
         # 4. UNICA CHIAMATA ALLA UNET
         # Ora x_input ha 7 canali e context ha i tuoi dati del catalogo
         out = self.diffusion_model(x_input, t, context=context)
-        
+
         return out

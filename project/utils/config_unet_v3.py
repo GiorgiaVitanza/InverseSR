@@ -15,7 +15,13 @@ def get_config():
     parser.add_argument("--model_channels", type=int, default=256) 
     
     # image_size: manteniamo 32 per coerenza con lo spazio latente del VAE
-    parser.add_argument("--image_size", type=int, default=32) 
+    parser.add_argument(
+        "--image_size", 
+        type=int, 
+        nargs='+', 
+        default=[160, 224, 160], 
+        help="Risoluzione target (D, H, W)"
+    ) 
     
     # --- Parametri ResNet ---
     # Dalla numerazione dei blocchi (es. input_blocks.1, 2, 3 hanno tutti 256 canali)
@@ -46,7 +52,7 @@ def get_config():
     parser.add_argument("--use_spatial_transformer", action="store_true", default=False)
     parser.add_argument("--transformer_depth", type=int, default=1)
     
-    # context_dim rilevato: 4!! (SERVE SOLO PER LA CROSS ATTENTION E NON PER LA CONCATENAZIONE)
+    # context_dim rilevato: 4!!
     # Guarda layer: attn2.to_k.weight | Shape: [512, 4]
     # Questo indica che il modello viene condizionato da un vettore molto piccolo (es. 4 parametri fisici o di catalogo)
     parser.add_argument("--context_dim", type=int, default=None) 
@@ -61,7 +67,7 @@ def train_config():
 
     # --- Paths ---
 
-    parser.add_argument("--data_dir", type=str, default="./data/inputs/patches", help="Path alla cartella dei dati")
+    parser.add_argument("--data_dir", type=str, default="./data/inputs/patches_160_224_160_stride160", help="Path alla cartella dei dati")
 
     parser.add_argument("--catalogue_path", type=str, default="./data/inputs/sky_dev_truthcat_v2.txt", help="Path al file txt del catalogo")
 
@@ -75,7 +81,7 @@ def train_config():
 
     parser.add_argument("--learning_rate", type=float, default=1e-4)
 
-    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--epochs", type=int, default=10)
 
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
 

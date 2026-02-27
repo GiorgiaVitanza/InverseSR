@@ -26,6 +26,20 @@ def add_argument(parser: ArgumentParser):
         help="ID dell'oggetto celeste (es. nome galassia o ID catalogo)"
     )
     
+    parser.add_argument(
+    "--image_size", 
+        type=int, 
+        nargs='+', 
+        default=[160, 224, 160], 
+        help="Risoluzione target (D, H, W)"
+    )
+
+    parser.add_argument(
+    "--z_channels",
+        type=int,
+        default=3,
+        help="Canali del latente"
+    )
     # --- PARAMETRI DI TRAINING GENERICI ---
     parser.add_argument(
         "--learning_rate",
@@ -79,7 +93,7 @@ def add_argument(parser: ArgumentParser):
     # --- PERCEPTUAL LOSS & GEOMETRIA ---
     parser.add_argument(
         "--lambda_perc",
-        default=0.001,
+        default=0.01,
         type=float,
     )
     parser.add_argument(
@@ -95,7 +109,7 @@ def add_argument(parser: ArgumentParser):
     # --- DEGRADAZIONE / CORRUZIONE (Telescope effects) ---
     parser.add_argument(
         "--corruption",
-        default="None",
+        default="downsample",
         type=str,
         # beam_smear = convoluzione con PSF (Point Spread Function)
         # noise = rumore termico del ricevitore
@@ -117,7 +131,7 @@ def add_argument(parser: ArgumentParser):
     # --- DDIM SAMPLING ---
     parser.add_argument(
         "--ddim_num_timesteps",
-        default=100, # 250 è spesso eccessivo per test rapidi
+        default=10, # 250 è spesso eccessivo per test rapidi
         type=int,
     )
     parser.add_argument(
@@ -146,7 +160,7 @@ def add_argument(parser: ArgumentParser):
     )
     parser.add_argument(
         "--num_steps",
-        default=250,
+        default=50,
         type=int,
     )
     parser.add_argument(

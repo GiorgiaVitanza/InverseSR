@@ -3,7 +3,7 @@ from astropy.io import fits
 import os
 from tqdm import tqdm
 
-def process_radio_cube(fits_path, output_dir, patch_size=(128, 128, 128), stride=64, filter_empty=True, threshold=0.0):
+def process_radio_cube(fits_path, output_dir, patch_size=(160, 224, 160), stride=160, filter_empty=True, threshold=0.0):
     """
     Taglia un cubo FITS in patch 5D (1, 1, D, H, W).
     
@@ -91,7 +91,7 @@ def process_radio_cube(fits_path, output_dir, patch_size=(128, 128, 128), stride
 if __name__ == "__main__":
     # Sostituisci con il tuo file reale
     INPUT_FITS = "./data/inputs/sky_dev_v2.fits" 
-    OUTPUT_FOLDER = "./data/inputs/patches"
+    OUTPUT_FOLDER = "./data/inputs/patches_160_224_160_stride160"
     
     # Configurazione
     # Nota: Stride 64 con dimensione 128 significa 50% di sovrapposizione (ottimo per training)
@@ -101,8 +101,8 @@ if __name__ == "__main__":
         process_radio_cube(
             fits_path=INPUT_FITS,
             output_dir=OUTPUT_FOLDER,
-            patch_size=(128, 128, 128),
-            stride=64,           # Sovrapposizione per aumentare i dati
+            patch_size=(160, 224, 160),
+            stride=160,           # Sovrapposizione per aumentare i dati
             filter_empty=True,   # Evita di salvare cielo vuoto
             threshold=0.001      # Imposta in base all'unità del tuo FITS (es. Jy/beam)
         )

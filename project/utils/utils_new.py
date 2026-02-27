@@ -21,6 +21,7 @@ from models.BRGM.forward_models import (
     ForwardFillMask,
     ForwardAbstract,
 )
+from utils.vgg_gen_new import AstroVGG_Slim
 from utils.transorms import get_preprocessing
 from utils.const import (
     INPUT_FOLDER_PATCHES,
@@ -86,6 +87,12 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
     else:
         raise ValueError(f"Formato {hparams.data_format} non supportato.")
 
+    # --- NUOVA LOGICA PER I 3 CANALI ---
+    # Se img_tensor è (B, 1, D, H, W), lo portiamo a (B, 3, D, H, W)
+    if img_tensor.shape[1] == 1:
+        # Duplichiamo il canale singolo 3 volte lungo la dimensione C
+        img_tensor = img_tensor.repeat(1, 3, 1, 1, 1)
+
     # Aggiunge la dimensione Batch: -> (1, C, D, H, W)
     if img_tensor.ndim == 4:
         img_tensor = img_tensor.unsqueeze(0)
@@ -131,26 +138,21 @@ def setup_noise_inputs(device: torch.device, hparams: Namespace) -> Tuple[torch.
     cond_full.requires_grad_(True)
 
     # Rumore latente (z_channels=3, resolution=32)
-    latent_shape = LATENT_SHAPE
-    latent_variable = torch.randn(latent_shape, device=device, requires_grad=True)
+    
+    f = hparams.downsample_factor if hparams.corruption == "downsample" else 1
+    # Se hparams.image_size è [160, 224, 160]
+    latent_depth = hparams.image_size[0] // f  # 20
+    latent_height = hparams.image_size[1] // f # 28
+    latent_width = hparams.image_size[2] // f  # 20
+
+    latent_variable = torch.randn(
+        (1, hparams.z_channels, latent_depth, latent_height, latent_width), 
+        device=device, requires_grad=True
+    )
+    #latent_variable = torch.randn(latent_shape, device=device, requires_grad=True)
     
     return cond_full, latent_variable
 
-def _prepare_conditioning_dict(cond):
-    # cond ha forma [1, 4]
-    
-    # 1. Cross-Attention: [Batch, Sequence, Features] -> [1, 1, 4]
-    cond_crossatten = cond.unsqueeze(1) 
-    
-    # 2. Concatenazione spaziale: [1, 4, 1, 1, 1]
-    cond_concat = cond.view(1, 4, 1, 1, 1)
-    cond_concat = cond_concat.expand(-1, -1, 32, 32, 32) # [1, 4, 32, 32, 32]
-
-    conditioning = {
-        "c_concat": [cond_concat],
-        "c_crossattn": [cond_crossatten],
-    }
-    return conditioning
 
 def sampling_from_ddim(
     ddim: DDIMSampler,
@@ -159,10 +161,17 @@ def sampling_from_ddim(
     cond: torch.Tensor,
     hparams: Namespace,
 ) -> torch.Tensor:
+    # 1. Cross-Attention: [Batch, Sequence, Features] -> [1, 1, 4]
+    cond_crossatten = cond.unsqueeze(1) 
     
-    # Prepara il dizionario di condizionamento dinamicamente
-    conditioning = _prepare_conditioning_dict(cond)
+    # 2. Concatenazione spaziale: [1, 4, 1, 1, 1]
+    cond_concat = cond.view(1, 4, 1, 1, 1)
+    cond_concat = cond_concat.expand(-1, -1, 40, 56, 40) # [1, 4, 32, 32, 32]
 
+    conditioning = {
+        "c_concat": [cond_concat],
+        "c_crossattn": [cond_crossatten],
+    }
     print(f"Start DDIM Sampling ({hparams.ddim_num_timesteps} steps)...")
     latent_vectors, _ = ddim.sample(
         S=hparams.ddim_num_timesteps,
@@ -172,83 +181,45 @@ def sampling_from_ddim(
         first_img=latent_variable,
         eta=hparams.ddim_eta,
         verbose=False,
-    )
-   
+        )
+        
+     
     
-    # --- DECODING (Memory Optimized) ---
-    # Utile per datacube grandi
-    import gc
-    del conditioning
-    gc.collect()
-    torch.cuda.empty_cache()
-
     if hasattr(latent_vectors, "as_tensor"):
         latent_vectors = latent_vectors.as_tensor()
 
     # Passaggio a FP16 per il decoding (risparmia VRAM)
-    decoder.half()
-    latent_vectors = latent_vectors.half()
+    decoder.float()
+    latent_vectors = latent_vectors.float()
 
-    with torch.no_grad():
-        astro_img = decoder.reconstruct_ldm_outputs(latent_vectors)
-    
-    return astro_img.float() # Torna a FP32
-
+    astro_img = decoder.reconstruct_ldm_outputs(latent_vectors)
+     
+    return astro_img
 
 # --- PERCEPTUAL LOSS UTILS (VGG) ---
 
 def load_vgg_perceptual(hparams: Namespace, target: torch.Tensor, device: torch.device) -> Tuple[Any, torch.Tensor]:
-    """Carica VGG16 per calcolare la Perceptual Loss."""
-    # Nota: VGG è 2D. Se il target è 3D, dovremo fare slicing.
-    with open(PRETRAINED_MODEL_VGG_PATH, "rb") as f:
-        vgg16 = torch.jit.load(f).eval().to(device)
+    """Carica la versione Slim di VGG16 per dati Astro."""
+    
+    # 1. Istanzia il modello (usa lo stesso numero di blocchi dello script di generazione)
+    vgg16 = AstroVGG_Slim("././data/trained_models_astro/vgg/vgg16_slim_astro.pth",in_channels=3, num_blocks=2).to(device)
+    
+    # 2. Carica i pesi (state_dict invece di JIT)
+    # Assicurati che PRETRAINED_MODEL_VGG_PATH punti al file .pth generato prima
+    vgg16.load_state_dict(torch.load(PRETRAINED_MODEL_VGG_PATH, map_location=device))
+    vgg16.eval()
 
+    # Calcola le feature del target
     target_features = getVggFeatures(hparams, target, vgg16)
     return vgg16, target_features
 
-def getVggFeatures(hparams: Namespace, img: torch.Tensor, vgg16: Any) -> torch.Tensor:
-    """
-    Estrae le feature VGG. 
-    Poiché VGG vuole input 2D RGB (3 canali), dobbiamo fare slicing del cubo 3D 
-    e duplicare il canale singolo (grayscale) in 3.
-    """
-    # img shape: [B, C, D, H, W]
+def getVggFeatures(hparams, img, vgg16):
+    # img è [1, 3, D, H, W]
     
-    # 1. Resize opzionale se l'immagine corrotta è downsampled
-    if hparams.corruption == "downsample":
-        # Nota: interpolate vuole float, dimensioni target fisse o calcolate
-        # Qui assumiamo una dimensione target standard, es. 128 o quella originale del cubo
-        target_size = (img.shape[2], img.shape[3], img.shape[4]) # Usa size corrente se non downsampled
-        # Se img è piccola, interpolate la ingrandisce
-        # tmp_img = F.interpolate(img, size=target_size, mode="trilinear")
-        tmp_img = img # Per ora lasciamo invariato
-    else:
-        tmp_img = img
-
-    # 2. Slicing intelligente (Astro vs Medical)
-    # perc_dim = "spatial" (piano cielo) o "spectral" (PV diagram)
+    # 1. Slicing (Prendiamo la fetta centrale della profondità)
+    mid_idx = img.shape[2] // 2 
+    slice_2d = img[:, :, mid_idx, :, :] # Risultato: [1, 3, H, W]
     
-    # [B, C, D(Freq), H(Dec), W(RA)]
-    
-    if hparams.slicing_dim == "spatial": 
-        # Prende fetta centrale lungo l'asse spettrale (D) -> Immagine 2D (H, W)
-        # Permute: [B, C, D, H, W] -> [B, D, C, H, W] -> Prendi slice centrale di D
-        mid_idx = tmp_img.shape[2] // 2
-        slice_2d = tmp_img[:, :, mid_idx, :, :] # [B, C, H, W]
-        
-    elif hparams.slicing_dim == "spectral_ra":
-        # Prende fetta centrale lungo Dec (H) -> PV Diagram (D, W)
-        mid_idx = tmp_img.shape[3] // 2
-        slice_2d = tmp_img[:, :, :, mid_idx, :] # [B, C, D, W]
-        
-    else: # Default o spectral_dec
-        mid_idx = tmp_img.shape[4] // 2
-        slice_2d = tmp_img[:, :, :, :, mid_idx] # [B, C, D, H]
-
-    # 3. Adattamento a VGG (3 Canali)
-    # slice_2d è [B, 1, H, W]. VGG vuole [B, 3, H, W]
-    slice_rgb = slice_2d.repeat(1, 3, 1, 1)
-
-    # Features extraction
-    features = vgg16(slice_rgb, resize_images=False, return_lpips=True)
+    # 2. Passaggio alla VGG (Ora i canali corrispondono: 3 == 3)
+    features = vgg16(slice_2d)
     return features

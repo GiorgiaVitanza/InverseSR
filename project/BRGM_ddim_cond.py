@@ -8,6 +8,7 @@ from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Tuple
+from skimage.transform import resize
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -46,7 +47,7 @@ def logprint(message: str, verbose: bool) -> None:
         print(message)
 
 def create_mask_for_backprop(hparams: Namespace, device: torch.device) -> torch.Tensor:
-    mask = torch.zeros((1, 8), device=device)
+    mask = torch.zeros((1, 4), device=device)
     if hparams.update_frequency: mask[:, 0] = 1 # Supponendo frequenza in pos 0
     if hparams.update_flux_norm: mask[:, 1] = 1 # Supponendo flusso in pos 1
     return mask
@@ -131,9 +132,12 @@ def project(
 
         # C. CORRUZIONE E LOSS
         synth_img_corrupted = forward(synth_img)
+        
         pixel_loss = (synth_img_corrupted - target_img_corrupted).abs().mean()
-        loss = pixel_loss
+        
 
+        loss = pixel_loss
+        
         if hparams.lambda_perc > 0 and vgg16 is not None:
             synth_features = getVggFeatures(hparams, synth_img_corrupted, vgg16)
             perc_loss = (target_features - synth_features).abs().mean()
@@ -153,9 +157,19 @@ def project(
             with torch.no_grad():
                 synth_np = synth_img[0, 0].cpu().numpy()
                 target_np = target[0, 0].cpu().numpy()
-                mid = synth_np.shape[0] // 2
-                drange = max(target_np.max() - target_np.min(), 1e-5)
-                ssim_val = ssim(target_np[mid], synth_np[mid], data_range=drange)
+                # --- All'interno del loop di project, sezione metriche ---
+                # FIX: Se le dimensioni non coincidono, ridimensioniamo synth per SSIM
+                if target_np.shape != synth_np.shape:
+                    # Ridimensioniamo la sintesi per matchare il target
+                    synth_np = resize(synth_np, target_np.shape, anti_aliasing=True)
+
+                    # Ora il calcolo SSIM non fallirà più
+                    mid = target_np.shape[0] // 2
+                    ssim_val = ssim(target_np[mid], synth_np[mid], data_range=target_np.max() - target_np.min())
+                else:
+                    mid = synth_np.shape[0] // 2
+                    drange = max(target_np.max() - target_np.min(), 1e-5)
+                    ssim_val = ssim(target_np[mid], synth_np[mid], data_range=drange)
                 
                 writer.add_scalar("loss/total", loss.item(), step)
                 writer.add_scalar("metrics/ssim_mid", ssim_val, step)
@@ -191,8 +205,8 @@ def main(hparams: Namespace) -> None:
         ddim, decoder, forward, img_tensor, device, writer, hparams, verbose=True
     )
 
-    # 5. Salvataggio
-    save_path = Path(hparams.output_dir) / hparams.experiment_name
+    # 5. Salvataggio latente e condizioni ottimizzate
+    save_path = Path(OUTPUT_FOLDER) / hparams.experiment_name
     save_path.mkdir(parents=True, exist_ok=True)
     torch.save({"z": final_z, "cond": final_cond}, save_path / "results.pth")
     print(f"Risultati salvati in {save_path}")

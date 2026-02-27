@@ -5,7 +5,7 @@ def get_hparams():
     parser = argparse.ArgumentParser(description="Training Vae Configuration - 3D Astro Analysis")
 
     # --- Percorsi File e Logging ---
-    parser.add_argument("--data_dir", type=str, default="./data/inputs/patches", help="Path alla cartella dei dati")
+    parser.add_argument("--data_dir", type=str, default="./data/inputs/patches_160_224_160_stride160", help="Path alla cartella dei dati")
     parser.add_argument("--catalogue_path", type=str, default="./data/inputs/sky_dev_truthcat_v2.txt", help="Path al file txt del catalogo")
     parser.add_argument("--tensor_board_logger", type=str, default="logs/", help="Path per il logger di TensorBoard")
     parser.add_argument("--output_dir", type=str, default="outputs/", help="Cartella per salvare i grafici e i pesi")
@@ -25,17 +25,16 @@ def get_hparams():
     # Basato sulla sequenza di layer encoder.blocks.1, 2, 4, 5 etc.
     parser.add_argument("--num_res_blocks", type=int, default=2, help="Numero di blocchi residui per livello")
     
-    # ch_mult: l'analisi mostra blocchi a 64 e poi a 128. 
-    # La sequenza [1, 2, 2, 2] riflette la profondità dell'encoder analizzato (13 blocchi totali)
-    parser.add_argument("--ch_mult", type=int, nargs='+', default=[1, 2, 2, 2], help="Moltiplicatori canali (64 -> 128)")
+    # ch_mult: downsample 1x2x2 = 4
+    parser.add_argument("--ch_mult", type=int, nargs='+', default=[1, 2, 2], help="Moltiplicatori canali (64 -> 128)")
     
-    parser.add_argument("--resolution", type=int, nargs='+', default=[128, 128, 128], help="Risoluzione spaziale del datacube")
+    parser.add_argument("--resolution", type=int, nargs='+', default=[160, 224, 160], help="Risoluzione spaziale del datacube")
     parser.add_argument("--attn_resolutions", type=int, nargs='+', default=[], help="Risoluzioni per Self-Attention (non rilevata nell'analisi)")
 
     # --- Parametri Training ---
     parser.add_argument("--batch_size", type=int, default=1, help="Batch size (consigliato 1 per cubi 128^3 e GPU standard)")
     parser.add_argument("--learning_rate", type=float, default=1e-4)
-    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--experiment_name", type=str, default="Astro_VAE_Conv3D_Deep")
     
     # Parametri per Inverse Problems
