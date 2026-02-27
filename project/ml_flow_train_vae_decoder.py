@@ -118,11 +118,11 @@ def train():
 
         # --- REGISTRAZIONE FINALE SU MLFLOW ---
         # Registra il VAE intero
-        mlflow.pytorch.log_model(model, artifact_path="model_full_vae")
+        mlflow.pytorch.log_model(model,name="model_full_vae")
         
         # Registra solo il Decoder (usando il wrapper)
         only_decoder = DecoderOnlyModel(model)
-        mlflow.pytorch.log_model(only_decoder, artifact_path="model_only_decoder")
+        mlflow.pytorch.log_model(only_decoder, name="model_only_decoder")
 
     print(f"Training concluso. Checkpoints e pesi estratti salvati in {CHECKPOINT_DIR}")
 

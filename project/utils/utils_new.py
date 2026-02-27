@@ -62,20 +62,44 @@ def inference(
     return x_hat
 
 def load_ddpm_latent_vectors(device: torch.device) -> torch.Tensor:
-    ddpm_latent_vectors = torch.load(
-        INPUT_FOLDER.parent / "trained_models" / "latent_vector_ddpm_samples_100000.pt",
+    checkpoint = torch.load(
+        INPUT_FOLDER.parent / "trained_models_astro" / "results.pth",
         map_location=device,
     )
+    
+    # Estraiamo il tensore latente usando la chiave "z"
+    if "z" in checkpoint:
+        ddpm_latent_vectors = checkpoint["z"]
+        print(f"Latente caricato con successo. Shape: {ddpm_latent_vectors.shape}")
+    else:
+        raise KeyError(f"Errore: chiave 'z' non trovata nel file. Chiavi presenti: {list(checkpoint.keys())}")
+        
     return ddpm_latent_vectors
 
 def load_ddpm_model(ddpm_path: Path, device: torch.device) -> torch.nn.Module:
+    # 1. Caricamento del modello tramite MLflow
     diffusion = mlflow.pytorch.load_model(
         str(ddpm_path),
         map_location=device,
     )
+    
+    # 2. ATTIVAZIONE GRADIENT CHECKPOINTING (Cruciale per i layer di Attention)
+    # Cerchiamo di attivarlo nella UNet interna del modello DDPM
+    if hasattr(diffusion, 'model') and hasattr(diffusion.model, 'diffusion_model'):
+        # Questo è il percorso tipico per implementazioni stile LDM/Stable Diffusion
+        diffusion.model.diffusion_model.use_checkpoint = True
+    elif hasattr(diffusion, 'use_checkpoint'):
+        diffusion.use_checkpoint = True
+
+    # 3. Preparazione modello
     diffusion.eval()
     diffusion = diffusion.to(device)
     diffusion.requires_grad_(False)
+    
+    # 4. Ottimizzazione della memoria (Opzionale ma consigliato)
+    # Converte i pesi in Half Precision (float16) per risparmiare il 50% di VRAM
+    # diffusion = diffusion.half() 
+    
     return diffusion
 
 def load_pre_trained_decoder(

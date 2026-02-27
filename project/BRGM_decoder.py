@@ -144,7 +144,7 @@ def project(
 
     if not hparams.mean_latent_vector:
         ddpm = load_ddpm_model(ddpm_path=PRETRAINED_MODEL_DDPM_PATH, device=device)
-        cond, latent_variable = setup_noise_inputs(device=device)
+        cond, latent_variable = setup_noise_inputs(hparams=hparams, device=device)
         cond_crossatten = cond.unsqueeze(1)
         cond_concat = cond.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
         cond_concat = cond_concat.expand(list(cond.shape[0:2]) + list(LATENT_SHAPE[2:]))
@@ -152,12 +152,13 @@ def project(
             "c_concat": [cond_concat.float().to(device)],
             "c_crossattn": [cond_crossatten.float().to(device)],
         }
-        latent_vector = generating_latent_vector(
-            diffusion=ddpm,
-            latent_variable=latent_variable,
-            conditioning=conditioning,
-            batch_size=1,
-        )
+        with torch.no_grad():
+            latent_vector = generating_latent_vector(
+                diffusion=ddpm,
+                latent_variable=latent_variable,
+                conditioning=conditioning,
+                batch_size=1,
+            )
     else:
         latent_vector = latent_vector_mean.clone().detach()
     latent_vector.requires_grad = True
