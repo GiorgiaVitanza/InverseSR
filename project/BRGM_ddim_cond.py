@@ -75,8 +75,10 @@ def add_hparams_to_tensorboard(
         "metrics/ssim": metrics["ssim"],
         "metrics/psnr": metrics["psnr"],
         "metrics/mse": metrics["mse"],
-        "inv_cond/frequency": cond_vals[0].item(),
-        "inv_cond/flux": cond_vals[1].item(),
+        "inv_cond/hi_size": cond_vals[0].item(),
+        "inv_cond/line_flux_integral": cond_vals[1].item(),
+        "inv_cond/i": cond_vals[2].item(),
+        "inv_cond/w20": cond_vals[3].item(),
     }
     
     writer.add_hparams(hparam_dict, metric_dict)
@@ -93,7 +95,7 @@ def project(
     verbose: bool = False,
 ):
     # 1. SETUP INIZIALE
-    # setup_noise_inputs ora restituisce cond [1, 4] e latent [1, 3, 32, 32, 32]
+    # setup_noise_inputs ora restituisce cond [1, 4] e latent [1, 3, ...]
     cond, latent_variable = setup_noise_inputs(device=device, hparams=hparams)
 
     update_params = []
@@ -149,7 +151,7 @@ def project(
         # D. BACKPROPAGATION
         loss.backward()
         
-        # Applichiamo la maschera se vogliamo ottimizzare solo alcuni parametri di cond (es. solo Freq e Flux)
+        # Applichiamo la maschera se vogliamo ottimizzare solo alcuni parametri di cond 
         if up_cond and cond.grad is not None:
              cond.grad *= mask_cond
              
@@ -176,12 +178,14 @@ def project(
                 
                 writer.add_scalar("loss/total", loss.item(), step)
                 writer.add_scalar("metrics/ssim_mid", ssim_val, step)
-                # Logghiamo i parametri fisici correnti (frequenza e flusso)
-                writer.add_scalar("inv_cond/freq", cond[0, 0].item(), step)
-                writer.add_scalar("inv_cond/flux", cond[0, 1].item(), step)
+                # Logghiamo i parametri fisici correnti 
+                writer.add_scalar("inv_cond/hi_size", cond[0, 0].item(), step)
+                writer.add_scalar("inv_cond/line_flux_integral", cond[0, 1].item(), step)
+                writer.add_scalar("inv_cond/i", cond[0, 2].item(), step)
+                writer.add_scalar("inv_cond/w20", cond[0, 3].item(), step)
 
                 if verbose:
-                    print(f"Step {step:03d} | Loss: {loss.item():.6f} | Freq: {cond[0,0]:.4f} | Flux: {cond[0,1]:.4f}")
+                    print(f"Step {step:03d} | Loss: {loss.item():.6f} | Hi Size: {cond[0,0]:.4f} | Line Flux Integral: {cond[0,1]:.4f} | I: {cond[0,2]:.4f} | W20: {cond[0,3]:.4f} | SSIM_mid: {ssim_val:.4f}")
 
     return latent_variable, cond, {"loss": loss.item(), "ssim": ssim_val}
 
