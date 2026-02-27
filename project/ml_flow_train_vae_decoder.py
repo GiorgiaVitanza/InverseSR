@@ -15,8 +15,8 @@ from utils.config_aekl_v3 import get_hparams
 
 # --- CONFIGURAZIONE AMBIENTE LEONARDO ---
 BASE_SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/data/outputs"
-MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, 'mlruns_vae')}"
-CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, "checkpoints_vae")
+MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, 'mlruns_vae_decoder')}"
+CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, "checkpoints_vae_decoder")
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -97,7 +97,7 @@ def train():
                     'model_state_dict': model.state_dict(),
                     'hparams': hparams_dict
                 }, vae_path)
-                mlflow.log_artifact(vae_path)
+                
 
                 # 2. Checkpoint SOLO DECODER (Pesi puliti per inferenza)
                 decoder_path = os.path.join(CHECKPOINT_DIR, f"decoder_only_ep{epoch+1}.pth")
@@ -106,7 +106,7 @@ def train():
                     'decoder': model.decoder.state_dict(),
                     'hparams': hparams_dict
                 }, decoder_path)
-                mlflow.log_artifact(decoder_path)
+                
 
         # --- REGISTRAZIONE FINALE SU MLFLOW ---
         # Registra il VAE intero
