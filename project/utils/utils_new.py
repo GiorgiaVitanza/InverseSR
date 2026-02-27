@@ -29,11 +29,68 @@ from utils.const import (
     PRETRAINED_MODEL_VAE_PATH,
     PRETRAINED_MODEL_DDPM_PATH,
     PRETRAINED_MODEL_VGG_PATH,
-    OUTPUT_FOLDER,
+    INPUT_FOLDER,
     LATENT_SHAPE, # Assicurati che in const.py questo sia corretto per i tuoi dati (es. [1, 3, 16, 16, 16])
 )
 
-# --- UTILS ---
+# --- UTILS PER BRGM DECODER DA ADATTARE--------------------------
+def generating_latent_vector(
+    diffusion: torch.nn.Module,
+    latent_variable: torch.Tensor,
+    conditioning: Dict[str, List[torch.Tensor]],
+    batch_size: int,
+):
+    ddim = DDIMSampler(diffusion)
+    num_timesteps = 50
+    latent_vectors, _ = ddim.sample(
+        num_timesteps,
+        first_img=latent_variable,
+        conditioning=conditioning,
+        batch_size=batch_size,
+        shape=list(LATENT_SHAPE[1:]),
+        eta=1.0,
+        verbose=False,
+    )
+
+    return latent_vectors
+
+def inference(
+    vqvae: Any,
+    latent_vectors: torch.Tensor,
+):
+    x_hat = vqvae.reconstruct_ldm_outputs(latent_vectors)
+    return x_hat
+
+def load_ddpm_latent_vectors(device: torch.device) -> torch.Tensor:
+    ddpm_latent_vectors = torch.load(
+        INPUT_FOLDER.parent / "trained_models" / "latent_vector_ddpm_samples_100000.pt",
+        map_location=device,
+    )
+    return ddpm_latent_vectors
+
+def load_ddpm_model(ddpm_path: Path, device: torch.device) -> torch.nn.Module:
+    diffusion = mlflow.pytorch.load_model(
+        str(ddpm_path),
+        map_location=device,
+    )
+    diffusion.eval()
+    diffusion = diffusion.to(device)
+    diffusion.requires_grad_(False)
+    return diffusion
+
+def load_pre_trained_decoder(
+    vae_path: Path,
+    device: torch.device,
+) -> torch.nn.Module:
+    vqvae = mlflow.pytorch.load_model(
+        str(vae_path),
+        map_location=device,
+    )
+    vqvae.eval()
+    vqvae = vqvae.to(device)
+    vqvae.requires_grad_(False)
+    return vqvae
+#-------------------------------------------------------------------
 
 def transform_img(img_path: Path, device: torch.device) -> Any:
     """Applica le trasformazioni MONAI all'immagine."""

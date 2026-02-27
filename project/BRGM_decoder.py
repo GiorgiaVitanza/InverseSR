@@ -34,8 +34,8 @@ from utils.const import (
     PRETRAINED_MODEL_DDPM_PATH,
     PRETRAINED_MODEL_DECODER_PATH,
 )
-from utils.plot import draw_corrupted_images, draw_images, draw_img
-from utils.utils import (
+from utils.plot_new import draw_corrupted_images, draw_images, draw_img
+from utils.utils_new import (
     create_corruption_function,
     generating_latent_vector,
     getVggFeatures,
@@ -56,53 +56,40 @@ def logprint(message: str, verbose: bool) -> None:
 
 def add_hparams_to_tensorboard(
     hparams: Namespace,
-    final_loss: torch.Tensor,
-    final_ssim: float,
-    final_psnr: float,
-    final_mse: float,
-    final_nmse: float,
-    inversed_gender: float,
-    inversed_age: float,
-    inversed_ventricular: float,
-    inversed_brain: float,
+    metrics: dict,
+    cond_vals: torch.Tensor,
     writer: SummaryWriter,
 ) -> None:
-    writer.add_hparams(
-        {
-            "num_steps": hparams.num_steps,
-            "learning_rate": hparams.learning_rate,
-            "experiment_name": hparams.experiment_name,
-            "subject_id": hparams.subject_id,
-            "update_latent_variables": hparams.update_latent_variables,
-            "update_conditioning": hparams.update_conditioning,
-            "update_gender": hparams.update_gender,
-            "update_age": hparams.update_age,
-            "update_ventricular": hparams.update_ventricular,
-            "update_brain": hparams.update_brain,
-            "alpha": hparams.lambda_alpha,
-            "perc": hparams.lambda_perc,
-            "kernel_size": hparams.kernel_size,
-        },
-        {
-            "loss/final_loss": final_loss,
-            "measurement/final_ssim": final_ssim,
-            "measurement/final_psnr": final_psnr,
-            "measurement/final_mse": final_mse,
-            "measurement/final_nmse": final_nmse,
-            "conditional_variable/inversed_gender": inversed_gender,
-            "conditional_variable/inversed_age": inversed_age,
-            "conditional_variable/inversed_ventricular": inversed_ventricular,
-            "conditional_variable/inversed_brain": inversed_brain,
-        },
-    )
+    """Logga i parametri e le metriche finali su TensorBoard."""
+    
+    hparam_dict = {
+        "lr": hparams.learning_rate,
+        "obj_id": hparams.object_id,
+        "lambda_perc": hparams.lambda_perc,
+        "steps": hparams.num_steps,
+    }
+    
+    metric_dict = {
+        "loss/final": metrics["loss"],
+        "metrics/ssim": metrics["ssim"],
+        "metrics/psnr": metrics["psnr"],
+        "metrics/mse": metrics["mse"],
+        "inv_cond/hi_size": cond_vals[0].item(),
+        "inv_cond/line_flux_integral": cond_vals[1].item(),
+        "inv_cond/i": cond_vals[2].item(),
+        "inv_cond/w20": cond_vals[3].item(),
+    }
+    
+    writer.add_hparams(hparam_dict, metric_dict)
+
 
 
 def create_mask_for_backprop(hparams: Namespace, device: torch.device) -> torch.Tensor:
     mask_cond = torch.ones((1, 4), device=device)
-    mask_cond[:, 0] = 0 if not hparams.update_gender else 1
-    mask_cond[:, 1] = 0 if not hparams.update_age else 1
-    mask_cond[:, 2] = 0 if not hparams.update_ventricular else 1
-    mask_cond[:, 3] = 0 if not hparams.update_brain else 1
+    mask_cond[:, 0] = 0 if not hparams.update_hi_size else 1
+    mask_cond[:, 1] = 0 if not hparams.update_line_flux_integral else 1
+    mask_cond[:, 2] = 0 if not hparams.update_i else 1
+    mask_cond[:, 3] = 0 if not hparams.update_w20 else 1
     return mask_cond
 
 
@@ -322,15 +309,8 @@ def project(
 
     add_hparams_to_tensorboard(
         hparams,
-        final_loss=loss.item(),
-        final_ssim=ssim_,
-        final_psnr=psnr_,
-        final_mse=mse_,
-        final_nmse=nmse_,
-        inversed_gender=cond[0, 0].clone().detach().item(),
-        inversed_age=cond[0, 1].clone().detach().item() * (82 - 44) + 44,
-        inversed_ventricular=cond[0, 2].clone().detach().item(),
-        inversed_brain=cond[0, 3].clone().detach().item(),
+        metrics={"loss": loss.item(), "ssim": ssim_, "psnr": psnr_, "mse": mse_, "nmse": nmse_},
+        cond_vals=cond,
         writer=writer,
     )
 
@@ -369,7 +349,7 @@ def project(
     ]
 
     with open(
-        "/scratch/j/jlevman/jueqi/thesis_experiments/decoder/result_decoder_downsample_2.csv",
+        "./data/decoder/result_decoder_downsample_2.csv",
         "a",
     ) as file:
         writer = csv.writer(file)
@@ -381,7 +361,7 @@ def project(
 def main(hparams: Namespace) -> None:
     # device = torch.device("cuda" if COMPUTECANADA else "cpu")
     # Don't have enough memory to run on GPU. :(
-    device = torch.device("cpu")
+    device = hparams.device
     img_tensor = load_target_image(hparams, device)
     writer = SummaryWriter(log_dir=hparams.tensor_board_logger)
 
