@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 # Import dei tuoi moduli
 from utils.dataset_v3 import RadioPatchDataset 
-from models.aekl_no_attention import AutoencoderKL
+from models.aekl_no_attention import AutoencoderKL, OnlyDecoder
 from utils.config_aekl_v3 import get_hparams 
 
 # --- CONFIGURAZIONE AMBIENTE LEONARDO ---
@@ -22,15 +22,7 @@ os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 mlflow.set_experiment("Radio_VAE_MultiSave")
 
-# --- CLASSE WRAPPER PER SOLO DECODER (Per MLflow) ---
-class DecoderOnlyModel(nn.Module):
-    """Semplice wrapper per registrare solo il decoder su MLflow"""
-    def __init__(self, full_model):
-        super().__init__()
-        self.post_quant_conv = full_model.post_quant_conv
-        self.decoder = full_model.decoder
-    def forward(self, z):
-        return self.decoder(self.post_quant_conv(z))
+
 
 def run_step(model, x):
     h = model.encoder(x)
@@ -121,7 +113,7 @@ def train():
         mlflow.pytorch.log_model(model,name="model_full_vae")
         
         # Registra solo il Decoder (usando il wrapper)
-        only_decoder = DecoderOnlyModel(model)
+        only_decoder = OnlyDecoder(model)
         mlflow.pytorch.log_model(only_decoder, name="model_only_decoder")
 
     print(f"Training concluso. Checkpoints e pesi estratti salvati in {CHECKPOINT_DIR}")

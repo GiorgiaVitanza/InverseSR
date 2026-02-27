@@ -227,11 +227,14 @@ class AutoencoderKL(nn.Module):
 
 
 class OnlyDecoder(nn.Module):
-    def __init__(self) -> None:
+    """Semplice wrapper per registrare solo il decoder su MLflow"""
+    def __init__(self, full_model):
         super().__init__()
-        self.decoder = None
-        self.post_quant_conv = None
-
+        self.post_quant_conv = full_model.post_quant_conv
+        self.decoder = full_model.decoder
+    def forward(self, z):
+        return self.decoder(self.post_quant_conv(z))
+    
     def decode(self, z):
         z = self.post_quant_conv(z)
         dec = self.decoder(z)
