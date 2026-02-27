@@ -172,7 +172,7 @@ def sampling_from_ddim(
         "c_concat": [cond_concat],
         "c_crossattn": [cond_crossatten],
     }
-    print(f"Start DDIM Sampling ({hparams.ddim_num_timesteps} steps)...")
+    
     latent_vectors, _ = ddim.sample(
         S=hparams.ddim_num_timesteps,
         conditioning=conditioning,

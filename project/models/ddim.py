@@ -175,7 +175,7 @@ class DDIMSampler(object):
         # sampling
         C, H, W, D = shape
         size = (batch_size, C, H, W, D)
-        print(f"Data shape for DDIM sampling is {size}, eta {eta}")
+        
 
         samples, intermediates = self.ddim_sampling(
             conditioning,
@@ -246,7 +246,7 @@ class DDIMSampler(object):
             else np.flip(timesteps)
         )
         total_steps = timesteps if ddim_use_original_steps else timesteps.shape[0]
-        print(f"Running DDIM Sampling with {total_steps} timesteps")
+        
 
         iterator = tqdm(time_range, desc="DDIM Sampler", total=total_steps)
 
