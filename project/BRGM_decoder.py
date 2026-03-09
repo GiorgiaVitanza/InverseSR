@@ -53,11 +53,16 @@ def logprint(message: str, verbose: bool) -> None:
     if verbose:
         print(message)
 
+def get_val(v):
+    return v.detach().item() if hasattr(v, 'detach') else v
 
 def add_hparams_to_tensorboard(
     hparams: Namespace,
     metrics: dict,
-    cond_vals: torch.Tensor,
+    cond1: torch.Tensor,
+    cond2: torch.Tensor,
+    cond3: torch.Tensor,
+    cond4: torch.Tensor,
     writer: SummaryWriter,
 ) -> None:
     """Logga i parametri e le metriche finali su TensorBoard."""
@@ -74,10 +79,10 @@ def add_hparams_to_tensorboard(
         "metrics/ssim": metrics["ssim"],
         "metrics/psnr": metrics["psnr"],
         "metrics/mse": metrics["mse"],
-        "inv_cond/hi_size": cond_vals[0].item(),
-        "inv_cond/line_flux_integral": cond_vals[1].item(),
-        "inv_cond/i": cond_vals[2].item(),
-        "inv_cond/w20": cond_vals[3].item(),
+        "inv_cond/hi_size": cond1.item(),
+        "inv_cond/line_flux_integral": cond2.item(),
+        "inv_cond/i": cond3.item(),
+        "inv_cond/w20": cond4.item(),
     }
     
     writer.add_hparams(hparam_dict, metric_dict)
@@ -141,13 +146,12 @@ def project(
     latent_vector_mean, latent_vector_std = compute_latent_vector_stats(
         latent_vectors=latent_vectors_tensor, device=device, verbose=verbose
     )
-
+    cond, latent_variable = setup_noise_inputs(hparams=hparams, device=device)
+    cond_crossatten = cond.unsqueeze(1)
+    cond_concat = cond.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+    cond_concat = cond_concat.expand(list(cond.shape[0:2]) + list(LATENT_SHAPE[2:]))
     if not hparams.mean_latent_vector:
-        ddpm = load_ddpm_model(ddpm_path=PRETRAINED_MODEL_DDPM_PATH, device=device)
-        cond, latent_variable = setup_noise_inputs(hparams=hparams, device=device)
-        cond_crossatten = cond.unsqueeze(1)
-        cond_concat = cond.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
-        cond_concat = cond_concat.expand(list(cond.shape[0:2]) + list(LATENT_SHAPE[2:]))
+        ddpm = load_ddpm_model(ddpm_path=PRETRAINED_MODEL_DDPM_PATH, device=device)        
         conditioning = {
             "c_concat": [cond_concat.float().to(device)],
             "c_crossattn": [cond_crossatten.float().to(device)],
@@ -218,7 +222,7 @@ def project(
                 perc_loss = (target_features - synth_features).abs().mean()
                 loss += hparams.lambda_perc * perc_loss
 
-            loss.backward(create_graph=False)
+            loss.backward(retain_graph=True)
 
             return (
                 loss,
@@ -274,8 +278,8 @@ def project(
         writer.add_scalar("nmse", nmse_, global_step=step)
 
         logprint(
-            f"step {step + 1:>4d}/{hparams.num_steps}: tloss {float(loss):<5.8f} pix_loss {float(pixelwise_loss):<5.8f} perc_loss {float(perc_loss):<1.15f} prior_loss {float(prior_loss):<5.8f}\n"
-            f"              : SSIM {float(ssim_):<5.8f} PSNR {float(psnr_):<5.8f} MSE {float(mse_):<5.8f} NMSE {float(nmse_):<5.8f}",
+            f"step {step + 1:>4d}/{hparams.num_steps}: tloss {get_val(loss)} pix_loss {get_val(pixelwise_loss)} perc_loss {get_val(perc_loss)} prior_loss {get_val(prior_loss)}\n"
+            f"              : SSIM {get_val(ssim_)} PSNR {get_val(psnr_)} MSE {get_val(mse_)} NMSE {get_val(nmse_)}",
             verbose=verbose,
         )
 
@@ -311,7 +315,10 @@ def project(
     add_hparams_to_tensorboard(
         hparams,
         metrics={"loss": loss.item(), "ssim": ssim_, "psnr": psnr_, "mse": mse_, "nmse": nmse_},
-        cond_vals=cond,
+        cond1=cond_concat[0, 0, 0, 0, 0].cpu(),
+        cond2=cond_concat[0, 1, 0, 0, 0].cpu(),
+        cond3=cond_concat[0, 2, 0, 0, 0].cpu(),
+        cond4=cond_concat[0, 3, 0, 0, 0].cpu(),
         writer=writer,
     )
 
@@ -342,7 +349,7 @@ def project(
     )
 
     row = [
-        hparams.subject_id,
+        hparams.object_id,
         ssim_,
         psnr_,
         mse_,

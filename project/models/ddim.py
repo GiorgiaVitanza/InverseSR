@@ -204,7 +204,7 @@ class DDIMSampler(object):
         x_T=None,
         ddim_use_original_steps=False,
         callback=None,
-        timesteps=None,
+        timesteps=5,
         quantize_denoised=False,
         mask=None,
         x0=None,

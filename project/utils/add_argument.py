@@ -20,6 +20,14 @@ def add_argument(parser: ArgumentParser):
         help="Formato del datacube di input"
     )
     parser.add_argument(
+        "--inference",
+        action="store_true"
+    )
+    parser.add_argument(
+        "--test",
+        action="store_true"
+    )
+    parser.add_argument(
         "--object_id", # Modificato: da subject_id a object_id
         default="patch_000000",
         type=str,

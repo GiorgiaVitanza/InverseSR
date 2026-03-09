@@ -25,6 +25,7 @@ from utils.vgg_gen_new import AstroVGG_Slim
 from utils.transorms import get_preprocessing
 from utils.const import (
     INPUT_FOLDER_PATCHES,
+    INPUT_FOLDER_TEST,
     MASK_FOLDER,
     PRETRAINED_MODEL_VAE_PATH,
     PRETRAINED_MODEL_DDPM_PATH,
@@ -137,25 +138,16 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
     """
     Carica l'immagine target (Ground Truth) da file FITS o da patch .npy.
     """
-    if hparams.data_format == "npy":
+    if hparams.data_format == "npy" and hparams.inference:
         # Cerca il patch npy (es. patch_001.npy)
-        potential_files = list(INPUT_FOLDER_PATCHES.glob(f"*{hparams.object_id}*.npy"))
-        
+        potential_files = list(INPUT_FOLDER_PATCHES.glob(f"*.npy"))
+        print("sono nel caso dell'inferenza")
         if not potential_files:
             raise FileNotFoundError(f"Nessun patch .npy trovato per ID {hparams.object_id} in {INPUT_FOLDER_PATCHES}")
-        
-        img_path = potential_files[0]
-        # Carichiamo il file numpy
-        data = np.load(img_path).astype(np.float32)
-        
-        # Converte in tensor
-        img_tensor = torch.from_numpy(data).to(device)
-        
-        # Gestione dimensioni: 
-        # Se il patch è (D, H, W), lo portiamo a (C, D, H, W) aggiungendo il canale
-        if img_tensor.ndim == 3:
-            img_tensor = img_tensor.unsqueeze(0)
-            
+    elif hparams.data_format == "npy" and hparams.test:
+        potential_files = list(INPUT_FOLDER_TEST.glob(f"*.npy"))
+        if not potential_files:
+            raise FileNotFoundError(f"Nessun patch .npy trovato in {INPUT_FOLDER_TEST}")            
     elif hparams.data_format == "fits":
         potential_files = list(INPUT_FOLDER_PATCHES.glob(f"*{hparams.object_id}*.fits"))
         if not potential_files:
@@ -167,7 +159,18 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
         
     else:
         raise ValueError(f"Formato {hparams.data_format} non supportato.")
+    
+    img_path = potential_files[0]
+    # Carichiamo il file numpy
+    data = np.load(img_path).astype(np.float32)
 
+    # Converte in tensor
+    img_tensor = torch.from_numpy(data).to(device)
+
+    # Gestione dimensioni:
+    # Se il patch è (D, H, W), lo portiamo a (C, D, H, W) aggiungendo il canale
+    if img_tensor.ndim == 3:
+        img_tensor = img_tensor.unsqueeze(0)
     # --- NUOVA LOGICA PER I 3 CANALI ---
     # Se img_tensor è (B, 1, D, H, W), lo portiamo a (B, 3, D, H, W)
     if img_tensor.shape[1] == 1:
@@ -212,7 +215,10 @@ def create_corruption_function(hparams: Namespace, device: torch.device) -> Forw
 
 def setup_noise_inputs(device: torch.device, hparams: Namespace) -> Tuple[torch.Tensor, torch.Tensor]:
     # Creiamo un vettore di 4 parametri (es. tutti a 0.5 o valori medi del catalogo)
-    cond_full = torch.full((1, 4), 0.5, device=device, dtype=torch.float32)
+    cond_full = torch.tensor(
+        [[0.5, 0.5, 0.5, 0.5]], device=device
+    )
+    
     
     # Se vuoi ottimizzare i primi due (es. Freq e Flux sono i primi due nel tuo dataset)
     # li rendiamo parte del grafo di calcolo
