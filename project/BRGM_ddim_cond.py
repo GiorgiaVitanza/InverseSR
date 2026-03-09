@@ -38,7 +38,7 @@ from utils.utils_new import (
 )
 from utils.plot_new import compare_cubes, plot_orthogonal_cuts # <--- Nuove funzioni plot
 
-OUTPUT_FOLDER = "./data/outputs" # Assicurati che questa cartella esista o venga creata
+OUTPUT_FOLDER = "./data/outputs/BRGM_ddim_cond" # Assicurati che questa cartella esista o venga creata
 
 # --- HELPER FUNCTIONS ---
 
