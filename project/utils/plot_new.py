@@ -5,6 +5,63 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
+
+def draw_img_in_three_dim(img, title: str, output_folder: Path) -> None:
+    """
+    Adattato per Datacube Astronomici.
+    Gestisce input sia NumPy che Torch, rimuovendo dimensioni extra.
+    """
+    # 1. Conversione in NumPy se è un Tensor
+    if hasattr(img, "detach"):
+        img = img.detach().cpu().numpy()
+    
+    # 2. Pulizia dimensioni (Squeeze)
+    img = np.squeeze(img)
+    
+    # 3. Gestione caso multi-canale (es. i 3 canali visti prima)
+    if img.ndim == 4:
+        # Se abbiamo [C, D, H, W], prendiamo il primo canale
+        img = img[0]
+    
+    if img.ndim != 3:
+        print(f"Errore: Il volume ha shape {img.shape}, ma deve essere 3D.")
+        return
+
+    si, sj, sk = img.shape
+    # Nomi più appropriati per un Datacube (RA, Dec, Freq/Vel)
+    # Di solito: Axial -> RA/Dec, Sagittal/Coronal -> Piani con Frequenza
+    dim_names = ["RA-Dec", "RA-Freq", "Dec-Freq"]
+    
+    fig, ax = plt.subplots()
+    
+    # --- PIANO 1: XY (Axial / RA-Dec) ---
+    img_slice = np.rot90(img[:, :, sk // 2], 1)
+    ax.imshow(img_slice, cmap="inferno", origin='lower') # 'inferno' è meglio per l'astro
+    ax.axis("off")
+    ax.set_title(f"{dim_names[0]} (slice {sk // 2})")
+    fig.savefig(output_folder / f"{title}_{dim_names[0]}.png", 
+                bbox_inches="tight", pad_inches=0.1, dpi=300)
+
+    # --- PIANO 2: XZ (Sagittal / RA-Freq) ---
+    img_slice = np.rot90(img[:, sj // 2, :], 1)
+    ax.imshow(img_slice, cmap="inferno", origin='lower')
+    ax.axis("off")
+    ax.set_title(f"{dim_names[1]} (slice {sj // 2})")
+    fig.savefig(output_folder / f"{title}_{dim_names[1]}.png", 
+                bbox_inches="tight", pad_inches=0.1, dpi=300)
+
+    # --- PIANO 3: YZ (Coronal / Dec-Freq) ---
+    img_slice = np.rot90(img[si // 2, :, :], 1)
+    ax.imshow(img_slice, cmap="inferno", origin='lower')
+    ax.axis("off")
+    ax.set_title(f"{dim_names[2]} (slice {si // 2})")
+    fig.savefig(output_folder / f"{title}_{dim_names[2]}.png", 
+                bbox_inches="tight", pad_inches=0.1, dpi=300)
+
+    plt.close(fig)
+    print(f"Salvate 3 proiezioni ortogonali in: {output_folder}")
+
+
 # Configurazione default per Astro
 DEFAULT_CMAP = "inferno"  # O 'viridis', 'magma', 'cividis'
 BG_COLOR = "black"       # Spesso i plot astro sono più belli su sfondo scuro
@@ -186,8 +243,8 @@ def draw_images(
 
 def draw_img(img: np.ndarray, title: str, step: str, output_folder: Path) -> None:
     fig, ax = plt.subplots()
-    si, sj, sk = img.shape
-    img_slice = np.rot90(img[:, sj // 2, :], -1)
+    si, sj, sk = img.shape # Ra Dec Freq
+    img_slice = np.rot90(img[:, :, sk // 2], -1)
     ax.imshow(img_slice, cmap="gray")
     ax.axis("off")
     fig.savefig(
