@@ -22,7 +22,7 @@ def visualize_reconstruction(checkpoint_path, model_path, output_path, flag):
     print(f"Using device: {device}")
 
     # 1. Configurazione Hparams per il Decoder (deve corrispondere a quelli del training)
-    # Questi sono valori tipici per l'architettura LDM Brain v2
+    # Questi sono valori tipici per l'architettura LDM Astro v2
     hparams = {
         "in_channels": 1,
         "n_channels": 64,
@@ -63,7 +63,7 @@ def visualize_reconstruction(checkpoint_path, model_path, output_path, flag):
         
         
         # Carichiamo il checkpoint
-        path_oggetto = Path(r"C:\Modelli 3D\InverseSR\data\trained_models\ddpm\data\model.pth")
+        path_oggetto = Path(r"C:\Modelli 3D\InverseSR - Astro\data\trained_models_astro\ddpm\data\model.pth")
         ddpm = torch.load(path_oggetto, weights_only=False, map_location="cpu")
         
         
@@ -122,105 +122,104 @@ def visualize_reconstruction(checkpoint_path, model_path, output_path, flag):
     return rec_np
 
 
-
 def salva_datacube_gif(volume, output_path, axis=0, fps=15, use_log=True):
     """
-    Adattato per Cubi FITS/Radioastronomia:
-    axis=0: Scorre lungo la frequenza/velocità (Channel Map)
-    axis=1: Scorre lungo la Declinazione (Piani RA-Freq)
-    axis=2: Scorre lungo l'Ascensione Retta (Piani Dec-Freq)
+    Versione ottimizzata per dati Radioastronomici:
+    - Scaling logaritmico robusto
+    - Normalizzazione globale con percentili (niente sfarfallio)
+    - Colormap 'inferno' applicata correttamente
     """
-    # 1. Pulizia dimensioni extra (Squeeze) e gestione canali
+    # 1. Pulizia dimensioni
     volume = np.squeeze(volume)
     if volume.ndim == 4:
-        volume = volume[0] # Prendi il primo canale se presente
+        volume = volume[0] 
 
-    # 2. Pre-processing per Astronomia (Log Scale)
+    # 2. Pre-processing Logaritmico (opzionale ma fondamentale per Astro)
     if use_log:
-        # Evitiamo log(0) con un piccolo epsilon basato sulla dinamica dei dati
-        eps = 1e-8
-        volume = np.log10(volume + eps)
+        # Portiamo il minimo a 0 per evitare log di numeri negativi
+        # Aggiungiamo epsilon per evitare log(0)
+        v_min_raw = volume.min()
+        volume = np.log10(volume - v_min_raw + 1e-8)
 
-    # 3. Normalizzazione per GIF (0-255)
-    v_min, v_max = volume.min(), volume.max()
-    if v_max - v_min == 0:
-        volume_norm = np.zeros_like(volume, dtype=np.uint8)
-    else:
-        volume_norm = ((volume - v_min) / (v_max - v_min) * 255).astype(np.uint8)
+    # 3. Calcolo limiti GLOBALI (Percentili) per coerenza tra i frame
+    # Usiamo i percentili per ignorare outlier e rumore estremo
+    v_min = np.percentile(volume, 1)    
+    v_max = np.percentile(volume, 99.9) 
+
+    # Otteniamo la colormap
+    cmap = plt.get_cmap('inferno')
+    frames_rgb = []
+
+    # 4. Generazione Frame lungo l'asse scelto
+    num_fette = volume.shape[axis]
     
-    # 4. Mappatura colori (opzionale ma consigliato)
-    # imageio salva meglio se passiamo frame RGB. Usiamo 'inferno' di matplotlib.
-    cm = plt.get_cmap('inferno')
-    
-    frames = []
-    
-    # 5. Generazione Frame
-    for i in range(volume_norm.shape[axis]):
+    for i in range(num_fette):
+        # Selezione della fetta in base all'asse
         if axis == 0:
-            fetta = volume_norm[i, :, :] # Piano spaziale RA-Dec
+            fetta = volume[i, :, :]
         elif axis == 1:
-            fetta = volume_norm[:, i, :] # Piano RA-Freq
+            fetta = volume[:, i, :]
         else:
-            fetta = volume_norm[:, :, i] # Piano Dec-Freq
-            
-        # Squeeze finale di sicurezza per evitare l'errore Pillow (1, 1, 160)
-        fetta = np.squeeze(fetta)
+            fetta = volume[:, :, i]
         
-        # Ruotiamo e applichiamo l'origine 'lower' tipica dei FITS
-        # origin='lower' in astro significa che la prima riga è in basso.
-        fetta = np.flipud(fetta) 
+        # 5. Normalizzazione e Clipping (0.0 - 1.0)
+        # Importante: clippiamo prima di scalare per evitare overflow
+        fetta_norm = np.clip(fetta, v_min, v_max)
+        fetta_norm = (fetta_norm - v_min) / (v_max - v_min + 1e-10)
         
-        # Applichiamo la colormap per trasformare in RGB (0-255)
-        fetta_rgb = (cm(fetta / 255.0)[:, :, :3] * 255).astype(np.uint8)
+        # 6. Orientamento Astronomico (Tipico FITS)
+        fetta_norm = np.flipud(fetta_norm) 
         
-        frames.append(fetta_rgb)
+        # 7. Applicazione Colormap (da float 0-1 a RGB uint8)
+        rgba_frame = cmap(fetta_norm)
+        rgb_frame = (rgba_frame[:, :, :3] * 255).astype(np.uint8)
+        
+        frames_rgb.append(rgb_frame)
+
+    # 8. Salvataggio finale
+    imageio.mimsave(output_path, frames_rgb, fps=fps, loop=0)
     
-    # 6. Salvataggio
-    imageio.mimsave(output_path, frames, fps=fps, loop=0)
-    
-    # Etichette descrittive per il print
     piani = ["Spaziale (RA-Dec)", "RA-Frequenza", "Dec-Frequenza"]
     print(f"GIF Astro salvata: {output_path} (Piano: {piani[axis]})")
-
 # Nel tuo script principale, aggiungi questo dopo la generazione di rec_np:
 
-def run_comparative_plots(rec_np, base_name="Ricostruzione_Astro"):
-    # 1. Preprocessing (molto importante per dati astronomici/logaritmici)
-    # Usiamo la tua funzione preprocess definita all'inizio
-    cube, vmin, vmax = preprocess(rec_np, use_log=True, use_percentile=True)
+def run_comparative_plots(rec_np, output_dir, base_name="Ricostruzione_Astro"):
+    # 1. Preprocessing 
+    cube, vmin, vmax = preprocess(rec_np, use_log=False, use_percentile=True)
     
     print(f"\n--- Generazione Plot Comparativi per {base_name} ---")
     
     # 2. Griglia Statica (3x3 sezioni)
-    static_grid(cube, vmin, vmax, base_name)
+    static_grid(cube, vmin, vmax, base_name, output_dir=output_dir)
     
     # 3. Volume Rendering 3D (PyVista)
     # Nota: Assicurati che l'ambiente supporti il rendering grafico
     try:
-        volume_rendering(cube, base_name)
-        isosurface(cube, base_name)
+        volume_rendering(cube, base_name, output_dir=output_dir)
+        isosurface(cube, base_name, output_dir=output_dir)
     except Exception as e:
         print(f"Errore nel rendering 3D: {e}")
 
     # 4. Animazione (GIF)
-    animate_slices(cube, vmin, vmax, base_name)
+    animate_slices(cube, vmin, vmax, base_name, output_dir=output_dir)
 
 
 if __name__ == "__main__":
-    flag = "decoder" # "ddim" o "decoder" 
+    flag = input("Inserisci 'ddim' per visualizzare la ricostruzione DDIM o 'decoder' per la ricostruzione diretta del decoder: ").strip().lower()
     if flag == "ddim":
         # ADATTARE PATH AL CASO ASTRO
-        CHECKPOINT = "C:\\Modelli 3D\\InverseSR\\codice GPU per Leonardo OK\\output_job_1_ddpm\\checkpoint.pth" 
+        CHECKPOINT = "C:\\Modelli 3D\\InverseSR - Astro\\outputs from Leonardo\\BRGM_ddim_cond\\checkpoint.pth" 
         RESULT_DIR = "./data/outputs/visualizzazione_ddim"
     elif flag == "decoder":
-        CHECKPOINT = "C:\\Modelli 3D\\InverseSR - Astro\\outputs from Leonardo\\outputs\\checkpoint.pth"
+        CHECKPOINT = "C:\\Modelli 3D\\InverseSR - Astro\\outputs from Leonardo\\BRGM_decoder\\checkpoint.pth"
         RESULT_DIR = "./data/outputs/visualizzazione_decoder"
 
     DECODER_MODEL = "C:/Modelli 3D/InverseSR - Astro/data/trained_models_astro/decoder/data/model.pth"
    
 
     volume = visualize_reconstruction(CHECKPOINT, DECODER_MODEL, RESULT_DIR, flag=flag)
-    run_comparative_plots(volume, base_name="Ricostruzione_Astro")
+    run_comparative_plots(volume, output_dir=RESULT_DIR, base_name="Ricostruzione_Astro")
     # Prova a generare la vista ASSIALE (dall'alto verso il basso)
-    for i in range(3):
-        salva_datacube_gif(volume, f"{RESULT_DIR}/brain_axial_{i}.gif", axis=i)
+    
+    """ for i in range(3):
+        salva_datacube_gif(volume, f"{RESULT_DIR}/astro_axial_{i}.gif", axis=i, use_log=False) """

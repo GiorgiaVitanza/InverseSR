@@ -122,18 +122,18 @@ def process_radio_multiformat(fits_path, catalog_path, output_dir,
 
 # --- ESECUZIONE ---
 if __name__ == "__main__":
-    OUT_DIR = "./data/processed_dataset"
+    OUT_DIR = "./data/processed_dataset/128x128x128_stride64"
     
     # Scegli qui: 'fits', 'npy', o 'both'
     FORMATO = 'npy' 
 
-    # process_radio_multiformat(
-    #     fits_path="./data/inputs/sky_dev_v2.fits",
-    #     catalog_path="./data/inputs/sky_dev_truthcat_v2.txt",
-    #     output_dir=OUT_DIR,
-    #     patch_size=(128, 128, 128),
-    #     stride=128,
-    #     output_format=FORMATO
-    # )
+    process_radio_multiformat(
+        fits_path="./data/inputs/sky_dev_v2.fits",
+        catalog_path="./data/inputs/sky_dev_truthcat_v2.txt",
+        output_dir=OUT_DIR,
+        patch_size=(128, 128, 128),
+        stride=64,
+        output_format=FORMATO
+    )
 
-    visualize_patch_multi_view(f"{OUT_DIR}/npy_patches", "patch_000005.npy", os.path.join(OUT_DIR, "master_patch_catalog.csv"))
+    #visualize_patch_multi_view(f"{OUT_DIR}/npy_patches", "patch_000005.npy", os.path.join(OUT_DIR, "master_patch_catalog.csv"))

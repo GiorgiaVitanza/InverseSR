@@ -34,7 +34,7 @@ from utils.const import (
     PRETRAINED_MODEL_DDPM_PATH,
     PRETRAINED_MODEL_DECODER_PATH,
 )
-from utils.plot_new import draw_corrupted_images, draw_images, draw_img
+from utils.plot_new import draw_corrupted_images, draw_images, draw_img, compare_cubes, plot_orthogonal_cuts
 from utils.utils_new import (
     create_corruption_function,
     generating_latent_vector,
@@ -332,6 +332,43 @@ def project(
     draw_img(
         synth_img_corrupted[0, 0].detach().cpu().numpy(),
         title="corrupted",
+        step=step_,
+        output_folder=OUTPUT_FOLDER,
+    )
+
+    compare_cubes(
+        synth_img_np,
+        target_np,
+        title="synth_vs_target",
+        step=step_,
+        output_folder=OUTPUT_FOLDER,
+    )
+
+    compare_cubes(
+        synth_img_corrupted[0, 0].detach().cpu().numpy(),
+        target_img_corrupted[0, 0].detach().cpu().numpy(),
+        title="corrupted_synth_vs_corrupted_target",
+        step=step_,
+        output_folder=OUTPUT_FOLDER,
+    )
+
+    plot_orthogonal_cuts(
+        synth_img_np,
+        title="orthogonal_cuts_synth",
+        step=step_,
+        output_folder=OUTPUT_FOLDER,
+    )
+
+    plot_orthogonal_cuts(
+        target_np,
+        title="orthogonal_cuts_target", 
+        step=step_,
+        output_folder=OUTPUT_FOLDER,
+    )
+
+    plot_orthogonal_cuts(
+        synth_img_corrupted[0, 0].detach().cpu().numpy(),
+        title="orthogonal_cuts_corrupted",
         step=step_,
         output_folder=OUTPUT_FOLDER,
     )
