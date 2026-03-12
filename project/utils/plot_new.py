@@ -227,7 +227,7 @@ def draw_images(
     for idx in range(nrows):
         for jdx in range(ncols):
             ax = plt.subplot(gs[idx * ncols + jdx])
-            ax.imshow(imgs_list[idx * ncols + jdx], cmap="gray")
+            ax.imshow(imgs_list[idx * ncols + jdx], cmap="inferno", origin='lower')
             ax.grid(False)
             ax.invert_xaxis()
             ax.invert_yaxis()
@@ -245,7 +245,7 @@ def draw_img(img: np.ndarray, title: str, step: str, output_folder: Path) -> Non
     fig, ax = plt.subplots()
     si, sj, sk = img.shape # Ra Dec Freq
     img_slice = np.rot90(img[:, :, sk // 2], -1)
-    ax.imshow(img_slice, cmap="gray")
+    ax.imshow(img_slice, cmap="inferno", origin='lower')
     ax.axis("off")
     fig.savefig(
         output_folder / f"{step}_{title}.png",

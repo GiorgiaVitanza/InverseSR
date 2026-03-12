@@ -2,7 +2,7 @@ import torch
 import os
 
 # Percorso del tuo decoder
-path_fisico = r"C:/Modelli 3D/InverseSR/data/trained_models/decoder/data/model.pth"
+path_fisico = r"C:/Modelli 3D/InverseSR - Astro/data/trained_models_astro/decoder/data/model.pth"
 file_report = "report_parametri_decoder_3d.txt"
 
 try:

@@ -50,7 +50,7 @@ else:
     
     # Percorso per un eventuale modello di feature extraction (es. per loss percettiva)
     # Nota: VGG16 è per immagini 2D. Se usi cubi 3D, potresti non usarlo o usare una 3D-ResNet.
-    PRETRAINED_MODEL_VGG_PATH = PRETRAINED_MODEL_FOLDER / "vgg" / "vgg16_slim_astro.pth"
+    PRETRAINED_MODEL_VGG_PATH = PRETRAINED_MODEL_FOLDER / "vgg" / "vgg16_slim_astro_1ch.pth"
 
     OUTPUT_FOLDER = DATA_ROOT / "outputs"
     FIGURES_FOLDER = DATA_ROOT / "figures" # Ex thesis_imgs

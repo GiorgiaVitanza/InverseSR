@@ -21,7 +21,7 @@ from models.BRGM.forward_models import (
     ForwardFillMask,
     ForwardAbstract,
 )
-from utils.vgg_gen_new import AstroVGG_Slim
+from project.utils.vgg_gen_3ch import AstroVGG_Slim
 from utils.transorms import get_preprocessing
 from utils.const import (
     INPUT_FOLDER_PATCHES,

@@ -48,7 +48,7 @@ from utils.utils_new import (
     setup_noise_inputs,
 )
 
-
+OUTPUT_FOLDER = OUTPUT_FOLDER / "BRGM_decoder"
 def logprint(message: str, verbose: bool) -> None:
     if verbose:
         print(message)
@@ -337,40 +337,35 @@ def project(
     )
 
     compare_cubes(
-        synth_img_np,
         target_np,
-        title="synth_vs_target",
-        step=step_,
-        output_folder=OUTPUT_FOLDER,
+        synth_img_np,
+        title="target_vs_synth",
+        save_path=OUTPUT_FOLDER / "compare_target_vs_synth.png",
     )
 
     compare_cubes(
-        synth_img_corrupted[0, 0].detach().cpu().numpy(),
         target_img_corrupted[0, 0].detach().cpu().numpy(),
-        title="corrupted_synth_vs_corrupted_target",
-        step=step_,
-        output_folder=OUTPUT_FOLDER,
+        synth_img_corrupted[0, 0].detach().cpu().numpy(),
+        title="corrupted_target_vs_corrupted_synth",
+        save_path=OUTPUT_FOLDER / "compare_corrupted_target_vs_corrupted_synth.png",
     )
 
     plot_orthogonal_cuts(
         synth_img_np,
         title="orthogonal_cuts_synth",
-        step=step_,
-        output_folder=OUTPUT_FOLDER,
+        save_path=OUTPUT_FOLDER/"orthogonal_cuts_synth.png",
     )
 
     plot_orthogonal_cuts(
         target_np,
         title="orthogonal_cuts_target", 
-        step=step_,
-        output_folder=OUTPUT_FOLDER,
+        save_path=OUTPUT_FOLDER/"orthogonal_cuts_target.png",
     )
 
     plot_orthogonal_cuts(
         synth_img_corrupted[0, 0].detach().cpu().numpy(),
         title="orthogonal_cuts_corrupted",
-        step=step_,
-        output_folder=OUTPUT_FOLDER,
+        save_path=OUTPUT_FOLDER/"orthogonal_cuts_corrupted.png",
     )
 
     writer.flush()

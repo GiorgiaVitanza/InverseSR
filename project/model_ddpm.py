@@ -2,7 +2,7 @@ import torch
 # Assicurati che il percorso di import sia corretto per il tuo progetto
 # from models.ddpm_v3d_conditioned import DDPM 
 
-path_fisico = r"C:/Modelli 3D/InverseSR/data/trained_models/ddpm/data/model.pth"
+path_fisico = r"C:/Modelli 3D/InverseSR - Astro/data/trained_models_astro/ddpm/data/model.pth"
 
 try:
     # Carichiamo il checkpoint
