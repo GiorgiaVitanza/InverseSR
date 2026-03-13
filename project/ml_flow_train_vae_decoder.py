@@ -14,7 +14,8 @@ from models.aekl_no_attention import AutoencoderKL, OnlyDecoder
 from utils.config_aekl_v3 import get_hparams 
 
 # --- CONFIGURAZIONE AMBIENTE LEONARDO ---
-BASE_SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/data/outputs"
+hparams = get_hparams()
+BASE_SCRATCH = f"/leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/{hparams.output_dir}"
 MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, 'mlruns_vae_decoder')}"
 CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, "checkpoints_vae_decoder")
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
@@ -42,7 +43,7 @@ def run_step(model, x):
     return recon_loss + kl_loss, recon_loss, x_hat
 
 def train():
-    hparams = get_hparams() 
+     
     dataset = RadioPatchDataset(data_dir=hparams.data_dir, catalogue_path=hparams.catalogue_path)
     dataloader = DataLoader(dataset, batch_size=hparams.batch_size, shuffle=True, num_workers=2)
 
