@@ -21,7 +21,7 @@ from models.BRGM.forward_models import (
     ForwardFillMask,
     ForwardAbstract,
 )
-from project.utils.vgg_gen_3ch import AstroVGG_Slim
+
 from utils.transorms import get_preprocessing
 from utils.const import (
     INPUT_FOLDER_PATCHES,
@@ -289,7 +289,13 @@ def load_vgg_perceptual(hparams: Namespace, target: torch.Tensor, device: torch.
     """Carica la versione Slim di VGG16 per dati Astro."""
     
     # 1. Istanzia il modello (usa lo stesso numero di blocchi dello script di generazione)
-    vgg16 = AstroVGG_Slim("././data/trained_models_astro/vgg/vgg16_slim_astro.pth",in_channels=3, num_blocks=2).to(device)
+    if hparams.out_channels == 3:
+        from project.utils.vgg_gen_3ch import AstroVGG_Slim
+        vgg16 = AstroVGG_Slim("././data/trained_models_astro/vgg/vgg16_slim_astro.pth",in_channels=3, num_blocks=2).to(device)
+    elif hparams.out_channels == 1:
+        from project.utils.vgg_gen_1ch import AstroVGG_Slim
+        vgg16 = AstroVGG_Slim("././data/trained_models_astro/vgg/vgg16_slim_astro_1ch.pth",in_channels=1, num_blocks=2).to(device)
+
     
     # 2. Carica i pesi (state_dict invece di JIT)
     # Assicurati che PRETRAINED_MODEL_VGG_PATH punti al file .pth generato prima
