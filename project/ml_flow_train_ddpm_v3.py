@@ -10,7 +10,8 @@ from models.aekl_no_attention import AutoencoderKL
 
 # Import dai tuoi moduli
 from utils.dataset_v3 import RadioPatchDataset
-from utils.config_unet_v3 import get_config, train_config
+from utils.config_unet_v3 import get_config
+from utils.config_train import train_config
 from utils.config_aekl_v3 import get_hparams
 from models.ddpm_v2_conditioned import DDPM
 

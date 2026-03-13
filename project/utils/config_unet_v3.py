@@ -19,7 +19,7 @@ def get_config():
         "--image_size", 
         type=int, 
         nargs='+', 
-        default=[160, 224, 160], 
+        default=[128,128,128], 
         help="Risoluzione target (D, H, W)"
     ) 
     
@@ -56,37 +56,7 @@ def get_config():
     # Guarda layer: attn2.to_k.weight | Shape: [512, 4]
     # Questo indica che il modello viene condizionato da un vettore molto piccolo (es. 4 parametri fisici o di catalogo)
     parser.add_argument("--context_dim", type=int, default=None) 
-
-    return {"params": vars(parser.parse_args())}
-
-def train_config():
-
-    parser = argparse.ArgumentParser(description="Training DDPM Configuration")
-
-
-
-    # --- Paths ---
-
-    parser.add_argument("--data_dir", type=str, default="./data/inputs/patches_160_224_160_stride160", help="Path alla cartella dei dati")
-
-    parser.add_argument("--catalogue_path", type=str, default="./data/inputs/sky_dev_truthcat_v2.txt", help="Path al file txt del catalogo")
-
-    parser.add_argument("--tensor_board_logger", type=str, default="./data/outputs/logs_ddpm", help="Path per il logger di TensorBoard")
-
-   
-
-    # --- Parametri Training ---
-
-    parser.add_argument("--batch_size", type=int, default=1)
-
-    parser.add_argument("--learning_rate", type=float, default=1e-4)
-
-    parser.add_argument("--epochs", type=int, default=10)
-
-    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
-
-
-
-    # Restituisce un oggetto Namespace (accedi con args.param)
-
-    return parser.parse_args()
+    args, _ = parser.parse_known_args()
+    
+    return {"params": vars(args)}
+    
