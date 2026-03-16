@@ -35,7 +35,7 @@ else:
     DATA_ROOT = ROOT_DIR / "data"
     
     INPUT_FOLDER = DATA_ROOT / "inputs"
-    INPUT_FOLDER_PATCHES = INPUT_FOLDER / "patches_160_224_160_stride160" # Se usi patch pre-estratti
+    INPUT_FOLDER_PATCHES = INPUT_FOLDER / "128x128x128_stride128" / "npy_patches" # Se usi patch pre-estratti
     INPUT_FOLDER_TEST = DATA_ROOT / "test_5d"
     MASK_FOLDER = DATA_ROOT / "masks"
     
@@ -52,7 +52,7 @@ else:
     # Nota: VGG16 è per immagini 2D. Se usi cubi 3D, potresti non usarlo o usare una 3D-ResNet.
     PRETRAINED_MODEL_VGG_PATH = PRETRAINED_MODEL_FOLDER / "vgg" / "vgg16_slim_astro_1ch.pth"
 
-    OUTPUT_FOLDER = DATA_ROOT / "outputs"
+    OUTPUT_FOLDER = DATA_ROOT / "outputs" 
     FIGURES_FOLDER = DATA_ROOT / "figures" # Ex thesis_imgs
     FINAL_RESULTS_FOLDER = OUTPUT_FOLDER / "final_results"
 
@@ -61,12 +61,12 @@ else:
 # IMAGE_SHAPE: [Batch, Channels, Depth (Freq/Vel), Height (Dec), Width (RA)]
 # Nota: I modelli di diffusione richiedono dimensioni fisse (spesso multipli di 32 o 64).
 
-IMAGE_SHAPE = [1, 1, 160, 224, 160] 
+IMAGE_SHAPE = [1, 1, 128, 128, 128] 
 
 # LATENT_SHAPE: La dimensione compressa nel "Latent Space" del VAE.
 # Dipende dal fattore di downsampling del tuo modello (spesso f=4 o f=8).
 # Esempio: Se IMAGE_SHAPE è 128^3 e il downsampling è 4 -> 128/4 = 32.
-LATENT_SHAPE = [1, 3, 40, 56, 40] 
+LATENT_SHAPE = [1, 3, int(128/4), int(128/4), int(128/4)] 
 
 
 # --- 4. LISTA OGGETTI (TARGETS) ---

@@ -42,8 +42,7 @@ def run_step(model, x):
     
     return recon_loss + kl_loss, recon_loss, x_hat
 
-def train():
-     
+def train(): 
     dataset = RadioPatchDataset(data_dir=hparams.data_dir, catalogue_path=hparams.catalogue_path)
     dataloader = DataLoader(dataset, batch_size=hparams.batch_size, shuffle=True, num_workers=2)
 
@@ -98,7 +97,7 @@ def train():
                     'model_state_dict': model.state_dict(),
                     'hparams': hparams_dict
                 }, vae_path)
-                
+                mlflow.log_artifact(vae_path)
 
                 # 2. Checkpoint SOLO DECODER (Pesi puliti per inferenza)
                 decoder_path = os.path.join(CHECKPOINT_DIR, f"decoder_only_ep{epoch+1}.pth")
@@ -107,13 +106,13 @@ def train():
                     'decoder': model.decoder.state_dict(),
                     'hparams': hparams_dict
                 }, decoder_path)
-                
+                mlflow.log_artifact(decoder_path)
 
         # --- REGISTRAZIONE FINALE SU MLFLOW ---
         # Registra il VAE intero
         mlflow.pytorch.log_model(model,name="model_full_vae")
         
-        # Registra solo il Decoder (usando il wrapper)
+        # Registra solo il Decoder 
         only_decoder = OnlyDecoder(model)
         mlflow.pytorch.log_model(only_decoder, name="model_only_decoder")
 

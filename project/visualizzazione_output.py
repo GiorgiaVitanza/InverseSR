@@ -63,8 +63,8 @@ def visualize_reconstruction(checkpoint_path, model_path, output_path, flag):
         
         
         # Carichiamo il checkpoint
-        path_oggetto = Path(r"C:\Modelli 3D\InverseSR - Astro\data\trained_models_astro\ddpm\data\model.pth")
-        ddpm = torch.load(path_oggetto, weights_only=False, map_location="cpu")
+        path_oggetto = Path("./data/trained_models_astro/ddpm/data/model.pth")
+        ddpm = torch.load(path_oggetto, weights_only=False, map_location=device)
         
         
         # 2. Esegui il campionamento deterministico DDIM per ottenere z_0
@@ -205,16 +205,16 @@ def run_comparative_plots(rec_np, output_dir, base_name="Ricostruzione_Astro"):
 
 
 if __name__ == "__main__":
-    flag = input("Inserisci 'ddim' per visualizzare la ricostruzione DDIM o 'decoder' per la ricostruzione diretta del decoder: ").strip().lower()
+    flag = "ddim"
     if flag == "ddim":
         # ADATTARE PATH AL CASO ASTRO
-        CHECKPOINT = "C:\\Modelli 3D\\InverseSR - Astro\\outputs from Leonardo\\BRGM_ddim_cond\\checkpoint.pth" 
-        RESULT_DIR = "./data/outputs/visualizzazione_ddim"
+        CHECKPOINT = Path("./data/outputs/BRGM_ddim_cond/checkpoint.pth") 
+        RESULT_DIR = Path("./data/outputs/visualizzazione_ddim")
     elif flag == "decoder":
         CHECKPOINT = "C:\\Modelli 3D\\InverseSR - Astro\\outputs from Leonardo\\BRGM_decoder\\checkpoint.pth"
         RESULT_DIR = "./data/outputs/visualizzazione_decoder"
 
-    DECODER_MODEL = "C:/Modelli 3D/InverseSR - Astro/data/trained_models_astro/decoder/data/model.pth"
+    DECODER_MODEL = "./data/trained_models_astro/decoder/data/model.pth"
    
 
     volume = visualize_reconstruction(CHECKPOINT, DECODER_MODEL, RESULT_DIR, flag=flag)

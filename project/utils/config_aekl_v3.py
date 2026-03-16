@@ -12,8 +12,6 @@ def get_hparams():
 
     # --- Parametri Architettura (Adattati all'analisi Conv3D) ---
     parser.add_argument("--in_channels", type=int, default=1, help="Canali input (Input volumetrico: 1)")
-    
-    # Impostato a 1 come richiesto nei tuoi parametri iniziali
     parser.add_argument("--out_channels", type=int, default=1, help="Canali output (Output volumetrico: 1)")
     
     # z_channels rilevato dai layer quant_conv_mu
@@ -37,6 +35,10 @@ def get_hparams():
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--experiment_name", type=str, default="Astro_VAE_Conv3D_Deep")
     
+    # Parametri per Inverse Problems
+    parser.add_argument("--lambda_perc", type=float, default=0.01, help="Peso della Perceptual Loss")
+    parser.add_argument("--slicing_dim", type=str, default="spatial", choices=["spatial", "spectral"], help="Dimensione slicing")
+    parser.add_argument("--corruption", type=str, default="none", help="Tipo di degradazione")
     
     # Device Management
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")

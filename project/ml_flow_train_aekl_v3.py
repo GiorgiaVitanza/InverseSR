@@ -14,7 +14,7 @@ from models.aekl_no_attention import AutoencoderKL
 from utils.config_aekl_v3 import get_hparams 
 
 # --- CONFIGURAZIONE AMBIENTE LEONARDO ---
-BASE_SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/data/outputs"
+BASE_SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/data/trained_models_astro"
 MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, 'mlruns_vae')}"
 CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, "checkpoints_vae")
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)

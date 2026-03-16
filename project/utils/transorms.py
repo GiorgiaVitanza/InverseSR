@@ -9,8 +9,6 @@ from monai.transforms import (
     CenterSpatialCropd,              # Meglio di SpatialCropd fisso
     SpatialPadd,
     ToTensord,
-    RandFlipd,
-    RandRotate90d
 )
 
 class LoadFitsd(MapTransform):
@@ -38,10 +36,10 @@ class LoadFitsd(MapTransform):
                     if raw_data is None:
                         raise ValueError(f"Nessun dato valido trovato in {img_path}")
 
-                    # 2. GESTIONE ENDIANNESS (FITS è Big-Endian, PyTorch vuole Little-Endian)
-                    # Senza questo, PyTorch darà errore: "Stride is negative" o performance lente
-                    if raw_data.dtype.byteorder == '>' or (raw_data.dtype.byteorder == '=' and np.little_endian == False):
-                        raw_data = raw_data.byteswap().newbyteorder()
+
+                    # 2. GESTIONE ENDIANNESS
+                    clean_data = raw_data.astype(np.float32)
+                    
 
                     # 3. CLEANING (NaN / Inf)
                     # I FITS hanno spesso NaN ai bordi o Inf per divisioni per zero
@@ -59,11 +57,11 @@ class LoadFitsd(MapTransform):
 
         return d
 
-# 2. Pipeline Pipeline Adattata
+# 2. Pipeline Adattata
 def get_preprocessing(device: torch.device) -> Compose:
     # Definisci la dimensione target del cubo (es. 128x128x128 o 64x64x64)
     # Deve essere potenza di 2 per le UNet standard
-    CUBE_SIZE = (64, 64, 64) 
+    CUBE_SIZE = (128, 128, 128) 
 
     return Compose(
         [

@@ -9,6 +9,8 @@ import torch.nn.functional as F
 import numpy as np
 import scipy.ndimage.morphology
 
+from project.utils.const import LATENT_SHAPE
+
 
 class ForwardAbstract(ABC):
     def __init__(self):
@@ -36,21 +38,30 @@ class ForwardNone(ForwardAbstract):
         return x
 
 
+
 class ForwardDownsample(ForwardAbstract):
-    def __init__(self, factor):
+    def __init__(self, factor, target_size=LATENT_SHAPE[2:5]):
         self.factor = factor
+        self.target_size = target_size # Es: [32, 32, 32] o [20, 28, 20]
 
-    # resolution of input x can be anything, but aspect ratio should be 1:1
     def __call__(self, x):
-        x_down = F.interpolate(
-            x,
-            scale_factor=1 / self.factor,
-            mode="trilinear",
-            recompute_scale_factor=True,
-            align_corners=False,
-        )  # BCHW
-        return x_down
-
+        if self.target_size is not None:
+            # Metodo Sicuro: Forza la dimensione esatta del target
+            return F.interpolate(
+                x,
+                size=self.target_size,
+                mode="trilinear",
+                align_corners=False,
+            )
+        else:
+            # Metodo originale (rischioso per i mismatch)
+            return F.interpolate(
+                x,
+                scale_factor=1 / self.factor,
+                mode="trilinear",
+                recompute_scale_factor=True,
+                align_corners=False,
+            )
 
 class ForwardFillMask(ForwardAbstract):
     def __init__(self, device, mask: Optional[np.ndarray] = None):

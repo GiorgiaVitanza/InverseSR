@@ -1,6 +1,7 @@
 import pandas as pd
 from tqdm import tqdm
 import torch
+import numpy as np
 
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
@@ -55,14 +56,24 @@ def run_astro_test_suite(hparams: Namespace, test_files: list, device: torch.dev
             restored_tensor = sampling_from_ddim(ddim, z_opt, decoder, cond_opt, hparams)
         
         # D. Preparazione dati per Plotting e Metriche
-        gt_np = img_tensor_gt.squeeze().cpu().numpy()       # [D, H, W]
-        print(gt_np.shape)
-        recon_np = restored_tensor.squeeze().cpu().numpy() # [D, H, W]
         
-        # Calcolo Metriche
-        d_range = max(gt_np.max() - gt_np.min(), 1e-7)
-        score_psnr = psnr(gt_np, recon_np, data_range=d_range)
-        score_ssim = ssim(gt_np, recon_np, data_range=d_range)
+        synth_img_np = restored_tensor[0, 0].detach().cpu().numpy()
+        target_np = img_tensor_gt[0, 0].detach().cpu().numpy()
+        score_ssim = ssim(
+            synth_img_np,
+            target_np,
+            win_size=11,
+            data_range=1.0,
+            gaussian_weights=True,
+            use_sample_covariance=False,
+        )
+        # Code for computing PSNR is adapted from
+        # https://github.com/agis85/multimodal_brain_synthesis/blob/master/error_metrics.py#L32
+        data_range = np.max([synth_img_np.max(), target_np.max()]) - np.min(
+            [synth_img_np.min(), target_np.min()]
+        )
+        score_psnr = psnr(target_np, synth_img_np, data_range=data_range)
+        
         
         # E. Salvataggio Metriche nel Report
         results_data.append({

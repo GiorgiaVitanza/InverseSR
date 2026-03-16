@@ -44,11 +44,11 @@ def generating_latent_vector(
     ddim = DDIMSampler(diffusion)
     num_timesteps = 50
     latent_vectors, _ = ddim.sample(
-        num_timesteps,
-        first_img=latent_variable,
-        conditioning=conditioning,
-        batch_size=batch_size,
+        S=num_timesteps,
+        batch_size=batch_size,        
         shape=list(LATENT_SHAPE[1:]),
+        first_img=latent_variable,
+        conditioning=conditioning,        
         eta=1.0,
         verbose=False,
     )
@@ -171,12 +171,7 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
     # Se il patch è (D, H, W), lo portiamo a (C, D, H, W) aggiungendo il canale
     if img_tensor.ndim == 3:
         img_tensor = img_tensor.unsqueeze(0)
-    # --- NUOVA LOGICA PER I 3 CANALI ---
-    # Se img_tensor è (B, 1, D, H, W), lo portiamo a (B, 3, D, H, W)
-    if img_tensor.shape[1] == 1:
-        # Duplichiamo il canale singolo 3 volte lungo la dimensione C
-        img_tensor = img_tensor.repeat(1, 3, 1, 1, 1)
-
+    
     # Aggiunge la dimensione Batch: -> (1, C, D, H, W)
     if img_tensor.ndim == 4:
         img_tensor = img_tensor.unsqueeze(0)
@@ -253,7 +248,7 @@ def sampling_from_ddim(
     
     # 2. Concatenazione spaziale: [1, 4, 1, 1, 1]
     cond_concat = cond.view(1, 4, 1, 1, 1)
-    cond_concat = cond_concat.expand(-1, -1, 40, 56, 40) # [1, 4, 32, 32, 32]
+    cond_concat = cond_concat.expand(-1, -1, LATENT_SHAPE[2], LATENT_SHAPE[3], LATENT_SHAPE[4]) # [1, 4, 32, 32, 32]
 
     conditioning = {
         "c_concat": [cond_concat],
@@ -289,13 +284,14 @@ def load_vgg_perceptual(hparams: Namespace, target: torch.Tensor, device: torch.
     """Carica la versione Slim di VGG16 per dati Astro."""
     
     # 1. Istanzia il modello (usa lo stesso numero di blocchi dello script di generazione)
+    # 1. Istanzia il modello (usa lo stesso numero di blocchi dello script di generazione)
     if hparams.out_channels == 3:
-        from project.utils.vgg_gen_3ch import AstroVGG_Slim
+        from utils.vgg_gen_3ch import AstroVGG_Slim
         vgg16 = AstroVGG_Slim("././data/trained_models_astro/vgg/vgg16_slim_astro.pth",in_channels=3, num_blocks=2).to(device)
     elif hparams.out_channels == 1:
-        from project.utils.vgg_gen_1ch import AstroVGG_Slim
+        from utils.vgg_gen_1ch import AstroVGG_Slim
         vgg16 = AstroVGG_Slim("././data/trained_models_astro/vgg/vgg16_slim_astro_1ch.pth",in_channels=1, num_blocks=2).to(device)
-
+    #vgg16 = AstroVGG_Slim("././data/trained_models_astro/vgg/vgg16_slim_astro.pth",in_channels=3, num_blocks=2).to(device)
     
     # 2. Carica i pesi (state_dict invece di JIT)
     # Assicurati che PRETRAINED_MODEL_VGG_PATH punti al file .pth generato prima

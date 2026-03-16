@@ -86,20 +86,34 @@ class CrossAttention(nn.Module):
         k = self.to_k(context)
         v = self.to_v(context)
 
-        q, k, v = map(lambda t: rearrange(t, "b n (h d) -> (b h) n d", h=h), (q, k, v))
-        sim = einsum("b i d, b j d -> b i j", q, k) * self.scale
+        # --- MEMORY OPTIMIZATION START ---
+        # Instead of manual einsum (which creates O(N^2) matrix), use Flash Attention
+        # 1. Reshape to (Batch, Heads, SeqLen, Dim)
+        q = rearrange(q, "b n (h d) -> b h n d", h=h)
+        k = rearrange(k, "b n (h d) -> b h n d", h=h)
+        v = rearrange(v, "b n (h d) -> b h n d", h=h)
 
+        # 2. Handle Mask (convert boolean BxJ to additive Bx1x1xJ for broadcasting)
         if exists(mask):
             mask = rearrange(mask, "b ... -> b (...)")
-            max_neg_value = -torch.finfo(sim.dtype).max
-            mask = repeat(mask, "b j -> (b h) () j", h=h)
-            sim.masked_fill_(~mask, max_neg_value)
+            # Create additive float mask: 0.0 for True (Keep), -inf for False (Discard)
+            mask_float = torch.zeros((mask.shape[0], 1, 1, mask.shape[1]), device=q.device, dtype=q.dtype)
+            mask_float.masked_fill_(~mask.view(mask.shape[0], 1, 1, mask.shape[1]), -float('inf'))
+            mask = mask_float
 
-        # attention, what we cannot get enough of
-        attn = sim.softmax(dim=-1)
+        # 3. Efficient Attention
+        # This function runs in O(N) memory instead of O(N^2)
+        out = F.scaled_dot_product_attention(
+            q, k, v, 
+            attn_mask=mask,
+            dropout_p=0.0, # Original code didn't use dropout on attn weights
+            scale=self.scale
+        )
 
-        out = einsum("b i j, b j d -> b i d", attn, v)
-        out = rearrange(out, "(b h) n d -> b n (h d)", h=h)
+        # 4. Reshape back
+        out = rearrange(out, "b h n d -> b n (h d)")
+        # --- MEMORY OPTIMIZATION END ---
+
         return self.to_out(out)
 
 

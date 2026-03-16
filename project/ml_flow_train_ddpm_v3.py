@@ -16,9 +16,9 @@ from utils.config_aekl_v3 import get_hparams
 from models.ddpm_v2_conditioned import DDPM
 
 # --- CONFIGURAZIONE PERCORSI LEONARDO ---
-BASE_SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/data/outputs"
-MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, 'mlruns_ddpm')}"
-CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, "checkpoints_ddpm")
+BASE_SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/data/trained_models_astro"
+MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, 'mlruns_ddpm_1ch')}"
+CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, "checkpoints_ddpm_1ch")
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 # --- MLFLOW SETUP ---
@@ -32,7 +32,7 @@ train_cfg = train_config()
 vae = AutoencoderKL(embed_dim=hparams.z_channels, hparams=hparams_dict).to(train_cfg.device)
 #checkpoint = torch.load("outputs from leonardo/checkpoints/vae_1ch_ep100.pth")
 checkpoint = torch.load(
-    "C:/Modelli 3D/InverseSR - Astro/vae_ep100.pth", 
+    "./data/outputs/checkpoints_vae_decoder/vae_full_ep10.pth", #vae  1 ch
     map_location=train_cfg.device, 
     weights_only=False
 )

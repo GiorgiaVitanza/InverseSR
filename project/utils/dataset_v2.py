@@ -82,6 +82,6 @@ class RadioPatchDataset(Dataset):
         phys_maps = torch.cat([freq_channel, flux_channel], dim=0)
 
         return {
-            "x_0": data_tensor,   # ORA È (3, D, H, W)
+            "x_0": data_tensor,   # ORA È (1, D, H, W)
             "physics": phys_maps  # (2, D, H, W)
         }

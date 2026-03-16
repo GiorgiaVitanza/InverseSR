@@ -8,8 +8,15 @@ class RadioPatchDataset(Dataset):
     def __init__(self, data_dir, catalogue_path):
         super().__init__()
         self.data_dir = data_dir
-        self.catalog = pd.read_csv(catalogue_path, sep="\s+")
-        self.catalog['id'] = self.catalog['id'].astype(str)
+        self.catalog = pd.read_csv(catalogue_path, sep=",")
+        # Normalize column names to lowercase to avoid case issues
+        self.catalog.columns = [c.lower().strip() for c in self.catalog.columns]
+
+        if 'id' in self.catalog.columns:
+            self.catalog['id'] = self.catalog['id'].astype(str)
+        else:
+            raise KeyError(f"Could not find 'id' column. Found: {self.catalog.columns.tolist()}")
+        
         self.catalog = self.catalog.set_index("id")
 
         # Selezioniamo le 4 colonne che avevamo concordato

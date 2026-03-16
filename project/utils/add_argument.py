@@ -48,6 +48,13 @@ def add_argument(parser: ArgumentParser):
         default=3,
         help="Canali del latente"
     )
+
+    parser.add_argument(
+    "--out_channels",
+        type=int,
+        default=1,
+        help="Canali in input nel vgg e in output dal decoder"
+    )
     # --- PARAMETRI DI TRAINING GENERICI ---
     parser.add_argument(
         "--learning_rate",
