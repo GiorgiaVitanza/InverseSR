@@ -209,9 +209,9 @@ def create_corruption_function(hparams: Namespace, device: torch.device) -> Forw
 # --- CONDITIONING UTILS ---
 
 def setup_noise_inputs(device: torch.device, hparams: Namespace) -> Tuple[torch.Tensor, torch.Tensor]:
-    # Creiamo un vettore di 4 parametri (es. tutti a 0.5 o valori medi del catalogo)
+    # Creiamo un vettore di 4 parametri (es. valori medi del catalogo)
     cond_full = torch.tensor(
-        [[0.5, 0.5, 0.5, 0.5]], device=device
+        [[6.1, 12.7, 57.3, 250]], device=device
     )
     
     

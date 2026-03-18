@@ -5,9 +5,9 @@ def get_config():
     parser = argparse.ArgumentParser(description="Unet Configuration - Deep 3D LDM Analysis")
 
     # --- Dimensioni canali ---
-    # Rilevato da input_blocks.0.0.weight: Shape [256, 7, 3, 3, 3]
-    parser.add_argument("--in_channels", type=int, default=7) # 3 canali latenti (z_channels del VAE) + 4 context
-    
+    # Rilevato da input_blocks.0.0.weight: Shape [256, 3, 3, 3, 3]
+    parser.add_argument("--in_channels", type=int, default=3) # 3 canali latenti (z_channels del VAE) 
+        
     # Rilevato dai parametri iniziali dell'analisi
     parser.add_argument("--out_channels", type=int, default=3)
     
@@ -55,8 +55,9 @@ def get_config():
     # context_dim rilevato: 4!!
     # Guarda layer: attn2.to_k.weight | Shape: [512, 4]
     # Questo indica che il modello viene condizionato da un vettore molto piccolo (es. 4 parametri fisici o di catalogo)
-    parser.add_argument("--context_dim", type=int, default=None) 
-    args, _ = parser.parse_known_args()
+    parser.add_argument("--context_dim", type=int, default=4) 
+    args, unknown = parser.parse_known_args()     
     
-    return {"params": vars(args)}
+    
+    return {"params": vars(args)}, unknown
     

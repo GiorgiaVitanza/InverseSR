@@ -89,7 +89,7 @@ class DDPM(nn.Module):
         parameterization="eps",  # all assuming fixed variance schedules
         learn_logvar=False,
         logvar_init=0.0,
-        conditioning_key="concat",
+        conditioning_key=None,
     ):
         super().__init__()
         assert parameterization in [
@@ -484,10 +484,13 @@ class DiffusionWrapper(nn.Module):
 
         # 3. Gestione CROSS-ATTENTION (Se usata insieme al concat)
         if c_crossattn is not None:
-            context = torch.cat(c_crossattn, dim=1)
+            context = torch.cat(c_crossattn, dim=1) if isinstance(c_crossattn, list) else c_crossattn
+            # Se context è [B, 4], potrebbe servire un piccolo strato lineare 
+            # per portarlo alla dimensione attesa dalla UNet (es. 512)
+            if context.dim() == 2:
+                context = context.unsqueeze(1) # Diventa [B, 1, 4] per l'attenzione
 
         # 4. UNICA CHIAMATA ALLA UNET
-        # Ora x_input ha 7 canali e context ha i tuoi dati del catalogo
         out = self.diffusion_model(x_input, t, context=context)
 
         return out
