@@ -29,9 +29,9 @@ def visualize_reconstruction(checkpoint_path, model_path, output_path, flag):
         "z_channels": 3,
         "ch_mult": [1, 2, 2], 
         "num_res_blocks": 2,
-        "resolution": (160, 224, 160), # Esempio di risoluzione medica
+        "resolution": (128, 128, 128), # Esempio di risoluzione medica
         "attn_resolutions": [],
-        "out_channels": 3,
+        "out_channels": 1,
     }
     embed_dim = 3 # Coerente con z_channels
 
@@ -205,14 +205,14 @@ def run_comparative_plots(rec_np, output_dir, base_name="Ricostruzione_Astro"):
 
 
 if __name__ == "__main__":
-    flag = "ddim"
+    flag = input("Scegli il tipo di visualizzazione (ddim/decoder): ").strip().lower()
     if flag == "ddim":
         # ADATTARE PATH AL CASO ASTRO
-        CHECKPOINT = Path("./data/outputs/BRGM_ddim_cond/checkpoint.pth") 
-        RESULT_DIR = Path("./data/outputs/visualizzazione_ddim")
+        CHECKPOINT = Path("./outputs from Leonardo/checkpoint.pth") 
+        RESULT_DIR = Path("./data/outputs/visualizzazione_ddim_1ch_crossattn")
     elif flag == "decoder":
-        CHECKPOINT = "C:\\Modelli 3D\\InverseSR - Astro\\outputs from Leonardo\\BRGM_decoder\\checkpoint.pth"
-        RESULT_DIR = "./data/outputs/visualizzazione_decoder"
+        CHECKPOINT = "C:\\Modelli 3D\\InverseSR - Astro\\outputs from Leonardo\\BRGM_decoder_1ch_crossattn\\checkpoint.pth"
+        RESULT_DIR = "./data/outputs/visualizzazione_decoder_1ch_crossattn"
 
     DECODER_MODEL = "./data/trained_models_astro/decoder/data/model.pth"
    
@@ -221,5 +221,5 @@ if __name__ == "__main__":
     run_comparative_plots(volume, output_dir=RESULT_DIR, base_name="Ricostruzione_Astro")
     # Prova a generare la vista ASSIALE (dall'alto verso il basso)
     
-    """ for i in range(3):
-        salva_datacube_gif(volume, f"{RESULT_DIR}/astro_axial_{i}.gif", axis=i, use_log=False) """
+    for i in range(3):
+        salva_datacube_gif(volume, f"{RESULT_DIR}/astro_axial_{i}.gif", axis=i, use_log=False)
