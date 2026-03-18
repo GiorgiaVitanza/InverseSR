@@ -12,12 +12,18 @@ from tqdm import tqdm
 from utils.dataset_v3 import RadioPatchDataset 
 from models.aekl_no_attention import AutoencoderKL, OnlyDecoder
 from utils.config_aekl_v3 import get_hparams 
+from utils.config_train import train_config
 
 # --- CONFIGURAZIONE AMBIENTE LEONARDO ---
-hparams = get_hparams()
-BASE_SCRATCH = f"/leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/{hparams.output_dir}"
-MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, 'mlruns_vae_decoder')}"
-CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, "checkpoints_vae_decoder")
+hparams, unknown = get_hparams()
+if unknown:
+    print(f"Argomenti ignorati da vae {unknown}")
+train_param, unknown_1 = train_config()
+if unknown_1:
+    print(f"Argomenti ignorati da train {unknown_1}")
+BASE_SCRATCH = f"/leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/{train_param.output_dir}"
+MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, f'mlruns_vae_decoder_{train_param.epochs}epochs')}"
+CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, "checkpoints_vae_decoder_{train_param.epochs}epochs")
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -43,23 +49,23 @@ def run_step(model, x):
     return recon_loss + kl_loss, recon_loss, x_hat
 
 def train(): 
-    dataset = RadioPatchDataset(data_dir=hparams.data_dir, catalogue_path=hparams.catalogue_path)
-    dataloader = DataLoader(dataset, batch_size=hparams.batch_size, shuffle=True, num_workers=2)
+    dataset = RadioPatchDataset(data_dir=train_param.data_dir, catalogue_path=train_param.catalogue_path)
+    dataloader = DataLoader(dataset, batch_size=train_param.batch_size, shuffle=True, num_workers=2)
 
     hparams_dict = vars(hparams)
-    model = AutoencoderKL(embed_dim=hparams.z_channels, hparams=hparams_dict).to(hparams.device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=hparams.learning_rate)
+    model = AutoencoderKL(embed_dim=hparams.z_channels, hparams=hparams_dict).to(train_param.device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=train_param.learning_rate)
 
-    with mlflow.start_run(run_name=f"{hparams.experiment_name}_multi_save"):
+    with mlflow.start_run(run_name=f"VAE_multi_save"):
         mlflow.log_params(hparams_dict)
 
-        for epoch in range(hparams.epochs):
+        for epoch in range(train_param.epochs):
             model.train()
             epoch_total_loss, epoch_recon_loss = [], []
             pbar = tqdm(dataloader, desc=f"Epoch {epoch}")
 
             for batch in pbar:
-                x = batch["x_0"].to(hparams.device)
+                x = batch["x_0"].to(train_param.device)
                 optimizer.zero_grad()
                 total_loss, rec_loss, x_hat = run_step(model, x)
                 total_loss.backward()
@@ -82,14 +88,14 @@ def train():
                     axes[0].set_title("Originale")
                     axes[1].imshow(x_hat[0, 0, mid_idx].cpu(), cmap='hot')
                     axes[1].set_title("Ricostruito")
-                    plot_path = f"recon_ep{epoch}.png"
+                    plot_path = f"{train_param.output_dir}/recon_ep{epoch}.png"
                     plt.savefig(plot_path)
                     mlflow.log_artifact(plot_path)
                     plt.close()
                     if os.path.exists(plot_path): os.remove(plot_path)
 
             # --- SALVATAGGIO DOPPIO (VAE & DECODER) ---
-            if (epoch + 1) % 10 == 0 or (epoch + 1) == hparams.epochs:
+            if (epoch + 1) % 10 == 0 or (epoch + 1) == train_param.epochs:
                 # 1. Checkpoint VAE Completo
                 vae_path = os.path.join(CHECKPOINT_DIR, f"vae_full_ep{epoch+1}.pth")
                 torch.save({
@@ -110,11 +116,11 @@ def train():
 
         # --- REGISTRAZIONE FINALE SU MLFLOW ---
         # Registra il VAE intero
-        mlflow.pytorch.log_model(model,name="model_full_vae")
+        mlflow.pytorch.log_model(model,name=f"model_full_vae_{train_param.epochs}epochs")
         
         # Registra solo il Decoder 
         only_decoder = OnlyDecoder(model)
-        mlflow.pytorch.log_model(only_decoder, name="model_only_decoder")
+        mlflow.pytorch.log_model(only_decoder, name=f"model_only_decoder_{train_param.epochs}epochs")
 
     print(f"Training concluso. Checkpoints e pesi estratti salvati in {CHECKPOINT_DIR}")
 
