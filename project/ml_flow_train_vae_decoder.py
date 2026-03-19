@@ -22,11 +22,12 @@ train_param, unknown_1 = train_config()
 if unknown_1:
     print(f"Argomenti ignorati da train {unknown_1}")
 BASE_SCRATCH = f"/leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/{train_param.output_dir}"
-MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, f'mlruns_vae_decoder_{train_param.epochs}epochs')}"
-CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, "checkpoints_vae_decoder_{train_param.epochs}epochs")
+#MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, f'mlruns_vae_decoder_{train_param.epochs}epochs')}"
+CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_vae_decoder_{train_param.epochs}epochs")
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
-mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+#mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+mlflow.set_tracking_uri(f"sqlite:///mlruns_vae_decoder_{train_param.epochs}epochs.db")
 mlflow.set_experiment("Radio_VAE_MultiSave")
 
 
@@ -50,7 +51,7 @@ def run_step(model, x):
 
 def train(): 
     dataset = RadioPatchDataset(data_dir=train_param.data_dir, catalogue_path=train_param.catalogue_path)
-    dataloader = DataLoader(dataset, batch_size=train_param.batch_size, shuffle=True, num_workers=2)
+    dataloader = DataLoader(dataset, batch_size=train_param.batch_size, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
 
     hparams_dict = vars(hparams)
     model = AutoencoderKL(embed_dim=hparams.z_channels, hparams=hparams_dict).to(train_param.device)

@@ -16,23 +16,25 @@ from utils.config_aekl_v3 import get_hparams
 from models.ddpm_v2_conditioned import DDPM
 
 # --- CONFIGURAZIONE PERCORSI LEONARDO ---
+train_cfg, _ = train_config()
 BASE_SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/data/trained_models_astro"
-MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, 'mlruns_ddpm_1ch')}"
-CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, "checkpoints_ddpm_1ch")
+#MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, 'mlruns_ddpm_1ch')}"
+CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_ddpm_1ch_{train_cfg.epochs}ep")
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 # --- MLFLOW SETUP ---
-mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-mlflow.set_experiment("Radio_DDPM_v2")
+#mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+mlflow.set_tracking_uri("sqlite:///mlflow_ddpm_1ch.db")
+mlflow.set_experiment(f"Radio_DDPM_v2_{train_cfg.epochs}")
 
 # Carica il VAE
-hparams = get_hparams() # Assicurati che z_channels=3 e resolution=[128,128,128]
+hparams, _ = get_hparams() # Assicurati che z_channels=3 e resolution=[128,128,128]
 hparams_dict = vars(hparams)
-train_cfg, _ = train_config()
+
 vae = AutoencoderKL(embed_dim=hparams.z_channels, hparams=hparams_dict).to(train_cfg.device)
 #checkpoint = torch.load("outputs from leonardo/checkpoints/vae_1ch_ep100.pth")
 checkpoint = torch.load(
-    "./data/outputs/checkpoints_vae_decoder/vae_full_ep10.pth", #vae  1 ch
+    train_cfg.vae_path, #vae  1 ch
     map_location=train_cfg.device, 
     weights_only=False
 )
@@ -42,9 +44,8 @@ vae.eval() # Importante: il VAE deve essere in modalità eval e non richiede gra
 def train():
     # Caricamento configurazioni
     unet_cfg, _ = get_config() # Restituisce il dizionario {"params": {...}} e unknown
-    train_cfg, _ = train_config() # Restituisce direttamente gli args
+    train_cfg, _ = train_config()
     
-
     # 1. DATASET E DATALOADER
     dataset = RadioPatchDataset(
         data_dir=train_cfg.data_dir, 
@@ -56,7 +57,7 @@ def train():
 
     model = DDPM(
         unet_config=unet_cfg,
-        conditioning_key="crossattn", # Usato per il contesto
+        conditioning_key="crossattn", 
         learn_logvar=True
     ).to(train_cfg.device)
 
@@ -104,7 +105,7 @@ def train():
 
                 # 4. Passa il LATENTE e il CONTEXT alla DDPM
                 # Ora la UNet riceverà un input con 3 canali (z) e non avrà più errori!
-                loss, loss_dict = model(z, raw_context, )
+                loss, loss_dict = model(z, raw_context)
                 
                 loss.backward()
                 optimizer.step()
@@ -120,17 +121,18 @@ def train():
                 model.eval()
                 vae.eval() # Assicurati che il VAE sia in eval
                 with torch.no_grad():
-                    
+
+
                     # Validation Conditioning Cross-attention Check:
                     # Prendi due contesti diversi dal batch
-                    ctx_A = raw_context[0:1] 
+                    ctx_A = raw_context[0:1]
                     ctx_B = torch.zeros_like(ctx_A) # Contesto "vuoto" o neutro
-                    
+
                     # Genera partendo dallo stesso rumore z_t (es. t=4)
                     t = torch.randint(4, 5, (1,), device=train_cfg.device).long()
                     noise = torch.randn_like(z[0:1])
-                    z_t = model.q_sample(z[0:1], t, noise=noise) 
-                    
+                    z_t = model.q_sample(z[0:1], t, noise=noise)
+
                     # Predici il rumore con contesto A e contesto B
                     pred_noise_A = model.apply_model(z_t, t, ctx_A)
                     pred_noise_B = model.apply_model(z_t, t, ctx_B)
@@ -154,6 +156,7 @@ def train():
                     std = torch.exp(0.5 * log_var)
                     eps = torch.randn_like(std)
                     z = mu + eps * std
+                    # z = vae.encoder(x_start).sample()
                     x_recon = vae.decode(z) # Torniamo nello spazio fisico [B, 1, 128, 128, 128]
 
                     mid = x_start.shape[2] // 2
