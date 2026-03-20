@@ -209,31 +209,38 @@ def create_corruption_function(hparams: Namespace, device: torch.device) -> Forw
 # --- CONDITIONING UTILS ---
 
 def setup_noise_inputs(device: torch.device, hparams: Namespace) -> Tuple[torch.Tensor, torch.Tensor]:
-    # Creiamo un vettore di 4 parametri (es. valori medi del catalogo)
-    cond_full = torch.tensor(
-        [[6.1, 12.7, 57.3, 250]], device=device
+    # 1. Valori grezzi (Raw) dal catalogo
+    cond_raw = torch.tensor(
+        [[6.1, 12.7, 57.3, 250.0]], device=device, dtype=torch.float32
     )
     
-    
-    # Se vuoi ottimizzare i primi due (es. Freq e Flux sono i primi due nel tuo dataset)
-    # li rendiamo parte del grafo di calcolo
-    cond_full.requires_grad_(True)
+    # 2. Statistiche del catalogo (INSERISCI QUI I TUOI VALORI REALI)
+    # Calcolati precedentemente con: col.mean() e col.std()
+    means = torch.tensor([6.1, 12.7, 57.3, 250.0], device=device)
+    stds = torch.tensor([3.9, 23.83, 21.53, 123], device=device)
 
-    # Rumore latente (z_channels=3, resolution=32)
-    
+    # 3. Normalizzazione Z-score: (x - media) / std
+    # Questo porta i parametri in un range centrato sullo 0, ottimo per i gradienti
+    cond_normalized = (cond_raw - means) / (stds + 1e-6)
+
+    # 4. Abilitiamo il gradiente sulla versione normalizzata
+    # Se vuoi ottimizzare i parametri fisici, dovremmo rendere "raw" ottimizzabile.
+    # Se vuoi solo vedere se la rete "sente" l'input, usiamo quella normalizzata.
+    cond_normalized.requires_grad_(True)
+
+    # --- Gestione Latente ---
     f = hparams.downsample_factor if hparams.corruption == "downsample" else 1
-    # Se hparams.image_size è [160, 224, 160]
-    latent_depth = hparams.image_size[0] // f  # 20
-    latent_height = hparams.image_size[1] // f # 28
-    latent_width = hparams.image_size[2] // f  # 20
+    
+    latent_depth = hparams.image_size[0] // f  
+    latent_height = hparams.image_size[1] // f 
+    latent_width = hparams.image_size[2] // f  
 
     latent_variable = torch.randn(
         (1, hparams.z_channels, latent_depth, latent_height, latent_width), 
         device=device, requires_grad=True
     )
-    #latent_variable = torch.randn(latent_shape, device=device, requires_grad=True)
     
-    return cond_full, latent_variable
+    return cond_normalized, latent_variable
 
 
 def sampling_from_ddim(

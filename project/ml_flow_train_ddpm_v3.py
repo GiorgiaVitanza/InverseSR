@@ -63,7 +63,7 @@ def train():
 
     # Ottimizzatore 
     optimizer = torch.optim.Adam(model.parameters(), lr=train_cfg.learning_rate)
-        
+
 
     # 3. TRAINING LOOP CON MLFLOW
     with mlflow.start_run(run_name="DDPM_v3"):
@@ -121,30 +121,6 @@ def train():
                 model.eval()
                 vae.eval() # Assicurati che il VAE sia in eval
                 with torch.no_grad():
-
-
-                    # Validation Conditioning Cross-attention Check:
-                    # Prendi due contesti diversi dal batch
-                    ctx_A = raw_context[0:1]
-                    ctx_B = torch.zeros_like(ctx_A) # Contesto "vuoto" o neutro
-
-                    # Genera partendo dallo stesso rumore z_t (es. t=4)
-                    t = torch.randint(4, 5, (1,), device=train_cfg.device).long()
-                    noise = torch.randn_like(z[0:1])
-                    z_t = model.q_sample(z[0:1], t, noise=noise)
-
-                    # Predici il rumore con contesto A e contesto B
-                    pred_noise_A = model.apply_model(z_t, t, ctx_A)
-                    pred_noise_B = model.apply_model(z_t, t, ctx_B)
-                    
-                    
-                    # Calcola la differenza
-                    diff = torch.abs(pred_noise_A - pred_noise_B).mean().item()
-                    mlflow.log_metric("context_sensitivity", diff, step=epoch)
-                    
-                    if diff < 1e-6:
-                        print(f"ATTENZIONE: Il modello sembra ignorare il contesto (Diff: {diff})")
-
                     # 1. Ottieni il latente predetto (semplificato)
                     # In DDPM, per un log veloce, possiamo guardare come il VAE 
                     # ricostruisce il latente "pulito" z per verificare che tutto sia collegato bene

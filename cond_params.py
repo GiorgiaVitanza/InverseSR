@@ -12,4 +12,4 @@ cols_to_check = [3, 4, 7, 8]
 
 for i, j in zip(cols_to_check, col_names[cols_to_check]):
     col = data[:, i]
-    print(f"Colonna {j} -> Max: {col.max()}, Min: {col.min()}, Mean: {col.mean()}")
+    print(f"Colonna {j} -> Max: {col.max()}, Min: {col.min()}, Mean: {col.mean()}, Std: {col.std()}")
