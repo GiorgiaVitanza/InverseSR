@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import numpy as np
 import scipy.ndimage.morphology
 
-from project.utils.const import LATENT_SHAPE
+from utils.const import LATENT_SHAPE
 
 
 class ForwardAbstract(ABC):

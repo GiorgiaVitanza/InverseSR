@@ -17,7 +17,7 @@ from models.ddpm_v2_conditioned import DDPM
 
 # --- CONFIGURAZIONE PERCORSI LEONARDO ---
 train_cfg, _ = train_config()
-BASE_SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/data/trained_models_astro"
+BASE_SCRATCH = train_cfg.output_dir
 #MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, 'mlruns_ddpm_1ch')}"
 CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_ddpm_1ch_{train_cfg.epochs}ep")
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
@@ -44,6 +44,9 @@ vae.eval() # Importante: il VAE deve essere in modalità eval e non richiede gra
 def train():
     # Caricamento configurazioni
     unet_cfg, _ = get_config() # Restituisce il dizionario {"params": {...}} e unknown
+    unet_cfg["params"]["in_channels"] = unet_cfg["params"]["in_channels_unet"]
+    # 2. Rimuovi la vecchia chiave se vuoi "pulire" il dizionario
+    unet_cfg["params"].pop("in_channels_unet", None)
     train_cfg, _ = train_config()
     
     # 1. DATASET E DATALOADER
@@ -57,13 +60,13 @@ def train():
 
     model = DDPM(
         unet_config=unet_cfg,
-        conditioning_key="crossattn", 
+        conditioning_key=train_cfg.cond_key, 
         learn_logvar=True
     ).to(train_cfg.device)
 
     # Ottimizzatore 
     optimizer = torch.optim.Adam(model.parameters(), lr=train_cfg.learning_rate)
-
+        
 
     # 3. TRAINING LOOP CON MLFLOW
     with mlflow.start_run(run_name="DDPM_v3"):
@@ -117,7 +120,7 @@ def train():
             avg_loss = np.mean(epoch_loss)
             mlflow.log_metric("avg_loss", avg_loss, step=epoch)
 
-            if epoch % 5 == 0:
+            if epoch % 50 == 0:
                 model.eval()
                 vae.eval() # Assicurati che il VAE sia in eval
                 with torch.no_grad():
@@ -157,7 +160,7 @@ def train():
                     plt.close(fig)
 
             # 5. SALVATAGGIO PERIODICO (Modello)
-            if (epoch + 1) % 5 == 0:
+            if (epoch + 1) % 20 == 0:
                 ckpt_path = os.path.join(CHECKPOINT_DIR, f"ddpm_astro_ep{epoch+1}.pth")
                 
                 # Salviamo entrambi gli state_dict in un unico dizionario

@@ -18,8 +18,9 @@ def train_config():
     parser.add_argument("--catalogue_path", type=str, default="./data/inputs/sky_dev_truthcat_v2.txt", help="Path al file txt del catalogo")
 
     parser.add_argument("--tensor_board_logger", type=str, default="./data/outputs/logs_ddpm", help="Path per il logger di TensorBoard")
-
-
+    
+    # Conditioning per la unet 
+    parser.add_argument("--cond_key", type=str, default=None)
 
     # --- Parametri Training ---
 
