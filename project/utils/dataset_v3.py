@@ -3,6 +3,10 @@ from torch.utils.data import Dataset
 import numpy as np
 import os
 import pandas as pd
+from utils.const import (
+    GLOBAL_MAX,
+    GLOBAL_MIN,
+)
 
 class RadioPatchDataset(Dataset):
     def __init__(self, data_dir, catalogue_path, in_channels):
@@ -23,8 +27,8 @@ class RadioPatchDataset(Dataset):
         # --- STATISTICHE PER NORMALIZZAZIONE 0-1 ---
         # 1. Statistiche Dati Volumetrici (Valori basati sul tuo dataset radio)
         # Nota: Sostituisci questi valori con il min/max reali del tuo set di training
-        self.data_min = -1.47367257e-03  # Esempio: rumore di fondo minimo
-        self.data_max = 1.52088422e-03     # Esempio: picco di intensità massima
+        self.data_min = GLOBAL_MIN  # Esempio: rumore di fondo minimo
+        self.data_max = GLOBAL_MAX     # Esempio: picco di intensità massima
         
         # 2. Statistiche Catalogo (Calcolate una volta sola)
         self.stats = {col: (self.catalog[col].min(), self.catalog[col].max()) 

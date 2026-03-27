@@ -57,7 +57,8 @@ else:
     FINAL_RESULTS_FOLDER = OUTPUT_FOLDER / "final_results"
 
 # --- 3. DIMENSIONI DATI (CRUCIALE) ---
-
+GLOBAL_MIN = -1.47367257e-03  # rumore di fondo minimo
+GLOBAL_MAX = 1.52088422e-03     #picco di intensità massima
 # IMAGE_SHAPE: [Batch, Channels, Depth (Freq/Vel), Height (Dec), Width (RA)]
 # Nota: I modelli di diffusione richiedono dimensioni fisse (spesso multipli di 32 o 64).
 

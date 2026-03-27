@@ -35,11 +35,24 @@ from utils.utils_new import (
     getVggFeatures,
     load_vgg_perceptual
 )
-from utils.plot_new import draw_corrupted_images, draw_images # 
+from utils.plot_new import draw_corrupted_images, draw_images 
 
 OUTPUT_FOLDER = "./data/outputs/BRGM_ddim_cond" 
 
 # --- HELPER FUNCTIONS ---
+def denormalize_cond(cond: torch.Tensor) -> torch.Tensor:
+    """Denormalizza da 0-1 a valori originali con clipping"""
+    # Esempio di dizionario dei parametri (da caricare nel tuo script)
+    stats = {
+        "hi_size": {"min": 1.193, "max": 39.778},
+        "line_flux_integral": {"min": 1.396, "max": 566.675},
+        "i": {"min": 1.358, "max": 90.0},
+        "w20": {"min": 30.296, "max": 798.491}
+    }
+    stats_min = torch.tensor([stats[key]["min"] for key in stats], device=cond.device)
+    stats_max = torch.tensor([stats[key]["max"] for key in stats], device=cond.device)
+    current_cond_phys = cond.detach() * (stats_max - stats_min) + stats_min
+    return torch.clamp(current_cond_phys, stats_min, stats_max)
 
 def logprint(message: str, verbose: bool) -> None:
     if verbose:
@@ -94,7 +107,19 @@ def project(
 ):
     # 1. SETUP INIZIALE
     # setup_noise_inputs ora restituisce cond [1, 4] e latent [1, 3, ...]
-    cond, latent_variable = setup_noise_inputs(device=device, hparams=hparams)
+    cat_path = Path("C:\Modelli 3D\InverseSR - Astro\data\processed_dataset\master_patch_catalog.csv")
+    cat = {}
+    with open(cat_path, "r") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            obj_id = row["patch_id"]
+            cat[obj_id] = {
+                "hi_size": float(row["hi_size"]),
+                "line_flux_integral": float(row["line_flux_integral"]),
+                "i": float(row["i"]),
+                "w20": float(row["w20"]),
+            }
+    cond, latent_variable = setup_noise_inputs(cat, device=device, hparams=hparams)
 
     update_params = []
     if hparams.update_latent_variables:
@@ -183,7 +208,9 @@ def project(
             synth_img,
             synth_img_corrupted,
         ) = optimizer.step(closure=closure)
-
+        # Constraint: mantieni i parametri nel range di confidenza del modello
+        with torch.no_grad():
+            cond.clamp_(0, 1)
         synth_img_np = synth_img[0, 0].detach().cpu().numpy()
         target_np = target[0, 0].detach().cpu().numpy()
         ssim_ = ssim(
@@ -242,12 +269,12 @@ def project(
         writer.add_scalar("inv_cond/i", cond[0, 2].item(), step)
         writer.add_scalar("inv_cond/w20", cond[0, 3].item(), step)
 
-        writer.flush()
-        writer.close()
+        
         if verbose:
                     print(f"Step {step:03d} | Loss: {loss.item():.6f} | Hi Size: {cond[0,0]:.4f} | Line Flux Integral: {cond[0,1]:.4f} | I: {cond[0,2]:.4f} | W20: {cond[0,3]:.4f} | SSIM_mid: {ssim_:.4f}")
 
-
+    writer.flush()
+    writer.close()
     torch.save(
         {
             "epoch": step,

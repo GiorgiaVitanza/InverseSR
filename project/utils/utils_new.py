@@ -30,7 +30,8 @@ from utils.const import (
     PRETRAINED_MODEL_VAE_PATH,
     PRETRAINED_MODEL_DDPM_PATH,
     PRETRAINED_MODEL_VGG_PATH,
-    INPUT_FOLDER,
+    GLOBAL_MIN,
+    GLOBAL_MAX,
     LATENT_SHAPE, # Assicurati che in const.py questo sia corretto per i tuoi dati (es. [1, 3, 16, 16, 16])
 )
 
@@ -166,17 +167,17 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
 
     # Converte in tensor
     img_tensor = torch.from_numpy(data).to(device)
-
-    # Gestione dimensioni:
-    # Se il patch è (D, H, W), lo portiamo a (C, D, H, W) aggiungendo il canale
-    if img_tensor.ndim == 3:
-        img_tensor = img_tensor.unsqueeze(0)
+     
     
-    # Aggiunge la dimensione Batch: -> (1, C, D, H, W)
-    if img_tensor.ndim == 4:
-        img_tensor = img_tensor.unsqueeze(0)
+    # Applichiamo la Min-Max Normalization: x_norm = (x - min) / (max - min)
+    img_tensor = (img_tensor - GLOBAL_MIN) / (GLOBAL_MAX - GLOBAL_MIN + 1e-8)
+
+    # Opzionale: clipping per sicurezza se hai pixel outlier
+    img_tensor = torch.clamp(img_tensor, 0, 1)
         
     return img_tensor
+        
+    
 
 
 def load_pre_trained_model(device: torch.device) -> Tuple[torch.nn.Module, torch.nn.Module]:
@@ -210,39 +211,36 @@ def create_corruption_function(hparams: Namespace, device: torch.device) -> Forw
 
 def setup_noise_inputs(cat, device: torch.device, hparams: Namespace) -> Tuple[torch.Tensor, torch.Tensor]:
     # 1. Valori grezzi (Raw) dal catalogo
-    cond = [cat['patch_000000.npy']['hi_size'],cat['patch_000000.npy']['line_flux_integral'], cat['patch_000000.npy']['i'], cat['patch_000000.npy']['w20']]
-    cond_raw = torch.tensor(
-        [cond], device=device, dtype=torch.float32
-    )
+    # Nota: Assicurati che 'patch_000000.npy' sia dinamico o passato correttamente
+    obj_data = cat[hparams.object_id] 
+    cond_list = [
+        obj_data['hi_size'], 
+        obj_data['line_flux_integral'], 
+        obj_data['i'], 
+        obj_data['w20']
+    ]
+    cond_raw = torch.tensor([cond_list], device=device, dtype=torch.float32)
     
-    # 2. Statistiche del catalogo (INSERISCI QUI I TUOI VALORI REALI)
-    # Calcolati precedentemente con: col.mean() e col.std()
-    means = torch.tensor([6.1, 12.7, 57.3, 250.0], device=device)
-    stds = torch.tensor([3.9, 23.83, 21.53, 123], device=device)
+    # 2. Statistiche Min-Max del training 
+    # Questi devono essere gli stessi identici usati nel preprocessing del training set
+    mins = torch.tensor([1.193, 1.396, 1.358, 30.296], device=device)   
+    maxs = torch.tensor([39.77, 566.675, 90.0, 798.491], device=device) 
 
-    # 3. Normalizzazione Z-score: (x - media) / std
-    # Questo porta i parametri in un range centrato sullo 0, ottimo per i gradienti
-    cond_normalized = (cond_raw - means) / (stds + 1e-6)
+    # 3. Normalizzazione Min-Max (0-1)
+    # Formula: (x - min) / (max - min)
+    cond_normalized = (cond_raw - mins) / (maxs - mins + 1e-8)
 
-    # 4. Abilitiamo il gradiente sulla versione normalizzata
-    # Se vuoi ottimizzare i parametri fisici, dovremmo rendere "raw" ottimizzabile.
-    # Se vuoi solo vedere se la rete "sente" l'input, usiamo quella normalizzata.
+    # 4. Abilitiamo il gradiente
+    # Tip: Clamping durante l'ottimizzazione aiuterà a non uscire dal range [0, 1]
     cond_normalized.requires_grad_(True)
 
     # --- Gestione Latente ---
+    # (Il resto del codice rimane invariato)
     f = hparams.downsample_factor if hparams.corruption == "downsample" else 1
-    
-    latent_depth = hparams.image_size[0] // f  
-    latent_height = hparams.image_size[1] // f 
-    latent_width = hparams.image_size[2] // f  
-
-    latent_variable = torch.randn(
-        (1, hparams.z_channels, latent_depth, latent_height, latent_width), 
-        device=device, requires_grad=True
-    )
+    latent_shape = (1, hparams.z_channels, hparams.image_size[0]//f, hparams.image_size[1]//f, hparams.image_size[2]//f)
+    latent_variable = torch.randn(latent_shape, device=device, requires_grad=True)
     
     return cond_normalized, latent_variable
-
 
 def sampling_from_ddim(
     ddim: DDIMSampler,

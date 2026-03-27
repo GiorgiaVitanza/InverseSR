@@ -25,13 +25,14 @@ from skimage.metrics import peak_signal_noise_ratio as psnr
 from skimage.metrics import structural_similarity as ssim
 from sklearn.neighbors import NearestNeighbors
 from torch.utils.tensorboard import SummaryWriter
+from pathlib import Path
 
 from utils.add_argument import add_argument
 from utils.const import (
-    INPUT_FOLDER,
     LATENT_SHAPE,
     OUTPUT_FOLDER,
-    PRETRAINED_MODEL_DDPM_PATH,
+    GLOBAL_MAX,
+    GLOBAL_MIN,
     PRETRAINED_MODEL_DECODER_PATH,
 )
 from utils.plot_new import draw_corrupted_images, draw_images, draw_img, compare_cubes, plot_orthogonal_cuts
@@ -49,6 +50,15 @@ from utils.utils_new import (
 )
 
 OUTPUT_FOLDER = OUTPUT_FOLDER / "BRGM_decoder"
+
+def denormalize_data(x):
+    """Denormalizza da 0-1 a valori originali con clipping"""
+    # 1. Recupera i valori fisici originali 
+    v_min = GLOBAL_MIN
+    v_max = GLOBAL_MAX
+    x = x * (v_max - v_min) + v_min
+    return np.clip(x, v_min, v_max)
+
 def logprint(message: str, verbose: bool) -> None:
     if verbose:
         print(message)
@@ -142,16 +152,29 @@ def project(
     hparams: Namespace,
     verbose: bool = False,
 ):
-    latent_vectors_tensor = load_ddpm_latent_vectors(device)
+    latent_vectors_tensor = load_ddpm_latent_vectors(device, hparams)
     latent_vector_mean, latent_vector_std = compute_latent_vector_stats(
         latent_vectors=latent_vectors_tensor, device=device, verbose=verbose
     )
-    cond, latent_variable = setup_noise_inputs(hparams=hparams, device=device)
+
+    cat_path = Path("./data/inputs/128x128x128_stride128/master_patch_catalog.csv")
+    cat = {}
+    with open(cat_path, "r") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            obj_id = row["patch_id"]
+            cat[obj_id] = {
+                "hi_size": float(row["hi_size"]),
+                "line_flux_integral": float(row["line_flux_integral"]),
+                "i": float(row["i"]),
+                "w20": float(row["w20"]),
+            }
+    cond, latent_variable = setup_noise_inputs(cat, device=device, hparams=hparams)
     cond_crossatten = cond.unsqueeze(1)
     cond_concat = cond.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
     cond_concat = cond_concat.expand(list(cond.shape[0:2]) + list(LATENT_SHAPE[2:]))
     if not hparams.mean_latent_vector:
-        ddpm = load_ddpm_model(ddpm_path=PRETRAINED_MODEL_DDPM_PATH, device=device)        
+        ddpm = load_ddpm_model(ddpm_path=hparams.path_to_ddpm_checkpoint, device=device)        
         conditioning = {
             "c_concat": [cond_concat.float().to(device)],
             "c_crossattn": [cond_crossatten.float().to(device)],
@@ -322,6 +345,20 @@ def project(
         writer=writer,
     )
 
+    # --- ESEMPIO DI MODIFICA PRIMA DEI PLOT FINALI ---
+
+    
+    # 2. De-normalizza l'immagine sintetica (che è in [0, 1]) 
+    # per portarla nella scala fisica del target
+    synth_vis = synth_img[0, 0].detach().cpu().numpy()
+    synth_vis = denormalize_data(synth_vis)
+    target_vis = target[0, 0].detach().cpu().numpy() 
+    target_vis = denormalize_data(target_vis)
+    target_img_corrupted_vis = target_img_corrupted[0, 0].detach().cpu().numpy() 
+    target_img_corrupted_vis = denormalize_data(target_img_corrupted_vis)
+    synth_img_corrupted_vis = synth_img_corrupted[0, 0].detach().cpu().numpy() 
+    synth_img_corrupted_vis = denormalize_data(synth_img_corrupted_vis)
+
     draw_img(
         target_np,
         title="target",
@@ -337,33 +374,33 @@ def project(
     )
 
     compare_cubes(
-        target_np,
-        synth_img_np,
+        target_vis,
+        synth_vis,
         title="target_vs_synth",
         save_path=OUTPUT_FOLDER / "compare_target_vs_synth.png",
     )
 
     compare_cubes(
-        target_img_corrupted[0, 0].detach().cpu().numpy(),
-        synth_img_corrupted[0, 0].detach().cpu().numpy(),
+        target_img_corrupted_vis,
+        synth_img_corrupted_vis,
         title="corrupted_target_vs_corrupted_synth",
         save_path=OUTPUT_FOLDER / "compare_corrupted_target_vs_corrupted_synth.png",
     )
 
     plot_orthogonal_cuts(
-        synth_img_np,
+        synth_vis,
         title="orthogonal_cuts_synth",
         save_path=OUTPUT_FOLDER/"orthogonal_cuts_synth.png",
     )
 
     plot_orthogonal_cuts(
-        target_np,
+        target_vis,
         title="orthogonal_cuts_target", 
         save_path=OUTPUT_FOLDER/"orthogonal_cuts_target.png",
     )
 
     plot_orthogonal_cuts(
-        synth_img_corrupted[0, 0].detach().cpu().numpy(),
+        synth_img_corrupted_vis,
         title="orthogonal_cuts_corrupted",
         save_path=OUTPUT_FOLDER/"orthogonal_cuts_corrupted.png",
     )
