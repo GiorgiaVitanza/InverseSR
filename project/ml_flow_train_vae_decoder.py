@@ -22,8 +22,8 @@ train_param, unknown_1 = train_config()
 if unknown_1:
     print(f"Argomenti ignorati da train {unknown_1}")
 BASE_SCRATCH = f"/leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/{train_param.output_dir}"
-#MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, f'mlruns_vae_decoder_{train_param.epochs}epochs')}"
-CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_vae_decoder_{train_param.epochs}epochs")
+
+CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_vae_decoder_{hparams.in_channels}_{train_param.epochs}epochs")
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 #mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -50,7 +50,7 @@ def run_step(model, x):
     return recon_loss + kl_loss, recon_loss, x_hat
 
 def train(): 
-    dataset = RadioPatchDataset(data_dir=train_param.data_dir, catalogue_path=train_param.catalogue_path)
+    dataset = RadioPatchDataset(data_dir=train_param.data_dir, catalogue_path=train_param.catalogue_path, in_channels=hparams.in_channels)
     dataloader = DataLoader(dataset, batch_size=train_param.batch_size, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
 
     hparams_dict = vars(hparams)
@@ -117,11 +117,11 @@ def train():
 
         # --- REGISTRAZIONE FINALE SU MLFLOW ---
         # Registra il VAE intero
-        mlflow.pytorch.log_model(model,name=f"model_full_vae_{train_param.epochs}epochs")
+        mlflow.pytorch.log_model(model,name=f"model_full_vae_{hparams.in_channels}_{train_param.epochs}epochs")
         
         # Registra solo il Decoder 
         only_decoder = OnlyDecoder(model)
-        mlflow.pytorch.log_model(only_decoder, name=f"model_only_decoder_{train_param.epochs}epochs")
+        mlflow.pytorch.log_model(only_decoder, name=f"model_only_decoder_{hparams.in_channels}_{train_param.epochs}epochs")
 
     print(f"Training concluso. Checkpoints e pesi estratti salvati in {CHECKPOINT_DIR}")
 

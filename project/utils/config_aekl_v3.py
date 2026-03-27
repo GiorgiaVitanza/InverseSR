@@ -6,8 +6,8 @@ def get_hparams():
 
 
     # --- Parametri Architettura (Adattati all'analisi Conv3D) ---
-    parser.add_argument("--in_channels", type=int, default=1, help="Canali input (Input volumetrico: 1)")
-    parser.add_argument("--out_channels", type=int, default=1, help="Canali output (Output volumetrico: 1)")
+    parser.add_argument("--in_channels", type=int, default=3, help="Canali input (Input volumetrico: 1)")
+    parser.add_argument("--out_channels", type=int, default=3, help="Canali output (Output volumetrico: 1)")
     
     # z_channels rilevato dai layer quant_conv_mu
     parser.add_argument("--z_channels", type=int, default=3, help="Canali latenti stimati (Z-Channels)")

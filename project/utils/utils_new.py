@@ -62,9 +62,9 @@ def inference(
     x_hat = vqvae.reconstruct_ldm_outputs(latent_vectors)
     return x_hat
 
-def load_ddpm_latent_vectors(device: torch.device) -> torch.Tensor:
+def load_ddpm_latent_vectors(device: torch.device, hparams: Namespace) -> torch.Tensor:
     checkpoint = torch.load(
-        INPUT_FOLDER.parent / "trained_models_astro" / "results.pth",
+        Path(hparams.path_to_latent_ddpm),
         map_location=device,
     )
     
@@ -208,10 +208,11 @@ def create_corruption_function(hparams: Namespace, device: torch.device) -> Forw
 
 # --- CONDITIONING UTILS ---
 
-def setup_noise_inputs(device: torch.device, hparams: Namespace) -> Tuple[torch.Tensor, torch.Tensor]:
+def setup_noise_inputs(cat, device: torch.device, hparams: Namespace) -> Tuple[torch.Tensor, torch.Tensor]:
     # 1. Valori grezzi (Raw) dal catalogo
+    cond = [cat['patch_000000.npy']['hi_size'],cat['patch_000000.npy']['line_flux_integral'], cat['patch_000000.npy']['i'], cat['patch_000000.npy']['w20']]
     cond_raw = torch.tensor(
-        [[6.1, 12.7, 57.3, 250.0]], device=device, dtype=torch.float32
+        [cond], device=device, dtype=torch.float32
     )
     
     # 2. Statistiche del catalogo (INSERISCI QUI I TUOI VALORI REALI)

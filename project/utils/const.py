@@ -24,8 +24,8 @@ if IS_CLUSTER:
     
     # Cartelle per i pesi dei modelli pre-addestrati
     PRETRAINED_MODEL_FOLDER = WORK_DIR / "trained_models_astro"
-    PRETRAINED_MODEL_DDPM_PATH = PRETRAINED_MODEL_FOLDER / "ddpm"
-    PRETRAINED_MODEL_VAE_PATH = PRETRAINED_MODEL_FOLDER / "vae"
+    PRETRAINED_MODEL_DDPM_PATH = PRETRAINED_MODEL_FOLDER / "trained_models_ddpm_100" / "crossattn"
+    PRETRAINED_MODEL_VAE_PATH = PRETRAINED_MODEL_FOLDER / "trained_models_astro_400" / "vae_400"
     
     # Output
     OUTPUT_FOLDER = WORK_DIR / "outputs"
@@ -44,13 +44,13 @@ else:
     
     PRETRAINED_MODEL_FOLDER = DATA_ROOT / "trained_models_astro"
     
-    PRETRAINED_MODEL_DDPM_PATH = PRETRAINED_MODEL_FOLDER / "ddpm"
-    PRETRAINED_MODEL_DECODER_PATH = PRETRAINED_MODEL_FOLDER / "decoder"
-    PRETRAINED_MODEL_VAE_PATH = PRETRAINED_MODEL_FOLDER / "vae"
+    PRETRAINED_MODEL_DDPM_PATH = PRETRAINED_MODEL_FOLDER  / "trained_models_ddpm_100" / "crossattn"
+    PRETRAINED_MODEL_DECODER_PATH = PRETRAINED_MODEL_FOLDER / "trained_models_astro_400" / "decoder_400"
+    PRETRAINED_MODEL_VAE_PATH = PRETRAINED_MODEL_FOLDER / "trained_models_astro_400" / "vae_400"
     
     # Percorso per un eventuale modello di feature extraction (es. per loss percettiva)
     # Nota: VGG16 è per immagini 2D. Se usi cubi 3D, potresti non usarlo o usare una 3D-ResNet.
-    PRETRAINED_MODEL_VGG_PATH = PRETRAINED_MODEL_FOLDER / "vgg" / "vgg16_slim_astro_1ch.pth"
+    PRETRAINED_MODEL_VGG_PATH = PRETRAINED_MODEL_FOLDER / "vgg" / "vgg16_slim_astro.pth"
 
     OUTPUT_FOLDER = DATA_ROOT / "outputs" 
     FIGURES_FOLDER = DATA_ROOT / "figures" # Ex thesis_imgs
@@ -61,7 +61,7 @@ else:
 # IMAGE_SHAPE: [Batch, Channels, Depth (Freq/Vel), Height (Dec), Width (RA)]
 # Nota: I modelli di diffusione richiedono dimensioni fisse (spesso multipli di 32 o 64).
 
-IMAGE_SHAPE = [1, 1, 128, 128, 128] 
+IMAGE_SHAPE = [1, 3, 128, 128, 128] 
 
 # LATENT_SHAPE: La dimensione compressa nel "Latent Space" del VAE.
 # Dipende dal fattore di downsampling del tuo modello (spesso f=4 o f=8).
@@ -74,11 +74,11 @@ LATENT_SHAPE = [1, 3, int(128/4), int(128/4), int(128/4)]
 # gli oggetti specifici su cui vuoi testare il modello.
 # Oppure lasciare una lista vuota e caricarli dinamicamente nello script principale.
 
-VALIDATION_OBJECTS = [
-    "NGC1234",
-    "M51_cube",
-    "SIM_TNG50_subhalo_1",
-    # Aggiungi qui i tuoi nomi file (senza estensione .fits)
+TEST_OBJECTS = [
+    "patch_000007",
+    "patch_000008",
+    "patch_000009",
+    # Aggiungi qui i tuoi nomi file (senza estensione .npy)
 ]
 
 # Helper per caricare tutti i file se la lista sopra è vuota

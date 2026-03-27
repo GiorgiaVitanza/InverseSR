@@ -206,3 +206,10 @@ def add_argument(parser: ArgumentParser):
         type=str,
         help="Path al checkpoint della DDPM pre-allenata"
     )
+
+    parser.add_argument(
+        "--path_to_latent_ddpm",    
+        default="C:\\Modelli 3D\\InverseSR - Astro\\data\\trained_models_astro\\results.pth",
+        type=str,
+        help="Path al checkpoint della DDPM pre-allenata"
+    )

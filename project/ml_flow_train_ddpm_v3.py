@@ -17,22 +17,21 @@ from models.ddpm_v2_conditioned import DDPM
 
 # --- CONFIGURAZIONE PERCORSI LEONARDO ---
 train_cfg, _ = train_config()
+hparams, _ = get_hparams()
 BASE_SCRATCH = train_cfg.output_dir
-#MLFLOW_TRACKING_URI = f"file:{os.path.join(BASE_SCRATCH, 'mlruns_ddpm_1ch')}"
-CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_ddpm_1ch_{train_cfg.epochs}ep")
+
+CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_ddpm_{hparams.in_channels}ch_{train_cfg.epochs}ep")
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 # --- MLFLOW SETUP ---
 #mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-mlflow.set_tracking_uri("sqlite:///mlflow_ddpm_1ch.db")
+mlflow.set_tracking_uri(f"sqlite:///mlflow_ddpm_{hparams.in_channels}ch.db")
 mlflow.set_experiment(f"Radio_DDPM_v2_{train_cfg.epochs}")
 
 # Carica il VAE
-hparams, _ = get_hparams() # Assicurati che z_channels=3 e resolution=[128,128,128]
 hparams_dict = vars(hparams)
 
 vae = AutoencoderKL(embed_dim=hparams.z_channels, hparams=hparams_dict).to(train_cfg.device)
-#checkpoint = torch.load("outputs from leonardo/checkpoints/vae_1ch_ep100.pth")
 checkpoint = torch.load(
     train_cfg.vae_path, #vae  1 ch
     map_location=train_cfg.device, 
@@ -52,9 +51,10 @@ def train():
     # 1. DATASET E DATALOADER
     dataset = RadioPatchDataset(
         data_dir=train_cfg.data_dir, 
-        catalogue_path=train_cfg.catalogue_path
+        catalogue_path=train_cfg.catalogue_path,
+        in_channels=hparams.in_channels
     )
-    dataloader = DataLoader(dataset, batch_size=train_cfg.batch_size, shuffle=True, num_workers=1)
+    dataloader = DataLoader(dataset, batch_size=train_cfg.batch_size, shuffle=True, num_workers=8)
 
     
 

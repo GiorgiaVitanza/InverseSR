@@ -10,7 +10,9 @@ def train_config():
     # --- Paths ---
 
     parser.add_argument("--data_dir", type=str, default="./data/inputs/patches_160_224_160_stride160", help="Path alla cartella dei dati")
-
+    
+    parser.add_argument("--test_dir", type=str, default="./data/inputs/patches_160_224_160_stride160/npy_patches_test", help="Path alla cartella dei dati di test")
+    
     parser.add_argument("--vae_path", type=str, default="./data/trained_models_astro/checkpoints_vae_decoder/vae_full_ep100.pth", help="Path alla cartella dei pesi del VAE")
 
     parser.add_argument("--output_dir", type=str, default="./data/outputs/ddpm", help="Path alla cartella di output")
