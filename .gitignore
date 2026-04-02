@@ -1,7 +1,8 @@
 .flake8
 pyproject.toml
 *.pth
-Job_scripts/
+
+mlruns/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
