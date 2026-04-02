@@ -15,11 +15,15 @@ def train_config():
     
     parser.add_argument("--vae_path", type=str, default="./data/trained_models_astro/checkpoints_vae_decoder/vae_full_ep100.pth", help="Path alla cartella dei pesi del VAE")
 
-    parser.add_argument("--output_dir", type=str, default="./data/outputs/ddpm", help="Path alla cartella di output")
+    parser.add_argument("--output_dir_vae", type=str, default="./data/outputs/vae", help="Path alla cartella di output")
+
+    parser.add_argument("--output_dir_ddpm", type=str, default="./data/outputs/ddpm", help="Path alla cartella di output")
 
     parser.add_argument("--catalogue_path", type=str, default="./data/inputs/sky_dev_truthcat_v2.txt", help="Path al file txt del catalogo")
 
-    parser.add_argument("--tensor_board_logger", type=str, default="./data/outputs/logs_ddpm", help="Path per il logger di TensorBoard")
+    parser.add_argument("--tensor_board_logger_vae", type=str, default="./logs_vae", help="Path per il logger di TensorBoard")
+
+    parser.add_argument("--tensor_board_logger_ddpm", type=str, default="./logs_ddpm", help="Path per il logger di TensorBoard")
     
     # Conditioning per la unet 
     parser.add_argument("--cond_key", type=str, default=None)

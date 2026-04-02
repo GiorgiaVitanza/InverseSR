@@ -13,13 +13,14 @@ class RadioPatchDataset(Dataset):
         super().__init__()
         self.data_dir = data_dir
         self.in_channels = in_channels
-        self.catalog = pd.read_csv(catalogue_path, sep=",")
+        self.catalog = pd.read_csv(catalogue_path, sep=None, engine='python', encoding='utf-8-sig')
         self.catalog.columns = [c.lower().strip() for c in self.catalog.columns]
 
-        if 'id' in self.catalog.columns:
-            self.catalog['id'] = self.catalog['id'].astype(str)
-        else:
-            raise KeyError(f"Colonna 'id' non trovata.")
+
+        # Verifica robusta della colonna ID
+        if 'id' not in self.catalog.columns:
+            available = self.catalog.columns.tolist()
+            raise KeyError(f"Colonna 'id' non trovata. Colonne disponibili: {available}")
         
         self.catalog = self.catalog.set_index("id")
         self.feature_cols = ['hi_size', 'line_flux_integral', 'i', 'w20']
@@ -61,6 +62,7 @@ class RadioPatchDataset(Dataset):
         # Gestione Canali (Replica se necessario)
         if self.in_channels == 3 and x_0.shape[0] == 1:
             x_0 = x_0.repeat(3, 1, 1, 1)
+            print(f"Attenzione: Replicato canale da 1 a 3 per {filename}")
 
         # --- RECUPERO E NORMALIZZAZIONE CONTEXT ---
         try:

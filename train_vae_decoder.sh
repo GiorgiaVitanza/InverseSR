@@ -1,30 +1,37 @@
 #!/bin/bash
-#SBATCH --job-name=VAE_astro          # Nome del job
+#SBATCH --job-name=VAE_astro
 #SBATCH --account=IscrC_DATIV-ML
-#SBATCH --partition=boost_usr_prod     # Partizione per le GPU
+#SBATCH --partition=boost_usr_prod
 #SBATCH --qos=boost_qos_lprod
-#SBATCH --nodes=1                      # Usiamo 1 nodo
-#SBATCH --ntasks-per-node=1            # Un solo task principale
-#SBATCH --gres=gpu:1                   # Chiediamo 1 GPU A100 (puoi metterne fino a 4)
-#SBATCH --cpus-per-task=8  		# Core CPU per il dataloading
-#SBATCH --mem=32GB                     # Memoria RAM
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32GB
 #SBATCH --time=4-00:00:00
-#SBATCH --output=vae_decoder_10_1ch_z16%j.out           # File dove finiranno i print dello script
-#SBATCH --error=vae_decoder_10_1ch_z16%j.err
+#SBATCH --output=vae_decoder_50_1ch_z16_%j.out
+#SBATCH --error=vae_decoder_50_1ch_z16_%j.err
 
-# 1. Carica i moduli necessari (Leonardo usa LMOD)
-# Sostituisci le righe del module load con queste:
+# 1. Carica i moduli
 module purge
 module load profile/deeplrn
 module load python/3.11.7
 
-
+# 2. Attiva l'ambiente
 source /leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/.venv/bin/activate
 
-EPOCHS=10
+# 3. Variabili
+EPOCHS=50
+BASE_DIR="/leonardo_scratch/large/userexternal/gvitanza/InverseSR"
 
-# Lancio del training
-python /leonardo_scratch/large/userexternal/gvitanza/InverseSR/project/ml_flow_train_vae_decoder.py --batch_size 2 --epochs $EPOCHS --data_dir "./data/inputs/128x128x128_stride128/npy_patches"  --output_dir "./data/trained_models_astro/vae_decoder_train_1ch_$EPOCHS" --catalogue_path "./data/inputs/128x128x128_stride128/train_catalog.csv" --resolution 128 128 128
+# 4. Lancio del training
+
+python ${BASE_DIR}/project/ml_flow_train_vae_decoder.py \
+    --data_dir "${BASE_DIR}/data/inputs/128x128x128_stride128/npy_patches" \
+    --output_dir_vae "${BASE_DIR}/data/trained_models_astro/vae_decoder_train_1ch_${EPOCHS}ep_z16" \
+    --catalogue_path "${BASE_DIR}/data/inputs/128x128x128_stride128/train_catalog.csv" \
+    --batch_size 2 \
+    --epochs $EPOCHS \
+    --resolution 128 128 128
 
 echo "Job completed."
-
