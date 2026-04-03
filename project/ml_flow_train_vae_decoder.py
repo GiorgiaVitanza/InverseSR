@@ -22,45 +22,62 @@ hparams, unknown = get_hparams()
 train_param, _ = train_config()
 BASE_SCRATCH = f"/leonardo_scratch/large/userexternal/gvitanza/InverseSR/"
 OUTPUT_DIR = train_param.output_dir_vae
-CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_vae_decoder_{hparams.z_channels}_{train_param.epochs}epochs")
-# Configurazione Log
-TB_LOG_DIR = train_param.tensor_board_logger_vae
 # Crea un nome unico basato sull'orario e sui parametri
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-log_dir = f"{TB_LOG_DIR}/run_{current_time}_lr_{train_param.learning_rate}"
-
-
 
 
 
 mlflow.set_tracking_uri(f"sqlite:///mlruns_vae_decoder_{train_param.epochs}epochs_{current_time}.db")
 mlflow.set_experiment(f"Radio_VAE_Hybrid_Logging_{train_param.epochs}epochs_z{hparams.z_channels}_{current_time}")
 
+
 def run_step(model, x):
+    # --- Encoding & Reparameterization ---
     h = model.encoder(x)
     moments_mu = model.quant_conv_mu(h)
     moments_log_var = model.quant_conv_log_sigma(h)
     
+    # Reparameterization trick
     std = torch.exp(0.5 * moments_log_var)
     eps = torch.randn_like(std)
     z = moments_mu + eps * std
     
+    # --- Decoding ---
     x_hat = model.decode(z)
     
-    recon_loss = F.mse_loss(x_hat, x)
-    kl_loss = -0.5 * torch.sum(1 + moments_log_var - moments_mu.pow(2) - moments_log_var.exp())
-    kl_loss = kl_loss.mean() * 1e-6 
+    # --- Loss Calculation ---
     
-    return recon_loss + kl_loss, recon_loss, kl_loss, x_hat
+    # 1. Reconstruction Loss (L1)
+    # L'uso di F.l1_loss è ideale per volumi 3D per preservare meglio i dettagli
+    recon_loss = F.l1_loss(x_hat, x, reduction='mean')
+    
+    # 2. KL Divergence Loss
+    # Formula: -0.5 * sum(1 + log_var - mu^2 - exp(log_var))
+    # Calcoliamo la KL per ogni elemento e poi mediamo
+    kl_loss = -0.5 * torch.sum(1 + moments_log_var - moments_mu.pow(2) - moments_log_var.exp(), dim=[1, 2, 3, 4])
+    kl_loss = kl_loss.mean()
+    
+    # Peso della KL (Beta)
+    # 1e-6 è un valore comune per VQ-GAN/VAE per non "soffocare" la ricostruzione
+    kl_weight = 1e-6 
+    
+    total_loss = recon_loss + (kl_weight * kl_loss)
+    
+    return total_loss, recon_loss, kl_loss, x_hat
 
 def train(): 
+    CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_vae_decoder_{hparams.z_channels}_{train_param.epochs}epochs")
+    # Configurazione Log
+    TB_LOG_DIR = train_param.tensor_board_logger_vae
+  
+    log_dir = f"{TB_LOG_DIR}/run_{current_time}_lr_{train_param.learning_rate}"
+
     dataset = RadioPatchDataset(data_dir=train_param.data_dir, catalogue_path=train_param.catalogue_path, in_channels=hparams.in_channels)
     dataloader = DataLoader(dataset, batch_size=train_param.batch_size, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
 
-
     
     os.makedirs(CHECKPOINT_DIR, exist_ok=True)
-    os.makedirs(TB_LOG_DIR, exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
 
     hparams_dict = vars(hparams)
     model = AutoencoderKL(embed_dim=hparams.z_channels, hparams=hparams_dict).to(train_param.device)

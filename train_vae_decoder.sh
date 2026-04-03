@@ -23,7 +23,7 @@ source /leonardo_scratch/large/userexternal/gvitanza/InverseSR/.venv/bin/activat
 # 3. Variabili
 EPOCHS=10
 BASE_DIR="/leonardo_scratch/large/userexternal/gvitanza/InverseSR"
-Z_CHANNELS=4
+Z_CHANNELS=8
 
 # 4. Lancio del training
 
