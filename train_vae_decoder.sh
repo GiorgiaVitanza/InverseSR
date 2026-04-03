@@ -18,7 +18,7 @@ module load profile/deeplrn
 module load python/3.11.7
 
 # 2. Attiva l'ambiente
-source /leonardo_scratch/large/userexternal/gvitanza/InverseSr-Astro/.venv/bin/activate
+source /leonardo_scratch/large/userexternal/gvitanza/InverseSR/.venv/bin/activate
 
 # 3. Variabili
 EPOCHS=50
@@ -31,6 +31,7 @@ python ${BASE_DIR}/project/ml_flow_train_vae_decoder.py \
     --output_dir_vae "${BASE_DIR}/data/trained_models_astro/vae_decoder_train_1ch_${EPOCHS}ep_z16" \
     --catalogue_path "${BASE_DIR}/data/inputs/128x128x128_stride128/train_catalog.csv" \
     --batch_size 2 \
+    --learning_rate 1e-5 \
     --epochs $EPOCHS \
     --resolution 128 128 128
 

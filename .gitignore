@@ -3,6 +3,8 @@ pyproject.toml
 *.pth
 
 mlruns/
+logs_vae/
+logs_ddpm/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -13,6 +15,8 @@ __pycache__/
 *.npz
 *.tar.gz
 *.png
+*.out
+*.err
 thesis_experiment_result/
 previous_experiment_result/
 project/masks/

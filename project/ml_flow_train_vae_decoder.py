@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 # --- TENSORBOARD ---
+from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 
 # Import dei tuoi moduli
@@ -24,6 +25,12 @@ OUTPUT_DIR = train_param.output_dir_vae
 CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_vae_decoder_{hparams.in_channels}_{train_param.epochs}epochs")
 # Configurazione Log
 TB_LOG_DIR = train_param.tensor_board_logger_vae
+# Crea un nome unico basato sull'orario e sui parametri
+current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+log_dir = f"{TB_LOG_DIR}/run_{current_time}_lr_{train_param.learning_rate}"
+
+
+
 
 
 mlflow.set_tracking_uri(f"sqlite:///mlruns_vae_decoder_{train_param.epochs}epochs.db")
@@ -60,7 +67,7 @@ def train():
     optimizer = torch.optim.Adam(model.parameters(), lr=train_param.learning_rate)
 
     # Inizializzazione Loggers
-    writer = SummaryWriter(log_dir=TB_LOG_DIR)
+    writer = SummaryWriter(log_dir=log_dir)
 
     with mlflow.start_run(run_name=f"VAE_Hybrid_Training"):
         mlflow.log_params(hparams_dict)
