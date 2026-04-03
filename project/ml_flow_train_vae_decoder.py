@@ -22,7 +22,7 @@ hparams, unknown = get_hparams()
 train_param, _ = train_config()
 BASE_SCRATCH = f"/leonardo_scratch/large/userexternal/gvitanza/InverseSR/"
 OUTPUT_DIR = train_param.output_dir_vae
-CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_vae_decoder_{hparams.in_channels}_{train_param.epochs}epochs")
+CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_vae_decoder_{hparams.z_channels}_{train_param.epochs}epochs")
 # Configurazione Log
 TB_LOG_DIR = train_param.tensor_board_logger_vae
 # Crea un nome unico basato sull'orario e sui parametri
@@ -33,8 +33,8 @@ log_dir = f"{TB_LOG_DIR}/run_{current_time}_lr_{train_param.learning_rate}"
 
 
 
-mlflow.set_tracking_uri(f"sqlite:///mlruns_vae_decoder_{train_param.epochs}epochs.db")
-mlflow.set_experiment("Radio_VAE_Hybrid_Logging")
+mlflow.set_tracking_uri(f"sqlite:///mlruns_vae_decoder_{train_param.epochs}epochs_{current_time}.db")
+mlflow.set_experiment(f"Radio_VAE_Hybrid_Logging_{train_param.epochs}epochs_z{hparams.z_channels}_{current_time}")
 
 def run_step(model, x):
     h = model.encoder(x)
