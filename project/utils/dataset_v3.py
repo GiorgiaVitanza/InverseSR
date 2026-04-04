@@ -3,83 +3,81 @@ from torch.utils.data import Dataset
 import numpy as np
 import os
 import pandas as pd
-from utils.const import (
-    GLOBAL_MAX,
-    GLOBAL_MIN,
-)
+
 
 class RadioPatchDataset(Dataset):
     def __init__(self, data_dir, catalogue_path, in_channels):
         super().__init__()
         self.data_dir = data_dir
         self.in_channels = in_channels
-        self.catalog = pd.read_csv(catalogue_path, sep=None, engine='python', encoding='utf-8-sig')
-        self.catalog.columns = [c.lower().strip() for c in self.catalog.columns]
-
-
-        # Verifica robusta della colonna ID
-        if 'id' not in self.catalog.columns:
-            available = self.catalog.columns.tolist()
-            raise KeyError(f"Colonna 'id' non trovata. Colonne disponibili: {available}")
         
-        self.catalog = self.catalog.set_index("id")
+        # Carichiamo il catalogo specifico (train o test)
+        self.catalog = pd.read_csv(catalogue_path)
+        self.catalog.columns = [c.lower().strip() for c in self.catalog.columns]
+        
+        # Fondamentale: usiamo 'patch_id' come indice perché è il nome del file
+        if 'patch_id' in self.catalog.columns:
+            self.catalog = self.catalog.set_index("patch_id")
+        else:
+            raise KeyError("Il catalogo deve contenere la colonna 'patch_id' per mappare i file .npy")
+
         self.feature_cols = ['hi_size', 'line_flux_integral', 'i', 'w20']
 
-        # --- STATISTICHE PER NORMALIZZAZIONE 0-1 ---
-        # 1. Statistiche Dati Volumetrici (Valori basati sul tuo dataset radio)
-        # Nota: Sostituisci questi valori con il min/max reali del tuo set di training
-        self.data_min = GLOBAL_MIN  # Esempio: rumore di fondo minimo
-        self.data_max = GLOBAL_MAX     # Esempio: picco di intensità massima
-        
-        # 2. Statistiche Catalogo (Calcolate una volta sola)
+        # Statistiche per normalizzazione context (usiamo il catalogo caricato)
         self.stats = {col: (self.catalog[col].min(), self.catalog[col].max()) 
                       for col in self.feature_cols}
 
-        self.patch_files = [f for f in os.listdir(data_dir) if f.endswith('.npy')]
-
-    def normalize_01(self, x, v_min, v_max):
-        """Helper per normalizzare tra 0 e 1 con clipping"""
-        x = (x - v_min) / (v_max - v_min + 1e-8)
-        return torch.clamp(x, 0, 1)
+        # Carichiamo solo i file che sono presenti in questo specifico catalogo
+        self.patch_files = self.catalog.index.tolist()
 
     def __len__(self):
         return len(self.patch_files)
 
     def __getitem__(self, idx):
         filename = self.patch_files[idx]
-        galaxy_id = filename.split('_')[0]
         
-        # --- CARICAMENTO E NORMALIZZAZIONE CUBO ---
-        data_numpy = np.load(os.path.join(self.data_dir, filename))
-        x_0 = torch.from_numpy(data_numpy.astype(np.float32))
+        # 1. CARICAMENTO UNICO
+        path = os.path.join(self.data_dir, filename)
+        data_numpy = np.load(path).astype(np.float32)
+
+        # Rimuoviamo eventuali dimensioni batch salvate nel file (es. se era 1,128,128,128)
+        if data_numpy.ndim == 4 and data_numpy.shape[0] == 1:
+            data_numpy = data_numpy.squeeze(0)
+        elif data_numpy.ndim == 5:
+            data_numpy = data_numpy.squeeze()
+
+        # 2. NORMALIZZAZIONE ROBUSTA (Percentile Stretching)
+        p_min = data_numpy.min()
+        p_max = np.percentile(data_numpy, 99.8) 
         
-        if x_0.ndim == 5: x_0 = x_0.squeeze(0)
-        if x_0.ndim == 3: x_0 = x_0.unsqueeze(0)
+        x_norm = (data_numpy - p_min) / (p_max - p_min + 1e-8)
+        x_0 = torch.from_numpy(np.clip(x_norm, 0, 1))
 
-        # Normalizzazione 0-1 del cubo
-        x_0 = self.normalize_01(x_0, self.data_min, self.data_max)
+        # Assicuriamoci che abbia la forma (C, D, H, W) -> (1, 128, 128, 128)
+        if x_0.ndim == 3: 
+            x_0 = x_0.unsqueeze(0) 
 
-        # Gestione Canali (Replica se necessario)
+        # Gestione Multi-Canale (se il tuo modello si aspetta 3 canali in ingresso)
         if self.in_channels == 3 and x_0.shape[0] == 1:
             x_0 = x_0.repeat(3, 1, 1, 1)
-            print(f"Attenzione: Replicato canale da 1 a 3 per {filename}")
 
-        # --- RECUPERO E NORMALIZZAZIONE CONTEXT ---
+        # 3. RECUPERO CONTEXT
         try:
-            row = self.catalog.loc[galaxy_id]
+            row = self.catalog.loc[filename]
+            if isinstance(row, pd.DataFrame): 
+                row = row.iloc[0] # Se ci sono più sorgenti nella stessa patch, prendi la prima
+            
             params = []
             for col in self.feature_cols:
                 c_min, c_max = self.stats[col]
-                # Normalizzazione 0-1 della singola feature
                 norm_val = (row[col] - c_min) / (c_max - c_min + 1e-8)
-                params.append(np.clip(norm_val, 0, 1)) # Clipping di sicurezza
+                params.append(np.clip(norm_val, 0, 1))
             
             context_vector = torch.tensor(params, dtype=torch.float32)
         except KeyError:
-            # Se la galassia manca, restituiamo un vettore neutro (es. 0.5)
             context_vector = torch.full((len(self.feature_cols),), 0.5)
 
         return {
-            "x_0": x_0,              # Range [0, 1], Shape (C, D, H, W)
-            "context": context_vector # Range [0, 1], Shape (4,)
+            "x_0": x_0,
+            "context": context_vector
         }

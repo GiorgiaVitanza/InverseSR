@@ -48,17 +48,14 @@ def run_step(model, x):
     # --- Loss Calculation ---
     
     # 1. Reconstruction Loss (L1)
-    # L'uso di F.l1_loss è ideale per volumi 3D per preservare meglio i dettagli
     recon_loss = F.l1_loss(x_hat, x, reduction='mean')
     
     # 2. KL Divergence Loss
     # Formula: -0.5 * sum(1 + log_var - mu^2 - exp(log_var))
-    # Calcoliamo la KL per ogni elemento e poi mediamo
     kl_loss = -0.5 * torch.sum(1 + moments_log_var - moments_mu.pow(2) - moments_log_var.exp(), dim=[1, 2, 3, 4])
     kl_loss = kl_loss.mean()
     
     # Peso della KL (Beta)
-    # 1e-6 è un valore comune per VQ-GAN/VAE per non "soffocare" la ricostruzione
     kl_weight = 1e-6 
     
     total_loss = recon_loss + (kl_weight * kl_loss)
@@ -115,26 +112,56 @@ def train():
             # --- LOGGING (MLflow Metrics) ---
             mlflow.log_metric("avg_total_loss", avg_total, step=epoch)
 
-            # --- LOG VISIVO (Entrambi) ---
+            # --- LOG VISIVO POTENZIATO ---
             if epoch % 5 == 0:
                 model.eval()
                 with torch.no_grad():
-                    mid_idx = x.shape[2] // 2
-                    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-                    axes[0].imshow(x[0, 0, mid_idx].cpu(), cmap='hot')
-                    axes[0].set_title("Originale")
-                    axes[1].imshow(x_hat[0, 0, mid_idx].cpu(), cmap='hot')
-                    axes[1].set_title("Ricostruito")
+                    # Prendiamo il primo sample del batch
+                    img_orig = x[0, 0].cpu().numpy()      # Cubo originale (128, 128, 128)
+                    img_recon = x_hat[0, 0].cpu().numpy() # Cubo ricostruito
+
+                    # 1. Calcoliamo la Slice Centrale
+                    mid_z = img_orig.shape[0] // 2
+                    slice_orig = img_orig[mid_z]
+                    slice_recon = img_recon[mid_z]
+
+                    # 2. Calcoliamo il MOMENTO 0 (Somma lungo Z)
+                    # Questo fa emergere la galassia anche se è debole
+                    mom0_orig = np.sum(img_orig, axis=0)
+                    mom0_recon = np.sum(img_recon, axis=0)
+
+                    # Creiamo una griglia 2x2 per il confronto
+                    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
                     
-                    # Log su TensorBoard
-                    writer.add_figure("Visual/Comparison", fig, global_step=epoch)
+                    # Riga 1: Slice Centrali
+                    im1 = axes[0, 0].imshow(slice_orig, cmap='hot')
+                    axes[0, 0].set_title(f"Originale (Slice Z={mid_z})")
+                    plt.colorbar(im1, ax=axes[0, 0])
                     
-                    # Log su MLflow come artefatto (opzionale)
-                    plot_path = f"tmp_recon.png"
+                    im2 = axes[0, 1].imshow(slice_recon, cmap='hot')
+                    axes[0, 1].set_title("Ricostruito (Slice)")
+                    plt.colorbar(im2, ax=axes[0, 1])
+
+                    # Riga 2: Momento 0 (Proiezioni)
+                    # Usiamo vmax basato sul 99° percentile per il contrasto
+                    vmax_mom = np.percentile(mom0_orig, 99.9)
+                    im3 = axes[1, 0].imshow(mom0_orig, cmap='hot', vmax=vmax_mom)
+                    axes[1, 1].set_title("Originale (Momento 0)")
+                    plt.colorbar(im3, ax=axes[1, 0])
+
+                    im4 = axes[1, 1].imshow(mom0_recon, cmap='hot', vmax=vmax_mom)
+                    axes[1, 1].set_title("Ricostruito (Momento 0)")
+                    plt.colorbar(im4, ax=axes[1, 1])
+
+                    # Log su TensorBoard e MLflow
+                    writer.add_figure("Visual/3D_Comparison", fig, global_step=epoch)
+                    
+                    plot_path = f"epoch_{epoch}_recon.png"
                     plt.savefig(plot_path)
                     mlflow.log_artifact(plot_path, artifact_path="plots")
                     plt.close(fig)
                     if os.path.exists(plot_path): os.remove(plot_path)
+                    
                 model.train()
 
             # --- SALVATAGGIO CHECKPOINTS FISICI ---
