@@ -176,7 +176,8 @@ def train():
         mlflow.pytorch.log_model(
             pytorch_model=model, 
             name="vae_full_model",
-            registered_model_name=f"VAE_{hparams.in_channels}ch"
+            registered_model_name=f"VAE_{hparams.in_channels}ch",
+            export_model=True
         )
         local_vae_pack = os.path.join(OUTPUT_DIR, "VAE_full")
         mlflow.pytorch.save_model(model, path=local_vae_pack)
@@ -186,7 +187,8 @@ def train():
         mlflow.pytorch.log_model(
             pytorch_model=only_decoder, 
             name="decoder_only_model",
-            registered_model_name=f"Decoder_{hparams.in_channels}ch"
+            registered_model_name=f"Decoder_{hparams.in_channels}ch",
+            export_model=True
         )
         local_decoder_pack = os.path.join(OUTPUT_DIR, "Decoder_only")
         mlflow.pytorch.save_model(only_decoder, path=local_decoder_pack)
