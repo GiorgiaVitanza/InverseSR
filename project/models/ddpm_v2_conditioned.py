@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 from models.unet_v2_conditioned import UNetModel
-from utils.const import IMAGE_SHAPE, LATENT_SHAPE
+
 
 
 def exists(x):
@@ -92,6 +92,16 @@ class DDPM(nn.Module):
         conditioning_key=None,
     ):
         super().__init__()
+
+        
+        # Estraiamo i parametri dal dizionario unet_config
+        params = unet_config.get("params", {}) if isinstance(unet_config, dict) else unet_config
+        
+        
+        img_size = params.get("image_size", 32)
+        self.image_size = img_size[0] if isinstance(img_size, list) else img_size
+        self.channels = params.get("out_channels_unet", 8)  # Default a 8 se non specificato
+
         assert parameterization in [
             "eps",
             "x0",
@@ -345,7 +355,7 @@ class DDPM(nn.Module):
         image_size = self.image_size
         channels = self.channels
         return self.p_sample_loop(
-            (batch_size, channels, image_size, image_size),
+            (batch_size, channels, image_size, image_size, image_size),
             return_intermediates=return_intermediates,
         )
 

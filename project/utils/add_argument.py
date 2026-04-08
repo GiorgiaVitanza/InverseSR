@@ -7,8 +7,15 @@ def add_argument(parser: ArgumentParser):
     parser.add_argument(
         "--tensor_board_logger",
         # Modificato: Path generico per astro
-        default=r"./logs/astro_diffusion",
+        default=r"./logs/BRGM_decoder",
         help="Dir per i log di TensorBoard",
+    )
+
+    parser.add_argument(
+        "--norm_data",
+        # Modificato: Path generico per astro
+        default="global_sym",
+        help="Modalità di normalizzazione dei dati",
     )
     
     # --- DATI E FORMATI ---

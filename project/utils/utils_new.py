@@ -30,12 +30,12 @@ from utils.const import (
     PRETRAINED_MODEL_VAE_PATH,
     PRETRAINED_MODEL_DDPM_PATH,
     PRETRAINED_MODEL_VGG_PATH,
-    GLOBAL_MIN,
-    GLOBAL_MAX,
-    LATENT_SHAPE, # Assicurati che in const.py questo sia corretto per i tuoi dati (es. [1, 3, 16, 16, 16])
+    FITS_LIMIT,
+    FITS_STD,
+    LATENT_SHAPE, 
 )
 
-# --- UTILS PER BRGM DECODER DA ADATTARE--------------------------
+
 def generating_latent_vector(
     diffusion: torch.nn.Module,
     latent_variable: torch.Tensor,
@@ -134,46 +134,73 @@ def seed_everything(seed: int) -> None:
     torch.backends.cudnn.deterministic = True
 
 # --- LOADING DATA & MODELS ---
+import torch
+import numpy as np
+from argparse import Namespace
+
 
 def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
     """
-    Carica l'immagine target (Ground Truth) da file FITS o da patch .npy.
+    Carica l'immagine target e applica la normalizzazione specificata in hparams.norm_mode.
     """
+    # 1. IDENTIFICAZIONE FILE (Mantengo la tua logica esistente)
     if hparams.data_format == "npy" and hparams.inference:
-        # Cerca il patch npy (es. patch_001.npy)
         potential_files = list(INPUT_FOLDER_PATCHES.glob(f"*.npy"))
-        print("sono nel caso dell'inferenza")
-        if not potential_files:
-            raise FileNotFoundError(f"Nessun patch .npy trovato per ID {hparams.object_id} in {INPUT_FOLDER_PATCHES}")
+        print("Inference mode: loading npy patches")
     elif hparams.data_format == "npy" and hparams.test:
         potential_files = list(INPUT_FOLDER_TEST.glob(f"*.npy"))
-        if not potential_files:
-            raise FileNotFoundError(f"Nessun patch .npy trovato in {INPUT_FOLDER_TEST}")            
     elif hparams.data_format == "fits":
         potential_files = list(INPUT_FOLDER_PATCHES.glob(f"*{hparams.object_id}*.fits"))
-        if not potential_files:
-            raise FileNotFoundError(f"Nessun file FITS trovato per ID {hparams.object_id}")
-        
-        img_path = potential_files[0]
-        img_tensor = transform_img(img_path, device=device)
-        # transform_img dovrebbe già restituire (C, D, H, W)
-        
     else:
         raise ValueError(f"Formato {hparams.data_format} non supportato.")
-    
+
+    if not potential_files:
+        raise FileNotFoundError(f"Nessun file trovato per {hparams.object_id}")
+
     img_path = potential_files[0]
-    # Carichiamo il file numpy
-    data = np.load(img_path).astype(np.float32)
-
-    # Converte in tensor
-    img_tensor = torch.from_numpy(data).to(device)
-     
     
-    # Applichiamo la Min-Max Normalization: x_norm = (x - min) / (max - min)
-    img_tensor = (img_tensor - GLOBAL_MIN) / (GLOBAL_MAX - GLOBAL_MIN + 1e-8)
+    # 2. CARICAMENTO DATI RAW
+    if hparams.data_format == "fits":
+        # Assumendo che transform_img carichi il FITS e lo porti su device
+        img_tensor = transform_img(img_path, device=device)
+    else:
+        data = np.load(img_path).astype(np.float32)
+        img_tensor = torch.from_numpy(data).to(device)
 
-    # Opzionale: clipping per sicurezza se hai pixel outlier
-    img_tensor = torch.clamp(img_tensor, 0, 1)
+    # Rimuoviamo eventuali dimensioni batch superflue (es. da 5D a 4D)
+    if img_tensor.ndim == 5:
+        img_tensor = img_tensor.squeeze()
+    if img_tensor.ndim == 3:
+        img_tensor = img_tensor.unsqueeze(0) # (1, D, H, W)
+
+    # 3. APPLICAZIONE NORMALIZZAZIONE MULTI-MODE
+    norm_mode = getattr(hparams, 'norm_data', 'global_sym')
+    
+    
+
+    if norm_mode == 'global_sym':
+        # Mappa [-LIMIT, LIMIT] -> [0, 1] (Zero fisico = 0.5)
+        # Ideale per DDPM condizionate
+        img_tensor = (img_tensor / FITS_LIMIT + 1.0) / 2.0
+
+    elif norm_mode == 'local':
+        GLOBAL_MIN = -1.47367257e-03
+        GLOBAL_MAX = 1.52088422e-03
+        # Min-Max basato sui limiti globali del catalogo 
+        img_tensor = (img_tensor - GLOBAL_MIN) / (GLOBAL_MAX - GLOBAL_MIN + 1e-8)
+
+    elif norm_mode == 'zscore':
+        # Media 0, Std 1 (Senza garanzia di range [0,1], attenzione se il decoder lo richiede)
+        img_tensor = img_tensor / FITS_STD
+
+    else:
+        raise ValueError(f"Modalità di normalizzazione {norm_mode} non riconosciuta.")
+
+    # 4. CLIPPING FINALE
+    # Nota: Per 'zscore' il clipping a 0,1 distruggerebbe i dati. 
+    # Lo applichiamo solo per 'global_sym' e 'local' che devono stare in quel range.
+    if norm_mode != 'zscore':
+        img_tensor = torch.clamp(img_tensor, 0, 1)
         
     return img_tensor
         

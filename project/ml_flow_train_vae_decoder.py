@@ -16,6 +16,7 @@ from utils.dataset_v3 import RadioPatchDataset
 from models.aekl_no_attention import AutoencoderKL, OnlyDecoder
 from utils.config_aekl_v3 import get_hparams 
 from utils.config_train import train_config
+from BRGM_decoder import denormalize_data
 
 # --- CONFIGURAZIONE AMBIENTE LEONARDO ---
 hparams, unknown = get_hparams()
@@ -26,8 +27,8 @@ OUTPUT_DIR = train_param.output_dir_vae
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
 
 
-
-mlflow.set_tracking_uri(f"sqlite:///mlruns_vae_decoder_{train_param.epochs}epochs_{current_time}.db")
+print("Inizializzazione MLflow...")
+mlflow.set_tracking_uri(f"sqlite:///mlruns_vae_decoder.db")
 mlflow.set_experiment(f"Radio_VAE_Hybrid_Logging_{train_param.epochs}epochs_z{hparams.z_channels}_{current_time}")
 
 
@@ -67,9 +68,14 @@ def train():
     # Configurazione Log
     TB_LOG_DIR = train_param.tensor_board_logger_vae
   
-    log_dir = f"{TB_LOG_DIR}/run_{current_time}_lr_{train_param.learning_rate}"
+    log_dir = f"{TB_LOG_DIR}/run_{current_time}_lr_{train_param.learning_rate}_z{hparams.z_channels}"
 
-    dataset = RadioPatchDataset(data_dir=train_param.data_dir, catalogue_path=train_param.catalogue_path, in_channels=hparams.in_channels)
+    print("Caricamento dataset...")
+    dataset = RadioPatchDataset(
+        data_dir=train_param.data_dir,
+        catalogue_path=train_param.catalogue_path, 
+        in_channels=hparams.in_channels,
+        norm_mode=train_param.norm_mode)
     dataloader = DataLoader(dataset, batch_size=train_param.batch_size, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
 
     
@@ -77,14 +83,18 @@ def train():
     os.makedirs(log_dir, exist_ok=True)
 
     hparams_dict = vars(hparams)
+
+    print("Inizializzazione modello e ottimizzatore...")
     model = AutoencoderKL(embed_dim=hparams.z_channels, hparams=hparams_dict).to(train_param.device)
     optimizer = torch.optim.Adam(model.parameters(), lr=train_param.learning_rate)
 
     # Inizializzazione Loggers
     writer = SummaryWriter(log_dir=log_dir)
 
-    with mlflow.start_run(run_name=f"VAE_Hybrid_Training"):
+    with mlflow.start_run(run_name=f"VAE_Hybrid_Training_{current_time}"):
         mlflow.log_params(hparams_dict)
+        mlflow.log_params(vars(train_param))
+        
 
         for epoch in range(train_param.epochs):
             model.train()
@@ -116,6 +126,8 @@ def train():
             if epoch % 5 == 0:
                 model.eval()
                 with torch.no_grad():
+                    x = denormalize_data(x, hparams)
+                    x_hat = denormalize_data(x_hat, hparams)
                     # Prendiamo il primo sample del batch
                     img_orig = x[0, 0].cpu().numpy()      # Cubo originale (128, 128, 128)
                     img_recon = x_hat[0, 0].cpu().numpy() # Cubo ricostruito
@@ -133,26 +145,31 @@ def train():
                     # Creiamo una griglia 2x2 per il confronto
                     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
                     
-                    # Riga 1: Slice Centrali
-                    im1 = axes[0, 0].imshow(slice_orig, cmap='hot')
+                    # --- RIGA 1: SLICE ---
+                    # Calcoliamo un vmax comune per le slice per vedere la differenza di contrasto
+                    vmax_slice = np.percentile(slice_orig, 99.9)
+
+                    im1 = axes[0, 0].imshow(slice_orig, cmap='hot', vmin=0, vmax=vmax_slice)
                     axes[0, 0].set_title(f"Originale (Slice Z={mid_z})")
                     plt.colorbar(im1, ax=axes[0, 0])
-                    
-                    im2 = axes[0, 1].imshow(slice_recon, cmap='hot')
+
+                    # IMPORTANTE: im2 deve usare lo stesso vmax di im1
+                    im2 = axes[0, 1].imshow(slice_recon, cmap='hot', vmin=0, vmax=vmax_slice)
                     axes[0, 1].set_title("Ricostruito (Slice)")
                     plt.colorbar(im2, ax=axes[0, 1])
 
-                    # Riga 2: Momento 0 (Proiezioni)
-                    # Usiamo vmax basato sul 99° percentile per il contrasto
+                    # --- RIGA 2: MOMENTO 0 ---
+                    # Calcoliamo un vmax comune per le proiezioni
                     vmax_mom = np.percentile(mom0_orig, 99.9)
-                    im3 = axes[1, 0].imshow(mom0_orig, cmap='hot', vmax=vmax_mom)
-                    axes[1, 1].set_title("Originale (Momento 0)")
+
+                    im3 = axes[1, 0].imshow(mom0_orig, cmap='hot', vmin=0, vmax=vmax_mom)
+                    axes[1, 0].set_title("Originale (Momento 0)")
                     plt.colorbar(im3, ax=axes[1, 0])
 
-                    im4 = axes[1, 1].imshow(mom0_recon, cmap='hot', vmax=vmax_mom)
+                    # IMPORTANTE: im4 deve usare lo stesso vmax di im3, non 1!
+                    im4 = axes[1, 1].imshow(mom0_recon, cmap='hot', vmin=0, vmax=vmax_mom)
                     axes[1, 1].set_title("Ricostruito (Momento 0)")
                     plt.colorbar(im4, ax=axes[1, 1])
-
                     # Log su TensorBoard e MLflow
                     writer.add_figure("Visual/3D_Comparison", fig, global_step=epoch)
                     
@@ -167,7 +184,10 @@ def train():
             # --- SALVATAGGIO CHECKPOINTS FISICI ---
             if (epoch + 1) % 10 == 0 or (epoch + 1) == train_param.epochs:
                 vae_path = os.path.join(CHECKPOINT_DIR, f"vae_full_ep{epoch+1}.pth")
-                torch.save({'epoch': epoch, 'model_state_dict': model.state_dict(), 'hparams': hparams_dict}, vae_path)
+                torch.save({'epoch': epoch, 
+                            'model_state_dict': model.state_dict(), 
+                            'hparams': hparams_dict
+                            }, vae_path)
 
         # --- SALVATAGGIO FINALE MODELLO (IMPACCHETTAMENTO MLFLOW) ---
         print("Registrazione modelli su MLflow...")
@@ -176,8 +196,7 @@ def train():
         mlflow.pytorch.log_model(
             pytorch_model=model, 
             name="vae_full_model",
-            registered_model_name=f"VAE_{hparams.in_channels}ch",
-            export_model=True
+            registered_model_name=f"VAE_{hparams.in_channels}ch"
         )
         local_vae_pack = os.path.join(OUTPUT_DIR, "VAE_full")
         mlflow.pytorch.save_model(model, path=local_vae_pack)
@@ -187,14 +206,13 @@ def train():
         mlflow.pytorch.log_model(
             pytorch_model=only_decoder, 
             name="decoder_only_model",
-            registered_model_name=f"Decoder_{hparams.in_channels}ch",
-            export_model=True
+            registered_model_name=f"Decoder_{hparams.in_channels}ch"
         )
         local_decoder_pack = os.path.join(OUTPUT_DIR, "Decoder_only")
         mlflow.pytorch.save_model(only_decoder, path=local_decoder_pack)
 
     writer.close()
-    print(f"Training concluso. Checkpoint fisici in {CHECKPOINT_DIR}, log in {TB_LOG_DIR}")
+    print(f"Training concluso. Checkpoint fisici in {CHECKPOINT_DIR}, log in {log_dir}")
 
 if __name__ == "__main__":
     train()
