@@ -167,31 +167,25 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
         data = np.load(img_path).astype(np.float32)
         img_tensor = torch.from_numpy(data).to(device)
 
-    # Rimuoviamo eventuali dimensioni batch superflue (es. da 5D a 4D)
-    if img_tensor.ndim == 5:
-        img_tensor = img_tensor.squeeze()
-    if img_tensor.ndim == 3:
-        img_tensor = img_tensor.unsqueeze(0) # (1, D, H, W)
 
     # 3. APPLICAZIONE NORMALIZZAZIONE MULTI-MODE
-    norm_mode = getattr(hparams, 'norm_data', 'global_sym')
-    
+    norm_mode = getattr(hparams, 'norm_data', 'global_sym')   
     
 
     if norm_mode == 'global_sym':
         # Mappa [-LIMIT, LIMIT] -> [0, 1] (Zero fisico = 0.5)
         # Ideale per DDPM condizionate
-        img_tensor = (img_tensor / FITS_LIMIT + 1.0) / 2.0
+        img_tensor[2:5] = (img_tensor[2:5] / FITS_LIMIT + 1.0) / 2.0
 
     elif norm_mode == 'local':
         GLOBAL_MIN = -1.47367257e-03
         GLOBAL_MAX = 1.52088422e-03
         # Min-Max basato sui limiti globali del catalogo 
-        img_tensor = (img_tensor - GLOBAL_MIN) / (GLOBAL_MAX - GLOBAL_MIN + 1e-8)
+        img_tensor[2:5] = (img_tensor[2:5] - GLOBAL_MIN) / (GLOBAL_MAX - GLOBAL_MIN + 1e-8)
 
     elif norm_mode == 'zscore':
         # Media 0, Std 1 (Senza garanzia di range [0,1], attenzione se il decoder lo richiede)
-        img_tensor = img_tensor / FITS_STD
+        img_tensor[2:5] = img_tensor[2:5] / FITS_STD
 
     else:
         raise ValueError(f"Modalità di normalizzazione {norm_mode} non riconosciuta.")
@@ -200,7 +194,7 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
     # Nota: Per 'zscore' il clipping a 0,1 distruggerebbe i dati. 
     # Lo applichiamo solo per 'global_sym' e 'local' che devono stare in quel range.
     if norm_mode != 'zscore':
-        img_tensor = torch.clamp(img_tensor, 0, 1)
+        img_tensor[2:5] = torch.clamp(img_tensor[2:5], 0, 1)
         
     return img_tensor
         
@@ -326,9 +320,8 @@ def load_vgg_perceptual(hparams: Namespace, target: torch.Tensor, device: torch.
         vgg16 = AstroVGG_Slim("././data/trained_models_astro/vgg/vgg16_slim_astro_1ch.pth",in_channels=1, num_blocks=2).to(device)
     #vgg16 = AstroVGG_Slim("././data/trained_models_astro/vgg/vgg16_slim_astro.pth",in_channels=3, num_blocks=2).to(device)
     
-    # 2. Carica i pesi (state_dict invece di JIT)
-    # Assicurati che PRETRAINED_MODEL_VGG_PATH punti al file .pth generato prima
-    vgg16.load_state_dict(torch.load(PRETRAINED_MODEL_VGG_PATH, map_location=device))
+    # 2. Carica i pesi 
+    vgg16.load_state_dict(torch.load(PRETRAINED_MODEL_VGG_PATH, map_location=device, weights_only=False))
     vgg16.eval()
 
     # Calcola le feature del target
@@ -336,12 +329,9 @@ def load_vgg_perceptual(hparams: Namespace, target: torch.Tensor, device: torch.
     return vgg16, target_features
 
 def getVggFeatures(hparams, img, vgg16):
-    # img è [1, 3, D, H, W]
     
-    # 1. Slicing (Prendiamo la fetta centrale della profondità)
     mid_idx = img.shape[2] // 2 
-    slice_2d = img[:, :, mid_idx, :, :] # Risultato: [1, 3, H, W]
+    slice_2d = img[:, :, mid_idx, :, :] 
     
-    # 2. Passaggio alla VGG (Ora i canali corrispondono: 3 == 3)
     features = vgg16(slice_2d)
     return features

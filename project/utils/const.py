@@ -44,13 +44,13 @@ else:
     
     PRETRAINED_MODEL_FOLDER = DATA_ROOT / "trained_models_astro"
     
-    PRETRAINED_MODEL_DDPM_PATH = PRETRAINED_MODEL_FOLDER  / "trained_models_ddpm_100" / "crossattn"
-    PRETRAINED_MODEL_DECODER_PATH = PRETRAINED_MODEL_FOLDER / "trained_models_astro_400" / "decoder_400"
-    PRETRAINED_MODEL_VAE_PATH = PRETRAINED_MODEL_FOLDER / "trained_models_astro_400" / "vae_400"
+    PRETRAINED_MODEL_DDPM_PATH = PRETRAINED_MODEL_FOLDER  / "ddpm_cross_attn_10_2_z8_local"  / "ddpm_final_model"
+    PRETRAINED_MODEL_DECODER_PATH = PRETRAINED_MODEL_FOLDER / "vae_decoder_train_10ep_z8" / "Decoder_only"
+    PRETRAINED_MODEL_VAE_PATH = PRETRAINED_MODEL_FOLDER / "vae_decoder_train_10ep_z8" / "VAE_full"
     
     # Percorso per un eventuale modello di feature extraction (es. per loss percettiva)
     # Nota: VGG16 è per immagini 2D. Se usi cubi 3D, potresti non usarlo o usare una 3D-ResNet.
-    PRETRAINED_MODEL_VGG_PATH = PRETRAINED_MODEL_FOLDER / "vgg" / "vgg16_slim_astro.pth"
+    PRETRAINED_MODEL_VGG_PATH = PRETRAINED_MODEL_FOLDER / "vgg" / "vgg16_slim_astro_1ch.pth"
 
     OUTPUT_FOLDER = DATA_ROOT / "outputs" 
     FIGURES_FOLDER = DATA_ROOT / "figures" # Ex thesis_imgs
@@ -61,12 +61,12 @@ else:
 FITS_LIMIT = 1.6e-03 
 FITS_STD = 3.11374637e-05
 
-IMAGE_SHAPE = [1, 3, 128, 128, 128] 
+IMAGE_SHAPE = [1, 1, 128, 128, 128] 
 
 # LATENT_SHAPE: La dimensione compressa nel "Latent Space" del VAE.
 # Dipende dal fattore di downsampling del tuo modello (spesso f=4 o f=8).
 # Esempio: Se IMAGE_SHAPE è 128^3 e il downsampling è 4 -> 128/4 = 32.
-LATENT_SHAPE = [1, 3, int(128/4), int(128/4), int(128/4)] 
+LATENT_SHAPE = [1, 8, int(128/4), int(128/4), int(128/4)] 
 
 
 # --- 4. LISTA OGGETTI (TARGETS) ---

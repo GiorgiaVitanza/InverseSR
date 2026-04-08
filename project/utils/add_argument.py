@@ -36,7 +36,7 @@ def add_argument(parser: ArgumentParser):
     )
     parser.add_argument(
         "--object_id", # Modificato: da subject_id a object_id
-        default="patch_000000",
+        default="patch_000000.npy",
         type=str,
         help="ID dell'oggetto celeste (es. nome galassia o ID catalogo)"
     )

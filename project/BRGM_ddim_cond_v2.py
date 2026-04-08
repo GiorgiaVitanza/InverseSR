@@ -107,7 +107,7 @@ def project(
 ):
     # 1. SETUP INIZIALE
     # setup_noise_inputs ora restituisce cond [1, 4] e latent [1, 3, ...]
-    cat_path = Path("C:\Modelli 3D\InverseSR - Astro\data\processed_dataset\master_patch_catalog.csv")
+    cat_path = Path("./data/inputs/128x128x128_stride128/train_catalog.csv")
     cat = {}
     with open(cat_path, "r") as f:
         reader = csv.DictReader(f)
@@ -296,7 +296,9 @@ def main(hparams: Namespace) -> None:
 
     # 1. Carica il target (es. FITS 128x128x128)
     img_tensor = load_target_image(hparams, device=device)
-
+    if img_tensor.ndim == 4:  # Se è [C, D, H, W], aggiungi batch
+        img_tensor = img_tensor.unsqueeze(0)  # (1, C, D, H, W)
+        
     # 2. Carica i modelli pre-allenati con la tua architettura (z_channels=3)
     # Questa funzione deve inizializzare il VAE con n_channels=32, z_channels=3, etc.
     diffusion, decoder = load_pre_trained_model(device=device)

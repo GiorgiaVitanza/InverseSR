@@ -45,10 +45,10 @@ class AstroVGG_Slim(nn.Module):
             # Usiamo strict=False se stiamo caricando pesi da una VGG a 3 canali su una a 1,
             # altrimenti strict=True se il file .pth è già della versione a 1 canale.
             try:
-                self.load_state_dict(torch.load(target_path), strict=True)
+                self.load_state_dict(torch.load(target_path), strict=True, weights_only=False)
             except RuntimeError:
                 print("Nota: Caricamento parziale dei pesi (probabile mismatch canali input).")
-                self.load_state_dict(torch.load(target_path), strict=False)
+                self.load_state_dict(torch.load(target_path), strict=False, weights_only=False)
 
         # 5. DISABILITA INPLACE
         for m in self.features.modules():
