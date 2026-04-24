@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=VAE_astro
-#SBATCH --account=IscrC_DATIV-ML
-#SBATCH --partition=boost_usr_prod
-#SBATCH --qos=boost_qos_lprod
+#SBATCH --account=gvitanza_00_g00
+#SBATCH --partition=gpu
+#SBATCH --qos=normal
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:1
@@ -12,17 +12,23 @@
 #SBATCH --output=vae_decoder_%j.out
 #SBATCH --error=vae_decoder_%j.err
 
-# 1. Carica i moduli
 module purge
-module load profile/deeplrn
-module load python/3.11.7
+module load gcc-11.2.0
+module load python-3.11.2
+module load cuda/cuda-12
 
-# 2. Attiva l'ambiente
-source /leonardo_scratch/large/userexternal/gvitanza/InverseSR/.venv/bin/activate
+# Questo comando abilita 'conda activate' dentro lo script Slurm
+source $(conda info --base)/etc/profile.d/conda.sh
+
+# Attiva l'ambiente
+conda activate .venv
+
+cd /mnt/beegfs/gvitanza/InverseSR/
+
 
 # 3. Variabili
 EPOCHS=10
-BASE_DIR="/leonardo_scratch/large/userexternal/gvitanza/InverseSR"
+BASE_DIR="/mnt/beegfs/gvitanza/InverseSR"
 Z_CHANNELS=8
 
 # 4. Lancio del training

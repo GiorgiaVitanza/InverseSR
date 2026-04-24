@@ -60,6 +60,8 @@ else:
 # Definisci le costanti (devono essere uguali a quelle nel Dataset)
 FITS_LIMIT = 1.6e-03 
 FITS_STD = 3.11374637e-05
+GLOBAL_MAX = 1.52088422e-03
+GLOBAL_MIN = -1.47367257e-03
 
 IMAGE_SHAPE = [1, 1, 128, 128, 128] 
 

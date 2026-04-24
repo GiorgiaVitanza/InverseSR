@@ -21,7 +21,7 @@ from BRGM_decoder import denormalize_data
 # --- CONFIGURAZIONE AMBIENTE LEONARDO ---
 hparams, unknown = get_hparams()
 train_param, _ = train_config()
-BASE_SCRATCH = f"/leonardo_scratch/large/userexternal/gvitanza/InverseSR/"
+BASE_SCRATCH = f"/mnt/beegfs/gvitanza/InverseSR/"
 OUTPUT_DIR = train_param.output_dir_vae
 # Crea un nome unico basato sull'orario e sui parametri
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
