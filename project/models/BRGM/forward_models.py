@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import numpy as np
 import scipy.ndimage.morphology
 
-from utils.const import LATENT_SHAPE
+
 
 
 class ForwardAbstract(ABC):
@@ -40,7 +40,7 @@ class ForwardNone(ForwardAbstract):
 
 
 class ForwardDownsample(ForwardAbstract):
-    def __init__(self, factor, target_size=LATENT_SHAPE[2:5]):
+    def __init__(self, factor, target_size=None):
         self.factor = factor
         self.target_size = target_size # Es: [32, 32, 32] o [20, 28, 20]
 

@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import sys
-
+from argparse import ArgumentParser, Namespace
 import imageio
 
 # Risale di una cartella rispetto a dove si trova questo script
@@ -14,30 +14,24 @@ sys.path.append(str(root_dir))
 from models.aekl_no_attention import AutoencoderKL 
 from utils.plot_new import draw_img_in_three_dim
 from utils.utils_new import generating_latent_vector
-from utils.const import LATENT_SHAPE
+from utils.add_argument import add_argument
+from utils.config_aekl_v3 import get_hparams
 from data.visualizzazione_3d import preprocess, animate_slices, static_grid, volume_rendering, isosurface
 
-def visualize_reconstruction(checkpoint_path, model_path, output_path, flag):
+parser=ArgumentParser()
+add_argument(parser)
+hparams = parser.parse_args()
+hparams_vae, _=get_hparams()
+def visualize_reconstruction(checkpoint_path, model_path, output_path, flag, vae_config=vars(hparams_vae)):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    # 1. Configurazione Hparams per il Decoder (deve corrispondere a quelli del training)
-    # Questi sono valori tipici per l'architettura LDM Astro v2
-    hparams = {
-        "in_channels": 1,
-        "n_channels": 64,
-        "z_channels": 3,
-        "ch_mult": [1, 2, 2], 
-        "num_res_blocks": 2,
-        "resolution": (128, 128, 128), # Esempio di risoluzione medica
-        "attn_resolutions": [],
-        "out_channels": 1,
-    }
-    embed_dim = 3 # Coerente con z_channels
+    
+    embed_dim = vae_config['z_channels']  # Coerente con z_channels
 
     # 2. Caricamento del Modello
     print("Caricamento del decoder...")
-    model = AutoencoderKL(embed_dim=embed_dim, hparams=hparams)
+    model = AutoencoderKL(embed_dim=embed_dim, hparams=vae_config)
     
     # Carichiamo il VAE completo
     model = torch.load(model_path, map_location=device, weights_only=False)
@@ -46,7 +40,7 @@ def visualize_reconstruction(checkpoint_path, model_path, output_path, flag):
 
     # 3. Caricamento del Vettore Latente ottimizzato
     print(f"Caricamento del vettore latente da {checkpoint_path}...")
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     
     # Il tuo codice salvava {'latent_vectors': ...}
     if flag == "ddim":    
@@ -54,7 +48,7 @@ def visualize_reconstruction(checkpoint_path, model_path, output_path, flag):
         cond = checkpoint['cond']
         cond_crossatten = cond.unsqueeze(1)
         cond_concat = cond.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
-        cond_concat = cond_concat.expand(list(cond.shape[0:2]) + list(LATENT_SHAPE[2:]))
+        cond_concat = cond_concat.expand(list(cond.shape[0:2]) + list(hparams.image_size)) # [1, 4, 32, 32, 32] --- ADATTATO PER ASTRO ---
         conditioning_ottimizzato = {
             "c_concat": [cond_concat.float().to(device)],
             "c_crossattn": [cond_crossatten.float().to(device)],
@@ -63,7 +57,7 @@ def visualize_reconstruction(checkpoint_path, model_path, output_path, flag):
         
         
         # Carichiamo il checkpoint
-        path_oggetto = Path("./data/trained_models_astro/ddpm/data/model.pth")
+        path_oggetto = Path("./data/trained_models_astro/ddpm_cross_attn_10_2_z8_local/ddpm_final_model/data/model.pth")
         ddpm = torch.load(path_oggetto, weights_only=False, map_location=device)
         
         
@@ -205,17 +199,17 @@ def run_comparative_plots(rec_np, output_dir, base_name="Ricostruzione_Astro"):
 
 
 if __name__ == "__main__":
-    flag = input("Scegli il tipo di visualizzazione (ddim/decoder): ").strip().lower()
+    flag = "decoder" 
     if flag == "ddim":
         # ADATTARE PATH AL CASO ASTRO
-        CHECKPOINT = Path("./outputs from Leonardo/checkpoint.pth") 
-        RESULT_DIR = Path("./data/outputs/visualizzazione_ddim_1ch_crossattn")
+        CHECKPOINT = Path("./data/outputs/BRGM_ddim_cond_z8_down4/checkpoint.pth")
+        RESULT_DIR = Path("./data/outputs/BRGM_ddim_cond_z8_down4/visualizzazione")
     elif flag == "decoder":
-        CHECKPOINT = "C:\\Modelli 3D\\InverseSR - Astro\\outputs from Leonardo\\BRGM_decoder_1ch_crossattn\\checkpoint.pth"
-        RESULT_DIR = "./data/outputs/visualizzazione_decoder_1ch_crossattn"
+        CHECKPOINT = Path("./data/outputs/BRGM_decoder_z8_down4/step_0099/checkpoint.pth")
+        RESULT_DIR = Path("./data/outputs/BRGM_decoder_z8_down4/visualizzazione")
 
-    DECODER_MODEL = "./data/trained_models_astro/decoder/data/model.pth"
-   
+    DECODER_MODEL = Path("./data/trained_models_astro/vae_decoder_train_10ep_z8/Decoder_only/data/model.pth")
+
 
     volume = visualize_reconstruction(CHECKPOINT, DECODER_MODEL, RESULT_DIR, flag=flag)
     run_comparative_plots(volume, output_dir=RESULT_DIR, base_name="Ricostruzione_Astro")

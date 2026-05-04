@@ -48,7 +48,7 @@ vae.eval()
 
 def train():
 
-    CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_ddpm_{hparams.z_channels}_{train_cfg.epochs}epochs")
+    CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_ddpm_{hparams.z_channels}_{train_cfg.epochs}epochs_{current_time}")
     TB_LOG_DIR = train_cfg.tensor_board_logger_ddpm
   
     log_dir = f"{TB_LOG_DIR}/run_{current_time}_lr_{train_cfg.learning_rate}_z{hparams.z_channels}"

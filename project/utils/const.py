@@ -66,7 +66,7 @@ IMAGE_SHAPE = [1, 1, 128, 128, 128]
 # LATENT_SHAPE: La dimensione compressa nel "Latent Space" del VAE.
 # Dipende dal fattore di downsampling del tuo modello (spesso f=4 o f=8).
 # Esempio: Se IMAGE_SHAPE è 128^3 e il downsampling è 4 -> 128/4 = 32.
-LATENT_SHAPE = [1, 8, int(128/4), int(128/4), int(128/4)] 
+# LATENT_SHAPE = [1, 8, int(128/4), int(128/4), int(128/4)] 
 
 
 # --- 4. LISTA OGGETTI (TARGETS) ---

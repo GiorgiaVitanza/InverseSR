@@ -6,6 +6,7 @@
 # [2] Marinescu, R., et al. (2020). Bayesian Image Reconstruction using Deep Generative Models.
 
 import math
+import os
 
 # from joblib import dump, load
 from argparse import ArgumentParser, Namespace
@@ -29,10 +30,8 @@ from pathlib import Path
 
 from utils.add_argument import add_argument
 from utils.const import (
-    LATENT_SHAPE,
-    OUTPUT_FOLDER,
-    GLOBAL_MAX,
-    GLOBAL_MIN,
+    FITS_LIMIT,
+    FITS_STD,
     PRETRAINED_MODEL_DECODER_PATH,
 )
 from utils.plot_new import draw_corrupted_images, draw_images, draw_img, compare_cubes, plot_orthogonal_cuts
@@ -49,15 +48,31 @@ from utils.utils_new import (
     setup_noise_inputs,
 )
 
-OUTPUT_FOLDER = OUTPUT_FOLDER / "BRGM_decoder"
 
-def denormalize_data(x):
-    """Denormalizza da 0-1 a valori originali con clipping"""
-    # 1. Recupera i valori fisici originali 
-    v_min = GLOBAL_MIN
-    v_max = GLOBAL_MAX
-    x = x * (v_max - v_min) + v_min
-    return np.clip(x, v_min, v_max)
+
+
+def denormalize_data(x, hparams):
+    """Denormalizza in base alla modalità scelta per tornare ai Jy/beam"""
+    
+    
+    mode = getattr(hparams, 'norm_data', 'global_sym') # Default a global_sym se non specificato
+
+    if mode == 'global_sym':
+        # Inverti: x_norm = (x_scaled + 1) / 2 -> x_scaled = x_norm * 2 - 1
+        x_phys = (x * 2.0 - 1.0) * FITS_LIMIT
+        return x_phys
+        
+    elif mode == 'local':
+        # La denormalizzazione locale accurata è impossibile senza salvare p_min/p_max per ogni patch.
+        # Come fallback, usiamo i globali, ma i valori saranno approssimativi.
+        v_min, v_max = -1.47e-03, 1.52e-03
+        return x * (v_max - v_min) + v_min
+        
+    elif mode == 'zscore':
+        # Inverti: x_norm = data / FITS_STD
+        return x * FITS_STD
+        
+    return x
 
 def logprint(message: str, verbose: bool) -> None:
     if verbose:
@@ -172,7 +187,7 @@ def project(
     cond, latent_variable = setup_noise_inputs(cat, device=device, hparams=hparams)
     cond_crossatten = cond.unsqueeze(1)
     cond_concat = cond.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
-    cond_concat = cond_concat.expand(list(cond.shape[0:2]) + list(LATENT_SHAPE[2:]))
+    cond_concat = cond_concat.expand(list(cond.shape[0:2]) + list(hparams.image_size))
     if not hparams.mean_latent_vector:
         ddpm = load_ddpm_model(ddpm_path=hparams.path_to_ddpm_checkpoint, device=device)        
         conditioning = {
@@ -185,6 +200,9 @@ def project(
                 latent_variable=latent_variable,
                 conditioning=conditioning,
                 batch_size=1,
+                image_size=hparams.image_size,
+                scale_factor=hparams.downsample_factor,
+                z_channels=hparams.z_channels,
             )
     else:
         latent_vector = latent_vector_mean.clone().detach()
@@ -307,11 +325,14 @@ def project(
         )
 
         step_ = f"{step}".zfill(4)
+        save_path = Path(hparams.output_dir_BRGM_decoder)
+        save_path.mkdir(parents=True, exist_ok=True)
+
         draw_img(
             synth_img_np,
             title="synth",
             step=step_,
-            output_folder=OUTPUT_FOLDER,
+            output_folder=save_path,
         )
 
         if step % 25 == 0:
@@ -345,66 +366,70 @@ def project(
         writer=writer,
     )
 
-    # --- ESEMPIO DI MODIFICA PRIMA DEI PLOT FINALI ---
+   
+    
+    # Portiamo tutto nella scala fisica Jy/beam prima di plottare
+    synth_vis = synth_img[0, 0].detach().cpu().numpy()
+    synth_vis = denormalize_data(synth_vis, hparams)
+    
+    target_vis = target[0, 0].detach().cpu().numpy() 
+    target_vis = denormalize_data(target_vis, hparams)
+    
+    target_img_corrupted_vis = target_img_corrupted[0, 0].detach().cpu().numpy() 
+    target_img_corrupted_vis = denormalize_data(target_img_corrupted_vis, hparams)
+    
+    synth_img_corrupted_vis = synth_img_corrupted[0, 0].detach().cpu().numpy() 
+    synth_img_corrupted_vis = denormalize_data(synth_img_corrupted_vis, hparams)
 
     
-    # 2. De-normalizza l'immagine sintetica (che è in [0, 1]) 
-    # per portarla nella scala fisica del target
-    synth_vis = synth_img[0, 0].detach().cpu().numpy()
-    synth_vis = denormalize_data(synth_vis)
-    target_vis = target[0, 0].detach().cpu().numpy() 
-    target_vis = denormalize_data(target_vis)
-    target_img_corrupted_vis = target_img_corrupted[0, 0].detach().cpu().numpy() 
-    target_img_corrupted_vis = denormalize_data(target_img_corrupted_vis)
-    synth_img_corrupted_vis = synth_img_corrupted[0, 0].detach().cpu().numpy() 
-    synth_img_corrupted_vis = denormalize_data(synth_img_corrupted_vis)
 
     draw_img(
         target_np,
-        title="target",
+        title=f"target_{hparams.norm_data}",
         step=step_,
-        output_folder=OUTPUT_FOLDER,
+        output_folder=save_path,
     )
 
     draw_img(
         synth_img_corrupted[0, 0].detach().cpu().numpy(),
-        title="corrupted",
+        title=f"corrupted_{hparams.norm_data}",
         step=step_,
-        output_folder=OUTPUT_FOLDER,
+        output_folder=save_path,
     )
 
     compare_cubes(
         target_vis,
         synth_vis,
-        title="target_vs_synth",
-        save_path=OUTPUT_FOLDER / "compare_target_vs_synth.png",
+        title=f"target_vs_synth_{hparams.norm_data}",
+        save_path=save_path / "compare_target_vs_synth.png",
     )
 
     compare_cubes(
         target_img_corrupted_vis,
         synth_img_corrupted_vis,
-        title="corrupted_target_vs_corrupted_synth",
-        save_path=OUTPUT_FOLDER / "compare_corrupted_target_vs_corrupted_synth.png",
+        title=f"corrupted_target_vs_corrupted_synth_{hparams.norm_data}",
+        save_path=save_path / "compare_corrupted_target_vs_corrupted_synth.png",
     )
 
     plot_orthogonal_cuts(
         synth_vis,
-        title="orthogonal_cuts_synth",
-        save_path=OUTPUT_FOLDER/"orthogonal_cuts_synth.png",
+        title=f"orthogonal_cuts_synth_{hparams.norm_data}",
+        save_path=save_path / "orthogonal_cuts_synth.png",
     )
 
     plot_orthogonal_cuts(
         target_vis,
-        title="orthogonal_cuts_target", 
-        save_path=OUTPUT_FOLDER/"orthogonal_cuts_target.png",
+        title=f"orthogonal_cuts_target_{hparams.norm_data}", 
+        save_path=save_path / "orthogonal_cuts_target.png",
     )
 
     plot_orthogonal_cuts(
         synth_img_corrupted_vis,
-        title="orthogonal_cuts_corrupted",
-        save_path=OUTPUT_FOLDER/"orthogonal_cuts_corrupted.png",
+        title=f"orthogonal_cuts_corrupted_{hparams.norm_data}",
+        save_path=save_path / "orthogonal_cuts_corrupted.png",
     )
 
+    print("Plots saved to", save_path)
     writer.flush()
     writer.close()
 
@@ -414,8 +439,10 @@ def project(
             "latent_vectors": latent_vector,
             "optimizer": optimizer_adam.state_dict(),
         },
-        OUTPUT_FOLDER / "checkpoint.pth",
+        save_path / "checkpoint.pth",
     )
+
+    print(f"Checkpoint saved to {save_path / 'checkpoint.pth'}")
 
     row = [
         hparams.object_id,
@@ -440,6 +467,8 @@ def main(hparams: Namespace) -> None:
     # Don't have enough memory to run on GPU. :(
     device = hparams.device
     img_tensor = load_target_image(hparams, device)
+    if img_tensor.dim() == 4:  # Se manca la dimensione del batch, aggiungila
+        img_tensor = img_tensor.unsqueeze(0)
     writer = SummaryWriter(log_dir=hparams.tensor_board_logger)
 
     forward = create_corruption_function(hparams=hparams, device=device)
@@ -462,8 +491,10 @@ def main(hparams: Namespace) -> None:
 
     torch.save(
         {"latent_vector_out": latent_vector_out},
-        OUTPUT_FOLDER / "latent_vector_out.pth",
+        Path(hparams.output_dir_BRGM_decoder) / "latent_vector_out.pth",
     )
+
+    print("Latent vector saved to", Path(hparams.output_dir_BRGM_decoder) / "latent_vector_out.pth")
 
 
 if __name__ == "__main__":

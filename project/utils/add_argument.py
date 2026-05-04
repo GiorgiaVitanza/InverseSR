@@ -209,14 +209,29 @@ def add_argument(parser: ArgumentParser):
 
     parser.add_argument(
         "--path_to_ddpm_checkpoint",    
-        default="C:\\Modelli 3D\\InverseSR - Astro\\data\\trained_models_astro\\ddpm\\data\\model.pth",
+        default=".\\data\\trained_models_astro\\ddpm",
         type=str,
         help="Path al checkpoint della DDPM pre-allenata"
     )
 
     parser.add_argument(
         "--path_to_latent_ddpm",    
-        default="C:\\Modelli 3D\\InverseSR - Astro\\data\\trained_models_astro\\results.pth",
+        default=".\\data\\trained_models_astro\\results.pth",
         type=str,
         help="Path al checkpoint della DDPM pre-allenata"
     )
+
+    parser.add_argument(
+        "--output_dir_BRGM_ddim",    
+        default=".\\data\\outputs\\BRGM_ddim",
+        type=str,
+        help="Path per salvare i risultati dell'inversione"
+    )
+
+    parser.add_argument(
+        "--output_dir_BRGM_decoder",    
+        default=".\\data\\outputs\\decoder",
+        type=str,
+        help="Path per salvare i risultati dell'inversione"
+    )
+

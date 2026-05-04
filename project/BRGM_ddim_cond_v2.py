@@ -5,6 +5,7 @@ import math
 import csv
 import gc
 from argparse import ArgumentParser, Namespace
+import os
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Tuple
@@ -37,7 +38,6 @@ from utils.utils_new import (
 )
 from utils.plot_new import draw_corrupted_images, draw_images 
 
-OUTPUT_FOLDER = "./data/outputs/BRGM_ddim_cond" 
 
 # --- HELPER FUNCTIONS ---
 def denormalize_cond(cond: torch.Tensor) -> torch.Tensor:
@@ -275,6 +275,7 @@ def project(
 
     writer.flush()
     writer.close()
+    os.makedirs(hparams.output_dir_BRGM_ddim, exist_ok=True)
     torch.save(
         {
             "epoch": step,
@@ -282,7 +283,7 @@ def project(
             "cond": cond,
             "optimizer": optimizer.state_dict(),
         },
-        Path(OUTPUT_FOLDER) / "checkpoint.pth",
+        f"{hparams.output_dir_BRGM_ddim}/checkpoint.pth",
     )
 
     return latent_variable_out, cond_out, {"loss": loss.item(), "ssim": ssim_}
@@ -313,9 +314,8 @@ def main(hparams: Namespace) -> None:
     )
 
     # 5. Salvataggio latente e condizioni ottimizzate
-    save_path = Path(OUTPUT_FOLDER) / hparams.experiment_name
-    save_path.mkdir(parents=True, exist_ok=True)
-    torch.save({"z": final_z, "cond": final_cond}, save_path / "results.pth")
+    save_path = hparams.output_dir_BRGM_ddim
+    torch.save({"z": final_z, "cond": final_cond}, f"{save_path}/results.pth")
     print(f"Risultati salvati in {save_path}")
 
 if __name__ == "__main__":

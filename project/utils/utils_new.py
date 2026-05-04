@@ -32,7 +32,6 @@ from utils.const import (
     PRETRAINED_MODEL_VGG_PATH,
     FITS_LIMIT,
     FITS_STD,
-    LATENT_SHAPE, 
 )
 
 
@@ -41,13 +40,16 @@ def generating_latent_vector(
     latent_variable: torch.Tensor,
     conditioning: Dict[str, List[torch.Tensor]],
     batch_size: int,
+    image_size: Tuple[int, int, int],
+    scale_factor: int,
+    z_channels: int,
 ):
     ddim = DDIMSampler(diffusion)
     num_timesteps = 50
     latent_vectors, _ = ddim.sample(
         S=num_timesteps,
         batch_size=batch_size,        
-        shape=list(LATENT_SHAPE[1:]),
+        shape=[z_channels, image_size[0] // scale_factor, image_size[1] // scale_factor, image_size[2] // scale_factor],
         first_img=latent_variable,
         conditioning=conditioning,        
         eta=1.0,
@@ -67,6 +69,7 @@ def load_ddpm_latent_vectors(device: torch.device, hparams: Namespace) -> torch.
     checkpoint = torch.load(
         Path(hparams.path_to_latent_ddpm),
         map_location=device,
+        weights_only=False,
     )
     
     # Estraiamo il tensore latente usando la chiave "z"
@@ -275,7 +278,10 @@ def sampling_from_ddim(
     
     # 2. Concatenazione spaziale: [1, 4, 1, 1, 1]
     cond_concat = cond.view(1, 4, 1, 1, 1)
-    cond_concat = cond_concat.expand(-1, -1, LATENT_SHAPE[2], LATENT_SHAPE[3], LATENT_SHAPE[4]) # [1, 4, 32, 32, 32]
+    dim_1 = hparams.image_size[0] // hparams.downsample_factor if hparams.corruption == "downsample" else hparams.image_size[0]
+    dim_2 = hparams.image_size[1] // hparams.downsample_factor if hparams.corruption == "downsample" else hparams.image_size[1]
+    dim_3 = hparams.image_size[2] // hparams.downsample_factor if hparams.corruption == "downsample" else hparams.image_size[2]
+    cond_concat = cond_concat.expand(-1, -1, dim_1, dim_2, dim_3) # [1, 4, 32, 32, 32]
 
     conditioning = {
         "c_concat": [cond_concat],
@@ -286,7 +292,7 @@ def sampling_from_ddim(
         S=hparams.ddim_num_timesteps,
         conditioning=conditioning,
         batch_size=1,
-        shape=list(LATENT_SHAPE[1:]), # Esclude dimensione Batch
+        shape=[hparams.z_channels, dim_1, dim_2, dim_3], # Esclude dimensione Batch
         first_img=latent_variable,
         eta=hparams.ddim_eta,
         verbose=False,

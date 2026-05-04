@@ -199,9 +199,6 @@ class Decoder(nn.Module):
                 else:
                     x = block(x)
 
-                # Pulizia Cache (Essenziale per la memoria)
-                if i % 2 == 0:
-                    torch.cuda.empty_cache()
 
             return x
 
