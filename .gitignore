@@ -5,6 +5,7 @@ pyproject.toml
 mlruns/
 logs_vae/
 logs_ddpm/
+logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
