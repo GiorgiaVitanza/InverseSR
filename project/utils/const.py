@@ -35,7 +35,8 @@ else:
     DATA_ROOT = ROOT_DIR / "data"
     
     INPUT_FOLDER = DATA_ROOT / "inputs"
-    INPUT_FOLDER_PATCHES = INPUT_FOLDER / "128x128x128_stride128" / "npy_patches" # Se usi patch pre-estratti
+    INPUT_FOLDER_PATCHES = INPUT_FOLDER / "128x128x128_stride128" / "train"/ "npy_patches"# Se usi patch pre-estratti
+    INPUT_FOLDER_CAT = INPUT_FOLDER / "128x128x128_stride128" / "train"/ "train_catalog.csv"
     INPUT_FOLDER_TEST = DATA_ROOT / "test_5d"
     MASK_FOLDER = DATA_ROOT / "masks"
     
@@ -44,9 +45,9 @@ else:
     
     PRETRAINED_MODEL_FOLDER = DATA_ROOT / "trained_models_astro"
     
-    PRETRAINED_MODEL_DDPM_PATH = PRETRAINED_MODEL_FOLDER  / "ddpm_cross_attn_10_2_z8_local"  / "ddpm_final_model"
-    PRETRAINED_MODEL_DECODER_PATH = PRETRAINED_MODEL_FOLDER / "vae_decoder_train_10ep_z8" / "Decoder_only"
-    PRETRAINED_MODEL_VAE_PATH = PRETRAINED_MODEL_FOLDER / "vae_decoder_train_10ep_z8" / "VAE_full"
+    PRETRAINED_MODEL_DDPM_PATH = PRETRAINED_MODEL_FOLDER  / "ddpm_cross_attn_10_2_z8_global_sym_new"  / "ddpm_final_model"
+    PRETRAINED_MODEL_DECODER_PATH = PRETRAINED_MODEL_FOLDER / "vae_decoder_train_10ep_z8_global_sym_new" / "Decoder_only"
+    PRETRAINED_MODEL_VAE_PATH = PRETRAINED_MODEL_FOLDER / "vae_decoder_train_10ep_z8_global_sym_new" / "VAE_full"
     
     # Percorso per un eventuale modello di feature extraction (es. per loss percettiva)
     # Nota: VGG16 è per immagini 2D. Se usi cubi 3D, potresti non usarlo o usare una 3D-ResNet.

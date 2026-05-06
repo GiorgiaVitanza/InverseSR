@@ -33,6 +33,7 @@ from utils.const import (
     FITS_LIMIT,
     FITS_STD,
     PRETRAINED_MODEL_DECODER_PATH,
+    INPUT_FOLDER_CAT
 )
 from utils.plot_new import draw_corrupted_images, draw_images, draw_img, compare_cubes, plot_orthogonal_cuts
 from utils.utils_new import (
@@ -172,7 +173,7 @@ def project(
         latent_vectors=latent_vectors_tensor, device=device, verbose=verbose
     )
 
-    cat_path = Path("./data/inputs/128x128x128_stride128/master_patch_catalog.csv")
+    cat_path = Path(INPUT_FOLDER_CAT)
     cat = {}
     with open(cat_path, "r") as f:
         reader = csv.DictReader(f)

@@ -30,10 +30,10 @@ python project/ml_flow_train_ddpm_v3.py \
 --data_dir "./data/inputs/128x128x128_stride128/train/npy_patches" \
 --catalogue_path "./data/inputs/128x128x128_stride128/train/train_catalog.csv" \
 --use_spatial_transformer \
---output_dir_ddpm "./data/trained_models_astro/ddpm_cross_attn_${EPOCHS}_${BATCH_SIZE}_z${IN_CHANNELS_UNET}_${NORM_MODE}" \
+--output_dir_ddpm "./data/trained_models_astro/ddpm_cross_attn_${EPOCHS}_${BATCH_SIZE}_z${IN_CHANNELS_UNET}_${NORM_MODE}_new" \
 --epochs $EPOCHS \
 --batch_size $BATCH_SIZE \
---vae_path "./checkpoints_vae_decoder_${IN_CHANNELS_UNET}_10epochs_May04_17-24-56/vae_full_ep10.pth" \
+--vae_path "./checkpoints_vae_decoder_${IN_CHANNELS_UNET}_10epochs_May04_19-02-45/vae_full_ep10.pth" \
 --z_channels $IN_CHANNELS_UNET \
 --cond_key "crossattn" \
 --context_dim 4 \

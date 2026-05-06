@@ -37,6 +37,9 @@ from utils.utils_new import (
     load_vgg_perceptual
 )
 from utils.plot_new import draw_corrupted_images, draw_images 
+from utils.const import (
+        INPUT_FOLDER_CAT
+)
 
 
 # --- HELPER FUNCTIONS ---
@@ -107,7 +110,7 @@ def project(
 ):
     # 1. SETUP INIZIALE
     # setup_noise_inputs ora restituisce cond [1, 4] e latent [1, 3, ...]
-    cat_path = Path("./data/inputs/128x128x128_stride128/train_catalog.csv")
+    cat_path = Path(INPUT_FOLDER_CAT)
     cat = {}
     with open(cat_path, "r") as f:
         reader = csv.DictReader(f)

@@ -8,8 +8,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --account=IscrC_DATIV-ML
-#SBATCH --output=InverseSR_decoder_z8_lambda1e4%j.out
-#SBATCH --error=InverseSR_decoder_z8_lambda1e4%j.err
+#SBATCH --output=InverseSR_decoder_z8_lambda1e4_global_sym_new_2_%j.out
+#SBATCH --error=InverseSR_decoder_z8_lambda1e4_global_sym_new_2_%j.err
 
 
 # Variabili utili per Python
@@ -34,15 +34,15 @@ export PYTORCH_ALLOC_CONF=expandable_segments:True
 python3 $SCRATCH/InverseSR/project/BRGM_decoder.py \
     --inference \
     --image_size 128 128 128 \
-    --path_to_latent_ddpm "./data/outputs/BRGM_ddim_cond_z8_down4/results.pth"\
-    --path_to_ddpm_checkpoint "./data/trained_models_astro/ddpm_cross_attn_10_2_z8_local/ddpm_final_model"  \
+    --path_to_latent_ddpm "./data/outputs/BRGM_ddim_cond_z8_down4_global_sym_new_1e2_2/results.pth"\
+    --path_to_ddpm_checkpoint "./data/trained_models_astro/ddpm_cross_attn_10_2_z8_global_sym_new/ddpm_final_model"  \
     --norm_data "local" \
-    --tensor_board_logger ./logs/BRGM_Decoder_z8_down4 \
+    --tensor_board_logger ./logs/BRGM_Decoder_z8_down4_global_sym_new_1e2_2\
 	--z_channels 8 \
     --num_step 100 \
     --learning_rate 7e-2 \
-    --lambda_perc 1e4 \
+    --lambda_perc 1e2 \
     --downsample_factor 4 \
     --corruption downsample \
-    --output_dir_BRGM_decoder "./data/outputs/BRGM_decoder_z8_down4"
+    --output_dir_BRGM_decoder "./data/outputs/BRGM_decoder_z8_down4_global_sym_new_1e2_2"
 

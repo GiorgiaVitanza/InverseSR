@@ -29,7 +29,7 @@ Z_CHANNELS=8
 
 python ${BASE_DIR}/project/ml_flow_train_vae_decoder.py \
     --data_dir "${BASE_DIR}/data/inputs/128x128x128_stride128/train/npy_patches" \
-    --output_dir_vae "${BASE_DIR}/data/trained_models_astro/vae_decoder_train_${EPOCHS}ep_z${Z_CHANNELS}_global_sym" \
+    --output_dir_vae "${BASE_DIR}/data/trained_models_astro/vae_decoder_train_${EPOCHS}ep_z${Z_CHANNELS}_global_sym_new" \
     --catalogue_path "${BASE_DIR}/data/inputs/128x128x128_stride128/train/train_catalog.csv" \
     --batch_size 2 \
     --learning_rate 1e-5 \

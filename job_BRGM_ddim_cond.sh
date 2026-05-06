@@ -8,8 +8,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --account=IscrC_DATIV-ML
-#SBATCH --output=InverseSR_crossattn_z8_down4_%j.out
-#SBATCH --error=InverseSR_crossattn_z8_down4_%j.err
+#SBATCH --output=InverseSR_crossattn_z8_down4_global_sym_new_2_%j.out
+#SBATCH --error=InverseSR_crossattn_z8_down4_global_sym_new_2_%j.err
 
 
 # Variabili utili per Python
@@ -44,13 +44,13 @@ python3 $SCRATCH/InverseSR/project/BRGM_ddim_cond_v2.py \
 	--num_steps 50 \
 	--ddim_num_timesteps 50\
 	--norm_data "local" \
-	--tensor_board_logger ./logs/BRGM_ddim_cond_z8 \
+	--tensor_board_logger ./logs/BRGM_ddim_cond_z8_new_1e2_2 \
 	--z_channels 8 \
 	--downsample_factor 4 \
 	--corruption downsample \
-	--output_dir_BRGM_ddim "./data/outputs/BRGM_ddim_cond_z8_down4" \
+	--output_dir_BRGM_ddim "./data/outputs/BRGM_ddim_cond_z8_down4_global_sym_new_1e2_2" \
 	--learning_rate 1e-4 \
-	--lambda_perc 1e4 \
+	--lambda_perc 1e2 \
 
 
 
