@@ -64,7 +64,7 @@ def run_step(model, x):
     return total_loss, recon_loss, kl_loss, x_hat
 
 def train(): 
-    CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_vae_decoder_{hparams.z_channels}_{train_param.epochs}epochs_{current_time}")
+    CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"vae_decoder_{hparams.z_channels}_{train_param.epochs}epochs_{train_param.norm_mode}_{current_time}")
     # Configurazione Log
     TB_LOG_DIR = train_param.tensor_board_logger_vae
   
