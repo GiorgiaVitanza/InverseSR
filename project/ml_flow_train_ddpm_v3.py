@@ -36,7 +36,7 @@ db_path = f"mlruns_ddpm.db"
 mlflow.set_tracking_uri(f"sqlite:///{db_path}")
 mlflow.set_experiment(f"Radio_DDPM_v2_{train_cfg.epochs}epochs_z{hparams.z_channels}_{current_time}")
 
-print("Caricamento VAE pre-addestrato...")
+print(f"Caricamento VAE pre-addestrato dalla cartella {train_cfg.vae_path}")
 # --- CARICAMENTO VAE (Pre-trained) ---
 vae = AutoencoderKL(embed_dim=hparams.z_channels, hparams=vars(hparams)).to(train_cfg.device)
 checkpoint_vae = torch.load(train_cfg.vae_path, map_location=train_cfg.device, weights_only=False)
@@ -48,7 +48,7 @@ vae.eval()
 
 def train():
 
-    CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"checkpoints_ddpm_{hparams.z_channels}_{train_cfg.epochs}epochs_{current_time}")
+    CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"ddpm_{hparams.z_channels}_{train_cfg.epochs}epochs_{train_cfg.norm_mode}_{current_time}")
     TB_LOG_DIR = train_cfg.tensor_board_logger_ddpm
   
     log_dir = f"{TB_LOG_DIR}/run_{current_time}_lr_{train_cfg.learning_rate}_z{hparams.z_channels}"
