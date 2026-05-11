@@ -17,6 +17,7 @@ from utils.utils_new import generating_latent_vector
 from utils.add_argument import add_argument
 from utils.config_aekl_v3 import get_hparams
 from data.visualizzazione_3d import preprocess, animate_slices, static_grid, volume_rendering, isosurface
+from BRGM_decoder import denormalize_data
 
 parser=ArgumentParser()
 add_argument(parser)
@@ -180,6 +181,7 @@ def salva_datacube_gif(volume, output_path, axis=0, fps=15, use_log=True):
 def run_comparative_plots(rec_np, output_dir, base_name="Ricostruzione_Astro"):
     # 1. Preprocessing 
     cube, vmin, vmax = preprocess(rec_np, use_log=False, use_percentile=True)
+    cube = denormalize_data(cube)
     
     print(f"\n--- Generazione Plot Comparativi per {base_name} ---")
     
