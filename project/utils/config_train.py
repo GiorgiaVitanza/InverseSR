@@ -9,17 +9,17 @@ def train_config():
 
     # --- Paths ---
 
-    parser.add_argument("--data_dir", type=str, default="./data/inputs/patches_160_224_160_stride160", help="Path alla cartella dei dati")
+    parser.add_argument("--data_dir", type=str, default="./data/inputs/128x128x128_stride128/train/npy_patches", help="Path alla cartella dei dati")
     
-    parser.add_argument("--test_dir", type=str, default="./data/inputs/patches_160_224_160_stride160/npy_patches_test", help="Path alla cartella dei dati di test")
+    parser.add_argument("--test_dir", type=str, default="./data/inputs/128x128x128_stride128/test/npy_patches", help="Path alla cartella dei dati di test")
     
-    parser.add_argument("--vae_path", type=str, default="./data/trained_models_astro/checkpoints_vae_decoder/vae_full_ep100.pth", help="Path alla cartella dei pesi del VAE")
+    parser.add_argument("--vae_path", type=str, default="/leonardo_scratch/large/userexternal/gvitanza/InverseSR/checkpoints_vae_decoder_8_10epochs_May04_19-02-45/vae_full_ep10.pth", help="Path alla cartella dei pesi del VAE")
 
     parser.add_argument("--output_dir_vae", type=str, default="./data/outputs/vae", help="Path alla cartella di output")
 
     parser.add_argument("--output_dir_ddpm", type=str, default="./data/outputs/ddpm", help="Path alla cartella di output")
 
-    parser.add_argument("--catalogue_path", type=str, default="./data/inputs/sky_dev_truthcat_v2.txt", help="Path al file txt del catalogo")
+    parser.add_argument("--catalogue_path", type=str, default="./data/inputs/128x128x128/test/test_catalog.csv", help="Path al file txt del catalogo")
 
     parser.add_argument("--tensor_board_logger_vae", type=str, default="./logs_vae", help="Path per il logger di TensorBoard")
 
