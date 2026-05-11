@@ -1,14 +1,11 @@
 # Code adapted for Astrophysical Data Restoration
 # Original Reference: Pinaya et al. (2022) & Marinescu et al. (2020)
 
-import math
+import pandas as pd
 import csv
-import gc
 from argparse import ArgumentParser, Namespace
 import os
 from pathlib import Path
-from time import perf_counter
-from typing import Any, Tuple
 from skimage.transform import resize
 
 import matplotlib.pyplot as plt
@@ -42,20 +39,25 @@ from utils.const import (
 )
 
 
-# --- HELPER FUNCTIONS ---
-def denormalize_cond(cond: torch.Tensor) -> torch.Tensor:
-    """Denormalizza da 0-1 a valori originali con clipping"""
-    # Esempio di dizionario dei parametri (da caricare nel tuo script)
-    stats = {
-        "hi_size": {"min": 1.193, "max": 39.778},
-        "line_flux_integral": {"min": 1.396, "max": 566.675},
-        "i": {"min": 1.358, "max": 90.0},
-        "w20": {"min": 30.296, "max": 798.491}
-    }
-    stats_min = torch.tensor([stats[key]["min"] for key in stats], device=cond.device)
-    stats_max = torch.tensor([stats[key]["max"] for key in stats], device=cond.device)
+
+def denormalize_cond(cond: torch.Tensor, catalogue: pd.DataFrame, feature_cols: list) -> torch.Tensor:
+    """
+    Denormalizza i parametri basandosi sui valori reali del catalogo.
+    """
+    # Estraiamo i min e max per ogni colonna nell'ordine specificato
+    mins = [catalogue[col].min() for col in feature_cols]
+    maxs = [catalogue[col].max() for col in feature_cols]
+    
+    # Portiamo su PyTorch (stesso device del condizionamento)
+    stats_min = torch.tensor(mins, device=cond.device, dtype=torch.float32)
+    stats_max = torch.tensor(maxs, device=cond.device, dtype=torch.float32)
+    
+    # Denormalizzazione lineare
     current_cond_phys = cond.detach() * (stats_max - stats_min) + stats_min
+    
+    # Clipping per sicurezza fisica
     return torch.clamp(current_cond_phys, stats_min, stats_max)
+
 
 def logprint(message: str, verbose: bool) -> None:
     if verbose:
@@ -112,6 +114,8 @@ def project(
     # setup_noise_inputs ora restituisce cond [1, 4] e latent [1, 3, ...]
     cat_path = Path(INPUT_FOLDER_CAT)
     cat = {}
+
+
     with open(cat_path, "r") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -122,7 +126,10 @@ def project(
                 "i": float(row["i"]),
                 "w20": float(row["w20"]),
             }
+    feature_cols = ['hi_size', 'line_flux_integral', 'i', 'w20']
+    
     cond, latent_variable = setup_noise_inputs(cat, device=device, hparams=hparams)
+    
 
     update_params = []
     if hparams.update_latent_variables:
@@ -216,19 +223,30 @@ def project(
             cond.clamp_(0, 1)
         synth_img_np = synth_img[0, 0].detach().cpu().numpy()
         target_np = target[0, 0].detach().cpu().numpy()
-        ssim_ = ssim(
-            synth_img_np,
-            target_np,
-            win_size=11,
-            data_range=1.0,
-            gaussian_weights=True,
-            use_sample_covariance=False,
-        )
+        if hparams.norm_data != 'zscore':
+            ssim_ = ssim(
+                synth_img_np,
+                target_np,
+                win_size=11,
+                data_range=1.0,
+                gaussian_weights=True,
+                use_sample_covariance=False
+            )
+        else:
+            ssim_ = ssim(
+                synth_img_np,
+                target_np,
+                win_size=11,
+                data_range=2.0,
+                gaussian_weights=True,
+                use_sample_covariance=False,            
+            )
+
+
+        
         # Code for computing PSNR is adapted from
         # https://github.com/agis85/multimodal_brain_synthesis/blob/master/error_metrics.py#L32
-        data_range = np.max([synth_img_np.max(), target_np.max()]) - np.min(
-            [synth_img_np.min(), target_np.min()]
-        )
+        data_range = target_np.max() - target_np.min()
         psnr_ = psnr(target_np, synth_img_np, data_range=data_range)
         mse_ = mse(target_np, synth_img_np)
         nmse_ = nmse(target_np, synth_img_np)
@@ -252,29 +270,36 @@ def project(
                     target_img_corrupted[0, 0].detach().cpu().numpy(),
                     ssim_=ssim_,
                 )
+                
             else:
                 imgs = draw_images(
                     synth_img_np,
                     target_np,
                     ssim_=ssim_,
                 )
+                
             step_ = f"{step}".zfill(4)
             writer.add_figure(f"step: {step_}", imgs, global_step=step)
             plt.close(imgs)
+          
 
         latent_variable_out[step] = latent_variable.detach()[0]
         cond_out[step] = cond.detach()[0]
         writer.add_scalar("loss/total", loss.item(), step)
-        writer.add_scalar("metrics/ssim_mid", ssim_, step)
+        writer.add_scalar("metrics/psnr_mid", psnr_, step)
+        writer.add_scalar("metrics/mse_mid", mse_, step)
+        writer.add_scalar("metrics/nmse_mid", nmse_, step)
+      
         # Logghiamo i parametri fisici correnti 
-        writer.add_scalar("inv_cond/hi_size", cond[0, 0].item(), step)
-        writer.add_scalar("inv_cond/line_flux_integral", cond[0, 1].item(), step)
-        writer.add_scalar("inv_cond/i", cond[0, 2].item(), step)
-        writer.add_scalar("inv_cond/w20", cond[0, 3].item(), step)
+        cond_phys = denormalize_cond(cond, catalogue=pd.DataFrame.from_dict(cat, orient='index'), feature_cols=feature_cols)
+        writer.add_scalar("inv_cond/hi_size", cond_phys[0, 0].item(), step)
+        writer.add_scalar("inv_cond/line_flux_integral", cond_phys[0, 1].item(), step)
+        writer.add_scalar("inv_cond/i", cond_phys[0, 2].item(), step)
+        writer.add_scalar("inv_cond/w20", cond_phys[0, 3].item(), step)
 
         
         if verbose:
-                    print(f"Step {step:03d} | Loss: {loss.item():.6f} | Hi Size: {cond[0,0]:.4f} | Line Flux Integral: {cond[0,1]:.4f} | I: {cond[0,2]:.4f} | W20: {cond[0,3]:.4f} | SSIM_mid: {ssim_:.4f}")
+                    print(f"Step {step:03d} | Loss: {loss.item():.6f} | Hi Size: {cond_phys[0,0]:.4f} | Line Flux Integral: {cond_phys[0,1]:.4f} | I: {cond_phys[0,2]:.4f} | W20: {cond_phys[0,3]:.4f} | SSIM_mid: {ssim_:.4f}")
 
     writer.flush()
     writer.close()
@@ -296,7 +321,7 @@ def main(hparams: Namespace) -> None:
     device = torch.device(hparams.device)
     
     # Inizializza TensorBoard
-    writer = SummaryWriter(log_dir=hparams.tensor_board_logger)
+    writer = SummaryWriter(log_dir=hparams.tensor_board_logger_ddim)
 
     # 1. Carica il target (es. FITS 128x128x128)
     img_tensor = load_target_image(hparams, device=device)
