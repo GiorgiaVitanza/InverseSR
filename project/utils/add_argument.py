@@ -5,9 +5,16 @@ import torch
 def add_argument(parser: ArgumentParser):
     # --- LOGGING & PATHS ---
     parser.add_argument(
-        "--tensor_board_logger",
+        "--tensor_board_logger_decoder",
         # Modificato: Path generico per astro
         default=r"./logs/BRGM_decoder",
+        help="Dir per i log di TensorBoard",
+    )
+
+    parser.add_argument(
+        "--tensor_board_logger_ddim",
+        # Modificato: Path generico per astro
+        default=r"./logs/BRGM_ddim",
         help="Dir per i log di TensorBoard",
     )
 
