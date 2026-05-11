@@ -7,10 +7,9 @@ from typing import Tuple, Dict, List, Any
 import mlflow
 import numpy as np
 import torch
-import torch.nn.functional as F
-import matplotlib.pyplot as plt
 from monai.transforms import apply_transform
-from tqdm import tqdm
+import pandas as pd
+
 
 # Assicurati che questi import puntino ai tuoi moduli corretti
 from models.ddim import DDIMSampler
@@ -136,10 +135,6 @@ def seed_everything(seed: int) -> None:
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
 
-# --- LOADING DATA & MODELS ---
-import torch
-import numpy as np
-from argparse import Namespace
 
 
 def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
@@ -245,10 +240,14 @@ def setup_noise_inputs(cat, device: torch.device, hparams: Namespace) -> Tuple[t
     ]
     cond_raw = torch.tensor([cond_list], device=device, dtype=torch.float32)
     
-    # 2. Statistiche Min-Max del training 
-    # Questi devono essere gli stessi identici usati nel preprocessing del training set
-    mins = torch.tensor([1.193, 1.396, 1.358, 30.296], device=device)   
-    maxs = torch.tensor([39.77, 566.675, 90.0, 798.491], device=device) 
+    # 2. Calcolo DINAMICO di mins e maxs dal catalogo
+   
+    df_cat = pd.DataFrame.from_dict(cat, orient='index')
+    feature_cols = ['hi_size', 'line_flux_integral', 'i', 'w20']
+    
+    # Calcoliamo i valori reali presenti nel file corrente
+    mins = torch.tensor(df_cat[feature_cols].min().values, device=device, dtype=torch.float32)
+    maxs = torch.tensor(df_cat[feature_cols].max().values, device=device, dtype=torch.float32)
 
     # 3. Normalizzazione Min-Max (0-1)
     # Formula: (x - min) / (max - min)
