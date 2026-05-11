@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 import numpy as np
 import os
 import pandas as pd
-from utils.const import FITS_LIMIT, FITS_STD
+from utils.const import FITS_LIMIT, FITS_STD, FITS_MEAN
 
 class RadioPatchDataset(Dataset):
     def __init__(self, data_dir, catalogue_path, in_channels, norm_mode='global_sym'):
@@ -27,7 +27,7 @@ class RadioPatchDataset(Dataset):
         if 'patch_id' in self.catalog.columns:
             self.catalog = self.catalog.set_index("patch_id")
         else:
-            raise KeyError("Il catalogo deve contenere la colonna 'patch_id'")
+            Warning("Il catalogo deve contenere la colonna 'patch_id'")
 
         self.feature_cols = ['hi_size', 'line_flux_integral', 'i', 'w20']
         self.stats = {col: (self.catalog[col].min(), self.catalog[col].max()) 
@@ -49,7 +49,7 @@ class RadioPatchDataset(Dataset):
         elif self.norm_mode == 'zscore':
             # Standardizzazione (media 0, std 1)
             # Nota: questa non garantisce il range [0, 1]
-            return (data / FITS_STD)
+            return (data - FITS_MEAN) / FITS_STD
             
         else:
             raise ValueError(f"Modalità {self.norm_mode} non supportata.")
@@ -70,8 +70,10 @@ class RadioPatchDataset(Dataset):
         # Applicazione normalizzazione scelta
         x_norm = self._normalize(data_numpy)
         
-        # Clipping finale per sicurezza (fondamentale per global_sym e local)
-        x_0 = torch.from_numpy(np.clip(x_norm, 0, 1))
+        if self.norm_mode != 'zscore':
+            x_0 = torch.from_numpy(np.clip(x_norm, 0, 1))
+        else:
+            x_0 = torch.from_numpy(np.clip(x_norm, -1, 1))
 
         if x_0.ndim == 3: 
             x_0 = x_0.unsqueeze(0) 
