@@ -45,9 +45,9 @@ else:
     
     PRETRAINED_MODEL_FOLDER = DATA_ROOT / "trained_models_astro"
     
-    PRETRAINED_MODEL_DDPM_PATH = PRETRAINED_MODEL_FOLDER  / "ddpm_cross_attn_10_2_z8_global_sym_new"  / "ddpm_final_model"
-    PRETRAINED_MODEL_DECODER_PATH = PRETRAINED_MODEL_FOLDER / "vae_decoder_train_10ep_z8_global_sym_new" / "Decoder_only"
-    PRETRAINED_MODEL_VAE_PATH = PRETRAINED_MODEL_FOLDER / "vae_decoder_train_10ep_z8_global_sym_new" / "VAE_full"
+    PRETRAINED_MODEL_DDPM_PATH = PRETRAINED_MODEL_FOLDER  / "ddpm_cross_attn_10_2_z3_zscore"  / "ddpm_final_model"
+    PRETRAINED_MODEL_DECODER_PATH = PRETRAINED_MODEL_FOLDER / "vae_decoder_train_10ep_z3_zscore" / "Decoder_only"
+    PRETRAINED_MODEL_VAE_PATH = PRETRAINED_MODEL_FOLDER / "vae_decoder_train_10ep_z3_zscore" / "VAE_full"
     
     # Percorso per un eventuale modello di feature extraction (es. per loss percettiva)
     # Nota: VGG16 è per immagini 2D. Se usi cubi 3D, potresti non usarlo o usare una 3D-ResNet.
@@ -60,7 +60,8 @@ else:
 # --- 3. DIMENSIONI DATI (CRUCIALE) ---
 # Definisci le costanti (devono essere uguali a quelle nel Dataset)
 FITS_LIMIT = 1.6e-03 
-FITS_STD = 3.11374637e-05
+FITS_MEAN = 1.37400534e-09 # whole cube
+FITS_STD = 3.11374637e-05 # whole cube
 
 IMAGE_SHAPE = [1, 1, 128, 128, 128] 
 
