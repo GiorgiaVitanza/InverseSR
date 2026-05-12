@@ -31,11 +31,12 @@ from pathlib import Path
 from utils.add_argument import add_argument
 from utils.const import (
     FITS_LIMIT,
+    FITS_MEAN,
     FITS_STD,
     PRETRAINED_MODEL_DECODER_PATH,
     INPUT_FOLDER_CAT
 )
-from utils.plot_new import draw_corrupted_images, draw_images, draw_img, compare_cubes, plot_orthogonal_cuts
+from utils.plot_new import draw_corrupted_images, draw_images, draw_img, compare_cubes, plot_orthogonal_cuts, comparison_plots_ok, denormalize_data
 from utils.utils_new import (
     create_corruption_function,
     generating_latent_vector,
@@ -49,31 +50,6 @@ from utils.utils_new import (
     setup_noise_inputs,
 )
 
-
-
-
-def denormalize_data(x, hparams):
-    """Denormalizza in base alla modalità scelta per tornare ai Jy/beam"""
-    
-    
-    mode = getattr(hparams, 'norm_data', 'global_sym') # Default a global_sym se non specificato
-
-    if mode == 'global_sym':
-        # Inverti: x_norm = (x_scaled + 1) / 2 -> x_scaled = x_norm * 2 - 1
-        x_phys = (x * 2.0 - 1.0) * FITS_LIMIT
-        return x_phys
-        
-    elif mode == 'local':
-        # La denormalizzazione locale accurata è impossibile senza salvare p_min/p_max per ogni patch.
-        # Come fallback, usiamo i globali, ma i valori saranno approssimativi.
-        v_min, v_max = -1.47e-03, 1.52e-03
-        return x * (v_max - v_min) + v_min
-        
-    elif mode == 'zscore':
-        # Inverti: x_norm = data / FITS_STD
-        return x * FITS_STD
-        
-    return x
 
 def logprint(message: str, verbose: bool) -> None:
     if verbose:
@@ -371,18 +347,20 @@ def project(
     
     # Portiamo tutto nella scala fisica Jy/beam prima di plottare
     synth_vis = synth_img[0, 0].detach().cpu().numpy()
-    synth_vis = denormalize_data(synth_vis, hparams)
-    
+    synth_vis = denormalize_data(synth_vis, hparams.norm_data)
+    # Calcola la STD del target reale
+
     target_vis = target[0, 0].detach().cpu().numpy() 
-    target_vis = denormalize_data(target_vis, hparams)
-    
+    target_vis = denormalize_data(target_vis, hparams.norm_data)
+
     target_img_corrupted_vis = target_img_corrupted[0, 0].detach().cpu().numpy() 
-    target_img_corrupted_vis = denormalize_data(target_img_corrupted_vis, hparams)
+    target_img_corrupted_vis = denormalize_data(target_img_corrupted_vis, hparams.norm_data)
     
     synth_img_corrupted_vis = synth_img_corrupted[0, 0].detach().cpu().numpy() 
-    synth_img_corrupted_vis = denormalize_data(synth_img_corrupted_vis, hparams)
+    synth_img_corrupted_vis = denormalize_data(synth_img_corrupted_vis, hparams.norm_data)
 
-    
+    print(f"TARGET - Min: {target_vis.min():.2e}, Max: {target_vis.max():.2e}, Mean: {target_vis.mean():.2e}")
+    print(f"SYNTH  - Min: {synth_vis.min():.2e}, Max: {synth_vis.max():.2e}, Mean: {synth_vis.mean():.2e}")
 
     draw_img(
         target_np,
@@ -411,6 +389,20 @@ def project(
         title=f"corrupted_target_vs_corrupted_synth_{hparams.norm_data}",
         save_path=save_path / "compare_corrupted_target_vs_corrupted_synth.png",
     )
+
+    fig = comparison_plots_ok(
+        denormalize_data(target, hparams.norm_data),
+        denormalize_data(synth_img, hparams.norm_data),
+    )
+    fig.savefig(save_path / f"comparison_ok_{hparams.norm_data}.png")
+    plt.close(fig)
+
+    fig_corrupted = comparison_plots_ok(
+        denormalize_data(target_img_corrupted, hparams.norm_data),
+        denormalize_data(synth_img_corrupted, hparams.norm_data),
+    )
+    fig_corrupted.savefig(save_path / f"comparison_corrupted_ok_{hparams.norm_data}.png")
+    plt.close(fig_corrupted)
 
     plot_orthogonal_cuts(
         synth_vis,
@@ -454,7 +446,7 @@ def project(
     ]
 
     with open(
-        "./data/decoder/result_decoder_downsample_2.csv",
+        "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/decoder/result_decoder_downsample_2.csv",
         "a",
     ) as file:
         writer = csv.writer(file)
@@ -470,7 +462,7 @@ def main(hparams: Namespace) -> None:
     img_tensor = load_target_image(hparams, device)
     if img_tensor.dim() == 4:  # Se manca la dimensione del batch, aggiungila
         img_tensor = img_tensor.unsqueeze(0)
-    writer = SummaryWriter(log_dir=hparams.tensor_board_logger)
+    writer = SummaryWriter(log_dir=hparams.tensor_board_logger_decoder)
 
     forward = create_corruption_function(hparams=hparams, device=device)
     decoder = load_pre_trained_decoder(

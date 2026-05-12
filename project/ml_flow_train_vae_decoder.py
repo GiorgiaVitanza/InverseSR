@@ -16,7 +16,8 @@ from utils.dataset_v3 import RadioPatchDataset
 from models.aekl_no_attention import AutoencoderKL, OnlyDecoder
 from utils.config_aekl_v3 import get_hparams 
 from utils.config_train import train_config
-from BRGM_decoder import denormalize_data
+from utils.plot_new import comparison_plots_ok, denormalize_data
+
 
 # --- CONFIGURAZIONE AMBIENTE LEONARDO ---
 hparams, unknown = get_hparams()
@@ -32,7 +33,7 @@ mlflow.set_tracking_uri(f"sqlite:///mlruns_vae_decoder.db")
 mlflow.set_experiment(f"Radio_VAE_Hybrid_Logging_{train_param.epochs}epochs_z{hparams.z_channels}_{current_time}")
 
 
-def run_step(model, x):
+def run_step(model, x, epoch=0, total_epochs=train_param.epochs):
     # --- Encoding & Reparameterization ---
     h = model.encoder(x)
     moments_mu = model.quant_conv_mu(h)
@@ -51,7 +52,7 @@ def run_step(model, x):
     # 1. Reconstruction Loss (L1)
     recon_loss = F.l1_loss(x_hat, x, reduction='mean')
     
-    # 2. KL Divergence Loss
+    """ # 2. KL Divergence Loss
     # Formula: -0.5 * sum(1 + log_var - mu^2 - exp(log_var))
     kl_loss = -0.5 * torch.sum(1 + moments_log_var - moments_mu.pow(2) - moments_log_var.exp(), dim=[1, 2, 3, 4])
     kl_loss = kl_loss.mean()
@@ -59,7 +60,16 @@ def run_step(model, x):
     # Peso della KL (Beta)
     kl_weight = 1e-6 
     
-    total_loss = recon_loss + (kl_weight * kl_loss)
+    total_loss = recon_loss + (kl_weight * kl_loss) """
+
+    # Calcolo KL (media per renderla indipendente dalla dimensione del latente)
+    kl_loss = -0.5 * torch.mean(1 + moments_log_var - moments_mu.pow(2) - moments_log_var.exp())
+    
+    # KL Annealing: il peso parte da 0 e arriva a 1e-4 (o un valore scelto) a metà training
+    # Questo permette alla Recon Loss di guidare i primi epoch
+    current_kl_weight = min(1e-4, (epoch / (total_epochs / 2)) * 1e-4)
+    
+    total_loss = recon_loss + (current_kl_weight * kl_loss)
     
     return total_loss, recon_loss, kl_loss, x_hat
 
@@ -104,7 +114,7 @@ def train():
             for batch in pbar:
                 x = batch["x_0"].to(train_param.device)
                 optimizer.zero_grad()
-                total_loss, rec_loss, kl_loss, x_hat = run_step(model, x)
+                total_loss, rec_loss, kl_loss, x_hat = run_step(model, x, epoch=epoch, total_epochs=train_param.epochs)
                 total_loss.backward()
                 optimizer.step()
                 
@@ -126,58 +136,12 @@ def train():
             if epoch % 5 == 0:
                 model.eval()
                 with torch.no_grad():
-                    x = denormalize_data(x, hparams)
-                    x_hat = denormalize_data(x_hat, hparams)
-                    # Prendiamo il primo sample del batch
-                    img_orig = x[0, 0].cpu().numpy()      # Cubo originale (128, 128, 128)
-                    img_recon = x_hat[0, 0].cpu().numpy() # Cubo ricostruito
-
-                    # 1. Calcoliamo la Slice Centrale
-                    mid_z = img_orig.shape[0] // 2
-                    slice_orig = img_orig[mid_z]
-                    slice_recon = img_recon[mid_z]
-
-                    # 2. Calcoliamo il MOMENTO 0 (Somma lungo Z)
-                    # Questo fa emergere la galassia anche se è debole
-                    mom0_orig = np.sum(img_orig, axis=0)
-                    mom0_recon = np.sum(img_recon, axis=0)
-
-                    # Creiamo una griglia 2x2 per il confronto
-                    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-                    
-                    # --- RIGA 1: SLICE ---
-                    # Calcoliamo un vmax comune per le slice per vedere la differenza di contrasto
-                    vmax_slice = np.percentile(slice_orig, 99.9)
-
-                    im1 = axes[0, 0].imshow(slice_orig, cmap='hot', vmin=0, vmax=vmax_slice)
-                    axes[0, 0].set_title(f"Originale (Slice Z={mid_z})")
-                    plt.colorbar(im1, ax=axes[0, 0])
-
-                    # IMPORTANTE: im2 deve usare lo stesso vmax di im1
-                    im2 = axes[0, 1].imshow(slice_recon, cmap='hot', vmin=0, vmax=vmax_slice)
-                    axes[0, 1].set_title("Ricostruito (Slice)")
-                    plt.colorbar(im2, ax=axes[0, 1])
-
-                    # --- RIGA 2: MOMENTO 0 ---
-                    # Calcoliamo un vmax comune per le proiezioni
-                    vmax_mom = np.percentile(mom0_orig, 99.9)
-
-                    im3 = axes[1, 0].imshow(mom0_orig, cmap='hot', vmin=0, vmax=vmax_mom)
-                    axes[1, 0].set_title("Originale (Momento 0)")
-                    plt.colorbar(im3, ax=axes[1, 0])
-
-                    # IMPORTANTE: im4 deve usare lo stesso vmax di im3, non 1!
-                    im4 = axes[1, 1].imshow(mom0_recon, cmap='hot', vmin=0, vmax=vmax_mom)
-                    axes[1, 1].set_title("Ricostruito (Momento 0)")
-                    plt.colorbar(im4, ax=axes[1, 1])
+                    x = denormalize_data(x, train_param.norm_mode)
+                    x_hat = denormalize_data(x_hat, train_param.norm_mode)
+                    fig =comparison_plots_ok(x, x_hat)
                     # Log su TensorBoard e MLflow
                     writer.add_figure("Visual/3D_Comparison", fig, global_step=epoch)
                     
-                    plot_path = f"epoch_{epoch}_recon.png"
-                    plt.savefig(plot_path)
-                    mlflow.log_artifact(plot_path, artifact_path="plots")
-                    plt.close(fig)
-                    if os.path.exists(plot_path): os.remove(plot_path)
                     
                 model.train()
 
