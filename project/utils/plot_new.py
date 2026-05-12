@@ -4,7 +4,82 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from utils.const import FITS_LIMIT, FITS_MEAN, FITS_STD
 
+
+
+
+def denormalize_data(x, norm_mode):
+    """Denormalizza in base alla modalità scelta per tornare ai Jy/beam"""
+   
+    
+    mode = norm_mode
+
+    if mode == 'global_sym':
+        print("Denormalizzazione globale simmetrica")
+        # Inverti: x_norm = (x_scaled + 1) / 2 -> x_scaled = x_norm * 2 - 1
+        x_phys = (x * 2.0 - 1.0) * FITS_LIMIT
+        return x_phys
+        
+    elif mode == 'local':
+        # La denormalizzazione locale accurata è impossibile senza salvare p_min/p_max per ogni patch.
+        # Come fallback, usiamo i globali, ma i valori saranno approssimativi.
+        print("Denormalizzazione locale: usando valori globali come approssimazione")
+        v_min, v_max = -1.47e-03, 1.52e-03
+        return x * (v_max - v_min) + v_min
+        
+    elif mode == 'zscore':
+        print("denormalizzazione z-score")
+        # Inverti: x_norm = (data - FITS_MEAN) / FITS_STD
+        return x * FITS_STD + FITS_MEAN
+        
+    return x
+
+def comparison_plots_ok(x, x_hat):
+    # Prendiamo il primo sample del batch
+                    img_orig = x[0, 0].detach().cpu().numpy()      # Cubo originale (128, 128, 128)
+                    img_recon = x_hat[0, 0].detach().cpu().numpy() # Cubo ricostruito
+
+                    # 1. Calcoliamo la Slice Centrale
+                    mid_z = img_orig.shape[0] // 2
+                    slice_orig = img_orig[mid_z]
+                    slice_recon = img_recon[mid_z]
+
+                    # 2. Calcoliamo il MOMENTO 0 (Somma lungo Z)
+                    # Questo fa emergere la galassia anche se è debole
+                    mom0_orig = np.sum(img_orig, axis=0)
+                    mom0_recon = np.sum(img_recon, axis=0)
+
+                    # Creiamo una griglia 2x2 per il confronto
+                    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+                    
+                    # --- RIGA 1: SLICE ---
+                    # Calcoliamo un vmax comune per le slice per vedere la differenza di contrasto
+                    vmax_slice = np.percentile(slice_orig, 99.9)
+
+                    im1 = axes[0, 0].imshow(slice_orig, cmap='hot', vmin=0, vmax=vmax_slice)
+                    axes[0, 0].set_title(f"Originale (Slice Z={mid_z})")
+                    plt.colorbar(im1, ax=axes[0, 0])
+
+                    # IMPORTANTE: im2 deve usare lo stesso vmax di im1
+                    im2 = axes[0, 1].imshow(slice_recon, cmap='hot', vmin=0, vmax=vmax_slice)
+                    axes[0, 1].set_title("Ricostruito (Slice)")
+                    plt.colorbar(im2, ax=axes[0, 1])
+
+                    # --- RIGA 2: MOMENTO 0 ---
+                    # Calcoliamo un vmax comune per le proiezioni
+                    vmax_mom = np.percentile(mom0_orig, 99.9)
+
+                    im3 = axes[1, 0].imshow(mom0_orig, cmap='hot', vmin=0, vmax=vmax_mom)
+                    axes[1, 0].set_title("Originale (Momento 0)")
+                    plt.colorbar(im3, ax=axes[1, 0])
+
+                    # IMPORTANTE: im4 deve usare lo stesso vmax di im3, non 1!
+                    im4 = axes[1, 1].imshow(mom0_recon, cmap='hot', vmin=0, vmax=vmax_mom)
+                    axes[1, 1].set_title("Ricostruito (Momento 0)")
+                    plt.colorbar(im4, ax=axes[1, 1])
+                    
+                    return fig
 
 def draw_img_in_three_dim(img, title: str, output_folder: Path) -> None:
     """
@@ -299,7 +374,7 @@ def plot_orthogonal_cuts(
     img_spectral_dec = cube[:, :, nx // 2]
 
     imgs = [img_spatial, img_spectral_ra, img_spectral_dec]
-    titles = ["Spatial (Moment 0)", "Spectral (PV - RA)", "Spectral (PV - Dec)"]
+    titles = ["Spatial (Moment 0)", "Spectral (Z - RA)", "Spectral (Z - Dec)"]
     
     # --- Plotting ---
     fig = plt.figure(figsize=(15, 5))
