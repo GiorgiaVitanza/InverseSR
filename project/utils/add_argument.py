@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from html import parser
 
 import torch
 
@@ -240,5 +241,26 @@ def add_argument(parser: ArgumentParser):
         default=".\\data\\outputs\\decoder",
         type=str,
         help="Path per salvare i risultati dell'inversione"
+    )
+
+    parser.add_argument(
+        "--vae_path_BRGM",    
+        default="/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/trained_models_astro/vae_decoder_train_100ep_z3_local_1e-4_newloss/VAE_full",
+        type=str,
+        help="Path per caricare il modello VAE pre-allenato"
+    )
+
+    parser.add_argument(
+        "--ddpm_path_BRGM",    
+        default="/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/trained_models_astro/ddpm_cross_attn_100_2_z3_local/ddpm_final_model",
+        type=str,
+        help="Path per caricare il modello DDPM pre-allenato"
+    )
+
+    parser.add_argument(
+        "--decoder_path_BRGM",    
+        default="/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/trained_models_astro/vae_decoder_train_100ep_z3_local_1e-4_newloss/Decoder_only",
+        type=str,
+        help="Path per caricare il modello VAE pre-allenato (decoder)"
     )
 
