@@ -12,14 +12,14 @@ from utils.dataset_v3 import RadioPatchDataset
 from models.aekl_no_attention import AutoencoderKL
 from utils.config_train import train_config
 from utils.config_aekl_v3 import get_hparams
-from utils.plot_new import denormalize_data
-from ml_flow_train_vae_decoder import comparison_plots_ok
+from utils.plot_new import denormalize_data, comparison_plots_ok
 
 
 def test():
     # 1. Caricamento Configurazioni
     train_param, _ = train_config()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = train_param.device
+
     print(f"Stai usando il dispositivo: {device}")
     hparams, _ = get_hparams()
 
@@ -27,7 +27,8 @@ def test():
     test_dataset = RadioPatchDataset(
         data_dir=train_param.test_dir, 
         catalogue_path=train_param.catalogue_path,
-        in_channels=hparams.in_channels 
+        in_channels=hparams.in_channels,
+        norm_mode=train_param.norm_mode
     )
     
     test_loader = DataLoader(
@@ -80,10 +81,10 @@ def test():
 
                 fig = comparison_plots_ok(
                     x_plot, 
-                    x_hat_plot, 
-                    epoch=i,
+                    x_hat_plot,
+                    flag='test'
                 )
-                fig.savefig(f"./job_script/test_vae/test_vae_recon_batch_{i}.png")
+                fig.savefig(f"./job_script/test_vae/test_vae_recon_batch_{i}_{train_param.norm_mode}.png")
             
             # Fondamentale per non saturare la RAM
             del x, x_hat, h, z
