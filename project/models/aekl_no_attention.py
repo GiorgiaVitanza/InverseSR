@@ -7,6 +7,8 @@ from typing import Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from utils.config_train import train_config
+from utils.const import FITS_LIMIT
 
 
 @torch.jit.script
@@ -185,10 +187,6 @@ class Decoder(nn.Module):
         self.blocks = nn.ModuleList(blocks)
 
     def forward(self, x):
-        # NOTA: Qui NON facciamo più x.to(float16) o clean_and_cast.
-        # Ci fidiamo che utils.py ci passi già un Tensor puro in float16.
-        
-        # Disabilitiamo autocast per sicurezza (il modello è già half fisico)
         with torch.autocast("cuda", enabled=False):
             
             for i, block in enumerate(self.blocks):
@@ -198,9 +196,17 @@ class Decoder(nn.Module):
                     x = checkpoint(block, x, use_reentrant=True)
                 else:
                     x = block(x)
+            train_params, _ = train_config()
+            if train_params.norm_mode != 'z_score':
+                return torch.sigmoid(x)
+            else:
+                # --- VINCOLO SULLA SCALA FISICA ---
+                # Usiamo Tanh per stabilizzare il range in [-1, 1]
+                x = torch.tanh(x)
+                scale_factor = FITS_LIMIT # massimo del cubo totale
+                x = x * scale_factor
 
-
-            return x
+                return x
 
 
 class AutoencoderKL(nn.Module):
