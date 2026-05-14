@@ -32,6 +32,7 @@ from utils.const import (
     FITS_LIMIT,
     FITS_STD,
 )
+from utils.dataset_v3 import normalize
 
 
 def generating_latent_vector(
@@ -167,44 +168,28 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
 
 
     # 3. APPLICAZIONE NORMALIZZAZIONE MULTI-MODE
-    norm_mode = getattr(hparams, 'norm_data', 'global_sym')   
-    
-
-    if norm_mode == 'global_sym':
-        # Mappa [-LIMIT, LIMIT] -> [0, 1] (Zero fisico = 0.5)
-        # Ideale per DDPM condizionate
-        img_tensor[2:5] = (img_tensor[2:5] / FITS_LIMIT + 1.0) / 2.0
-
-    elif norm_mode == 'local':
-        GLOBAL_MIN = -1.47367257e-03
-        GLOBAL_MAX = 1.52088422e-03
-        # Min-Max basato sui limiti globali del catalogo 
-        img_tensor[2:5] = (img_tensor[2:5] - GLOBAL_MIN) / (GLOBAL_MAX - GLOBAL_MIN + 1e-8)
-
-    elif norm_mode == 'zscore':
-        # Media 0, Std 1 (Senza garanzia di range [0,1], attenzione se il decoder lo richiede)
-        img_tensor[2:5] = img_tensor[2:5] / FITS_STD
-
-    else:
-        raise ValueError(f"Modalità di normalizzazione {norm_mode} non riconosciuta.")
+    norm_mode = hparams.norm_data 
+    img_tensor[2:5] = normalize(img_tensor[2:5], norm_mode=norm_mode)
 
     # 4. CLIPPING FINALE
     # Nota: Per 'zscore' il clipping a 0,1 distruggerebbe i dati. 
     # Lo applichiamo solo per 'global_sym' e 'local' che devono stare in quel range.
     if norm_mode != 'zscore':
         img_tensor[2:5] = torch.clamp(img_tensor[2:5], 0, 1)
+    else:
+        img_tensor[2:5] = torch.clamp(img_tensor[2:5], -1, 1)
         
     return img_tensor
         
     
 
 
-def load_pre_trained_model(device: torch.device) -> Tuple[torch.nn.Module, torch.nn.Module]:
+def load_pre_trained_model(hparams: Namespace, device: torch.device) -> Tuple[torch.nn.Module, torch.nn.Module]:
     """Carica VAE (Decoder) e DDPM tramite MLFlow."""
-    print(f"Caricamento modelli da:\nVAE: {PRETRAINED_MODEL_VAE_PATH}\nDDPM: {PRETRAINED_MODEL_DDPM_PATH}")
+    print(f"Caricamento modelli da:\nVAE: {hparams.vae_path_BRGM}\nDDPM: {hparams.ddpm_path_BRGM}")
     
-    decoder = mlflow.pytorch.load_model(str(PRETRAINED_MODEL_VAE_PATH), map_location=device)
-    ddpm = mlflow.pytorch.load_model(str(PRETRAINED_MODEL_DDPM_PATH), map_location=device)
+    decoder = mlflow.pytorch.load_model(str(hparams.vae_path_BRGM), map_location=device)
+    ddpm = mlflow.pytorch.load_model(str(hparams.ddpm_path_BRGM), map_location=device)
     
     decoder.eval().to(device).requires_grad_(False)
     ddpm.eval().to(device).requires_grad_(False)

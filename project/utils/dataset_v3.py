@@ -5,6 +5,27 @@ import os
 import pandas as pd
 from utils.const import FITS_LIMIT, FITS_STD, FITS_MEAN
 
+
+def normalize(data, norm_mode):
+    if norm_mode == 'global_sym':
+        # Mappa [-LIMIT, LIMIT] -> [0, 1] con zero a 0.5
+        x_scaled = data / FITS_LIMIT
+        return (x_scaled + 1.0) / 2.0
+        
+    elif norm_mode == 'local':
+        # Stretching basato sulla singola patch
+        p_min = data.min()
+        p_max = np.percentile(data, 99.8) 
+        return (data - p_min) / (p_max - p_min + 1e-8)
+        
+    elif norm_mode == 'zscore':
+        # Standardizzazione (media 0, std 1)
+        # Nota: questa non garantisce il range [0, 1]
+        return (data - FITS_MEAN) / FITS_STD
+        
+    else:
+        raise ValueError(f"Modalità {norm_mode} non supportata.")
+
 class RadioPatchDataset(Dataset):
     def __init__(self, data_dir, catalogue_path, in_channels, norm_mode='global_sym'):
         """
@@ -34,25 +55,6 @@ class RadioPatchDataset(Dataset):
                       for col in self.feature_cols}
         self.patch_files = self.catalog.index.tolist()
 
-    def _normalize(self, data):
-        if self.norm_mode == 'global_sym':
-            # Mappa [-LIMIT, LIMIT] -> [0, 1] con zero a 0.5
-            x_scaled = data / FITS_LIMIT
-            return (x_scaled + 1.0) / 2.0
-            
-        elif self.norm_mode == 'local':
-            # Stretching basato sulla singola patch
-            p_min = data.min()
-            p_max = np.percentile(data, 99.8) 
-            return (data - p_min) / (p_max - p_min + 1e-8)
-            
-        elif self.norm_mode == 'zscore':
-            # Standardizzazione (media 0, std 1)
-            # Nota: questa non garantisce il range [0, 1]
-            return (data - FITS_MEAN) / FITS_STD
-            
-        else:
-            raise ValueError(f"Modalità {self.norm_mode} non supportata.")
 
     def __len__(self):
         return len(self.patch_files)
@@ -68,7 +70,7 @@ class RadioPatchDataset(Dataset):
             data_numpy = data_numpy.squeeze()
 
         # Applicazione normalizzazione scelta
-        x_norm = self._normalize(data_numpy)
+        x_norm = normalize(data_numpy, self.norm_mode)
         
         if self.norm_mode != 'zscore':
             x_0 = torch.from_numpy(np.clip(x_norm, 0, 1))

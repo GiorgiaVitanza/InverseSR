@@ -35,15 +35,21 @@ def denormalize_data(x, norm_mode):
         
     return x
 
-def comparison_plots_ok(x, x_hat):
+def comparison_plots_ok(x, x_hat, flag = 'test'):
     # Prendiamo il primo sample del batch
                     img_orig = x[0, 0].detach().cpu().numpy()      # Cubo originale (128, 128, 128)
                     img_recon = x_hat[0, 0].detach().cpu().numpy() # Cubo ricostruito
 
                     # 1. Calcoliamo la Slice Centrale
                     mid_z = img_orig.shape[0] // 2
-                    slice_orig = img_orig[mid_z]
-                    slice_recon = img_recon[mid_z]
+                    mid_x = img_orig.shape[1] // 2
+                    mid_y = img_orig.shape[2] // 2
+                    slice_orig_z = img_orig[mid_z]
+                    slice_recon_z = img_recon[mid_z]
+                    slice_orig_x = img_orig[:, mid_x, :]
+                    slice_recon_x = img_recon[:, mid_x, :]
+                    slice_orig_y = img_orig[:, :, mid_y]
+                    slice_recon_y = img_recon[:, :, mid_y]
 
                     # 2. Calcoliamo il MOMENTO 0 (Somma lungo Z)
                     # Questo fa emergere la galassia anche se è debole
@@ -51,34 +57,70 @@ def comparison_plots_ok(x, x_hat):
                     mom0_recon = np.sum(img_recon, axis=0)
 
                     # Creiamo una griglia 2x2 per il confronto
-                    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+                    fig, axes = plt.subplots(4, 2, figsize=(12, 10))
                     
-                    # --- RIGA 1: SLICE ---
+                    
                     # Calcoliamo un vmax comune per le slice per vedere la differenza di contrasto
-                    vmax_slice = np.percentile(slice_orig, 99.9)
-
-                    im1 = axes[0, 0].imshow(slice_orig, cmap='hot', vmin=0, vmax=vmax_slice)
+                    vmax_slice = np.percentile(slice_orig_z, 99.9)
+                    # Posizione 1-1: Slice Z originale
+                    im1 = axes[0, 0].imshow(slice_orig_z, cmap='hot', vmin=0, vmax=vmax_slice)
                     axes[0, 0].set_title(f"Originale (Slice Z={mid_z})")
                     plt.colorbar(im1, ax=axes[0, 0])
-
-                    # IMPORTANTE: im2 deve usare lo stesso vmax di im1
-                    im2 = axes[0, 1].imshow(slice_recon, cmap='hot', vmin=0, vmax=vmax_slice)
-                    axes[0, 1].set_title("Ricostruito (Slice)")
-                    plt.colorbar(im2, ax=axes[0, 1])
-
-                    # --- RIGA 2: MOMENTO 0 ---
+                    plt.subplots_adjust(hspace=0.8)
+                    # Posizione 2-1: Slice X originale (usiamo lo stesso vmax per coerenza)
+                    im2 = axes[1, 0].imshow(slice_orig_x, cmap='hot', vmin=0, vmax=vmax_slice)
+                    axes[1, 0].set_title(f"Originale (Slice X={mid_x})")
+                    plt.colorbar(im2, ax=axes[1, 0])
+                    plt.subplots_adjust(hspace=0.8)
+                    # Posizione 3-1: Slice Y originale (usiamo lo stesso vmax per coerenza)
+                    im3 = axes[2, 0].imshow(slice_orig_y, cmap='hot', vmin=0, vmax=vmax_slice)
+                    axes[2, 0].set_title(f"Originale (Slice Y={mid_y})")
+                    plt.colorbar(im3, ax=axes[2, 0])
+                    plt.subplots_adjust(hspace=0.8)
+                    # --- MOMENTO 0 ---
                     # Calcoliamo un vmax comune per le proiezioni
                     vmax_mom = np.percentile(mom0_orig, 99.9)
 
-                    im3 = axes[1, 0].imshow(mom0_orig, cmap='hot', vmin=0, vmax=vmax_mom)
-                    axes[1, 0].set_title("Originale (Momento 0)")
-                    plt.colorbar(im3, ax=axes[1, 0])
+                    im4 = axes[3, 0].imshow(mom0_orig, cmap='hot', vmin=0, vmax=vmax_mom)
+                    axes[3, 0].set_title("Originale (Momento 0)")
+                    plt.colorbar(im4, ax=axes[3, 0])
 
-                    # IMPORTANTE: im4 deve usare lo stesso vmax di im3, non 1!
-                    im4 = axes[1, 1].imshow(mom0_recon, cmap='hot', vmin=0, vmax=vmax_mom)
-                    axes[1, 1].set_title("Ricostruito (Momento 0)")
-                    plt.colorbar(im4, ax=axes[1, 1])
-                    
+                    # slice ricostruite: usiamo lo stesso vmax per vedere se il contrasto è simile
+                    if flag == 'train':
+                        im5 = axes[0, 1].imshow(slice_recon_z, cmap='hot', vmin=0, vmax=vmax_slice)
+                        axes[0, 1].set_title("Ricostruito (Slice Z)")
+                        plt.colorbar(im5, ax=axes[0, 1])
+                        plt.subplots_adjust(hspace=0.8)
+                        im6 = axes[1, 1].imshow(slice_recon_x, cmap='hot', vmin=0, vmax=vmax_slice)
+                        axes[1, 1].set_title("Ricostruito (Slice X)")
+                        plt.colorbar(im6, ax=axes[1, 1])
+                        plt.subplots_adjust(hspace=0.8)
+                        im7 = axes[2, 1].imshow(slice_recon_y, cmap='hot', vmin=0, vmax=vmax_slice)
+                        axes[2, 1].set_title("Ricostruito (Slice Y)")
+                        plt.colorbar(im7, ax=axes[2, 1])
+                        plt.subplots_adjust(hspace=0.8)
+                        im8 = axes[3, 1].imshow(mom0_recon, cmap='hot', vmin=0, vmax=vmax_mom)
+                        axes[3, 1].set_title("Ricostruito (Momento 0)")
+                        plt.colorbar(im8, ax=axes[3, 1])
+                    else:
+                        im5 = axes[0, 1].imshow(slice_recon_z, cmap='hot')                    
+                        axes[0, 1].set_title("Ricostruito (Slice Z)")
+                        plt.colorbar(im5, ax=axes[0, 1])
+                        plt.subplots_adjust(hspace=0.8)
+                        im6 = axes[1, 1].imshow(slice_recon_x, cmap='hot')
+                        axes[1, 1].set_title("Ricostruito (Slice X)")
+                        plt.colorbar(im6, ax=axes[1, 1])
+                        plt.subplots_adjust(hspace=0.8)
+                        im7 = axes[2, 1].imshow(slice_recon_y, cmap='hot')
+                        axes[2, 1].set_title("Ricostruito (Slice Y)")
+                        plt.colorbar(im7, ax=axes[2, 1])
+                        plt.subplots_adjust(hspace=0.8)
+                        im8 = axes[3, 1].imshow(mom0_recon, cmap='hot')
+                        axes[3, 1].set_title("Ricostruito (Momento 0)")
+                        plt.colorbar(im8, ax=axes[3, 1])
+
+                        
+                        
                     return fig
 
 def draw_img_in_three_dim(img, title: str, output_folder: Path) -> None:
