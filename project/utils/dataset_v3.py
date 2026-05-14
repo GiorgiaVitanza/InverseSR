@@ -14,8 +14,11 @@ def normalize(data, norm_mode):
         
     elif norm_mode == 'local':
         # Stretching basato sulla singola patch
-        p_min = data.min()
-        p_max = np.percentile(data, 99.8) 
+        try:
+            p_min = data.min()
+            p_max = np.percentile(data, 99.8) 
+        except:
+            p_min, p_max = -1.47e-03, 1.52e-03
         return (data - p_min) / (p_max - p_min + 1e-8)
         
     elif norm_mode == 'zscore':
