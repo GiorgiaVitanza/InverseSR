@@ -51,6 +51,7 @@ from utils.utils_new import (
 )
 
 
+
 def logprint(message: str, verbose: bool) -> None:
     if verbose:
         print(message)
@@ -301,18 +302,19 @@ def project(
             verbose=verbose,
         )
 
-        step_ = f"{step}".zfill(4)
-        save_path = Path(hparams.output_dir_BRGM_decoder)
-        save_path.mkdir(parents=True, exist_ok=True)
-
-        draw_img(
-            synth_img_np,
-            title="synth",
-            step=step_,
-            output_folder=save_path,
-        )
+        
 
         if step % 25 == 0:
+            step_ = f"{step}".zfill(4)
+            save_path = Path(hparams.output_dir_BRGM_decoder)
+            save_path.mkdir(parents=True, exist_ok=True)
+
+            draw_img(
+                synth_img_np,
+                title="synth",
+                step=step_,
+                output_folder=save_path,
+            )
             if hparams.corruption != "None":
                 imgs = draw_corrupted_images(
                     synth_img_np,
@@ -327,7 +329,7 @@ def project(
                     target_np,
                     ssim_=ssim_,
                 )
-            step_ = f"{step}".zfill(4)
+            
             writer.add_figure(f"step: {step_}", imgs, global_step=step)
             plt.close(imgs)
 
@@ -466,7 +468,7 @@ def main(hparams: Namespace) -> None:
 
     forward = create_corruption_function(hparams=hparams, device=device)
     decoder = load_pre_trained_decoder(
-        vae_path=PRETRAINED_MODEL_DECODER_PATH,
+        vae_path=hparams.decoder_path_BRGM,
         device=device,
     )
 
