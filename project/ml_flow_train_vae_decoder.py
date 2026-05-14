@@ -138,7 +138,7 @@ def train():
                 with torch.no_grad():
                     x = denormalize_data(x, train_param.norm_mode)
                     x_hat = denormalize_data(x_hat, train_param.norm_mode)
-                    fig =comparison_plots_ok(x, x_hat)
+                    fig =comparison_plots_ok(x, x_hat, flag='train')
                     # Log su TensorBoard e MLflow
                     writer.add_figure("Visual/3D_Comparison", fig, global_step=epoch)
                     
