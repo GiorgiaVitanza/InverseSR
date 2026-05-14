@@ -329,8 +329,7 @@ def main(hparams: Namespace) -> None:
         img_tensor = img_tensor.unsqueeze(0)  # (1, C, D, H, W)
         
     # 2. Carica i modelli pre-allenati con la tua architettura (z_channels=3)
-    # Questa funzione deve inizializzare il VAE con n_channels=32, z_channels=3, etc.
-    diffusion, decoder = load_pre_trained_model(device=device)
+    diffusion, decoder = load_pre_trained_model(hparams, device=device)
     ddim = DDIMSampler(diffusion)
     
     # 3. Setup Forward Model (Degradazione)
