@@ -17,6 +17,9 @@ from utils.config_unet_v3 import get_config
 from utils.config_train import train_config
 from utils.config_aekl_v3 import get_hparams
 from models.ddpm_v2_conditioned import DDPM
+from models.ddim import DDIMSampler
+from utils.plot_new import comparison_plots_ok, denormalize_data
+from utils.const import IMAGE_SHAPE
 
 
 
@@ -125,7 +128,7 @@ def train():
             writer.add_scalar("Loss/Train_DDPM", avg_loss, epoch)
             mlflow.log_metric("avg_loss", avg_loss, step=epoch)
 
-            """ if epoch % 5 == 0:
+            if epoch % 20 == 0:
                 model.eval()
                 with torch.no_grad():
                     # 1. PREPARAZIONE CONDIZIONAMENTO
@@ -136,49 +139,36 @@ def train():
                     # 2. GENERAZIONE DAL DDPM
                     # Ora passiamo esplicitamente il condizionamento al metodo sample
                     # Nota: batch_size=2 perché stiamo usando raw_context[:2]
-                    z_gen = model.sample(conditioning=curr_cond, batch_size=2) 
+                    # 2. Campionamento
+                    sampler = DDIMSampler(model) 
+                    latent_size = IMAGE_SHAPE[2] // 4  # Assumendo un downsampling di 4x nel VAE
+                    shape = (hparams.z_channels, latent_size, latent_size, latent_size)
+                      
+                    img_noise = torch.randn((train_cfg.batch_size, *shape), device=train_cfg.device)
+
+                    z_gen, _ = sampler.sample(
+                        S=50,
+                        batch_size=train_cfg.batch_size,
+                        shape=shape,
+                        conditioning=curr_cond,
+                        first_img=img_noise,
+                        eta=0.0, 
+                        verbose=False
+                    ) 
                     
                     # 3. DECODIFICA (Latent -> Image Space)
                     # z_gen è nello spazio dei latenti del VAE
                     x_gen = vae.decode(z_gen)
                     
-                    # 4. VISUALIZZAZIONE
-                    # Prendiamo il primo canale del primo elemento del batch
-                    # Assicurati che x_start e x_gen siano [B, C, D, H, W]
-                    img_orig = x_start[0, 0].detach().cpu().numpy()
-                    img_gen = x_gen[0, 0].detach().cpu().numpy()
+                    # 4. VISUALIZZAZIONE COMPARATIVA
+                    x = denormalize_data(x_start, train_cfg.norm_mode)
+                    x_hat = denormalize_data(x_gen, train_cfg.norm_mode)
+                    fig =comparison_plots_ok(x, x_hat, flag='train')
+                    # Log su TensorBoard e MLflow
+                    writer.add_figure("Visual/3D_Comparison", fig, global_step=epoch)
                     
-                    mid = img_orig.shape[0] // 2 # Slice centrale sulla profondità (D)
-                    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-                    
-                    # Riga 1: Slice Centrali (D-plane)
-                    axes[0, 0].imshow(img_orig[mid], cmap='hot')
-                    axes[0, 0].set_title("Originale (Target)")
-                    
-                    axes[0, 1].imshow(img_gen[mid], cmap='hot')
-                    axes[0, 1].set_title(f"DDPM Generated (Epoca {epoch})")
 
-                    # Riga 2: Momento 0 (Proiezioni/Somma lungo l'asse D)
-                    # Utile per vedere la struttura radio totale
-                    proj_orig = np.sum(img_orig, axis=0)
-                    proj_gen = np.sum(img_gen, axis=0)
-                    
-                    vmax = np.percentile(proj_orig, 99.9)
-                    
-                    axes[1, 0].imshow(proj_orig, cmap='hot', vmax=vmax)
-                    axes[1, 0].set_title("Momento 0 Originale")
-                    
-                    axes[1, 1].imshow(proj_gen, cmap='hot', vmax=vmax)
-                    axes[1, 1].set_title("Momento 0 Generato")
-
-                    # Logging
-                    writer.add_figure("Visual/DDPM_Sample", fig, global_step=epoch)
-                    # Opzionale: logga anche su MLflow se vuoi vederlo nella UI
-                    mlflow.log_figure(fig, f"samples/epoch_{epoch}.png")
-                    
-                    plt.close(fig)
-
-                model.train() """
+                model.train()
             # --- SALVATAGGIO CHECKPOINT PERIODICO ---
             if (epoch + 1) % 20 == 0 or (epoch + 1) == train_cfg.epochs:
                 ckpt_path = os.path.join(CHECKPOINT_DIR, f"ddpm_ep{epoch+1}.pth")
