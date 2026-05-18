@@ -485,7 +485,7 @@ class DiffusionWrapper(nn.Module):
                     cc_tensor = cc_tensor.view(cc_tensor.size(0), cc_tensor.size(1), 1, 1, 1)
 
                 # Espandiamo il condizionamento per matchare x [B, 3, D, H, W]
-                c_expanded = cc_tensor.expand(-1, -1, x.size(2), x.size(3), x.size(4))
+                c_expanded = cc_tensor.expand(x.size(0), -1, x.size(2), x.size(3), x.size(4))
 
                 # CONCATENIAMO: [B, 3, D, H, W] + [B, 4, D, H, W] -> [B, 7, D, H, W]
                 x_input = torch.cat([x, c_expanded], dim=1)
