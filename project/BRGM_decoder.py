@@ -393,15 +393,15 @@ def project(
     )
 
     fig = comparison_plots_ok(
-        denormalize_data(target, hparams.norm_data),
-        denormalize_data(synth_img, hparams.norm_data),
+        target_vis,
+        synth_vis,
     )
     fig.savefig(save_path / f"comparison_ok_{hparams.norm_data}.png")
     plt.close(fig)
 
     fig_corrupted = comparison_plots_ok(
-        denormalize_data(target_img_corrupted, hparams.norm_data),
-        denormalize_data(synth_img_corrupted, hparams.norm_data),
+        target_img_corrupted_vis,
+        synth_img_corrupted_vis,
     )
     fig_corrupted.savefig(save_path / f"comparison_corrupted_ok_{hparams.norm_data}.png")
     plt.close(fig_corrupted)
@@ -462,6 +462,28 @@ def main(hparams: Namespace) -> None:
     # Don't have enough memory to run on GPU. :(
     device = hparams.device
     img_tensor = load_target_image(hparams, device)
+
+
+    # 1. Prepara il dato (estrai la slice centrale del volume 3D)
+    # img_tensor[0, 0] è [D, H, W]
+    img_data = img_tensor[0].cpu().numpy()
+    mid_slice = img_data.shape[0] // 2
+    slice_to_plot = img_data[mid_slice]
+
+    # 2. Crea il plot
+    plt.figure(figsize=(8, 8))
+    plt.imshow(slice_to_plot, cmap='hot') 
+    plt.colorbar(label='Intensità')
+    plt.title("Target image nel main (Slice centrale)")
+
+    # 3. Gestione salvataggio
+    output_path = Path(hparams.output_dir_BRGM_decoder) / "target_image_nel_main.png"
+    output_path.parent.mkdir(parents=True, exist_ok=True) # Crea la cartella se non esiste
+
+    plt.savefig(output_path)
+    plt.show() # Opzionale, se sei in un notebook
+    plt.close() # Importante per liberare memoria
+    
     if img_tensor.dim() == 4:  # Se manca la dimensione del batch, aggiungila
         img_tensor = img_tensor.unsqueeze(0)
     writer = SummaryWriter(log_dir=hparams.tensor_board_logger_decoder)
