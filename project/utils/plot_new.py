@@ -36,9 +36,12 @@ def denormalize_data(x, norm_mode):
     return x
 
 def comparison_plots_ok(x, x_hat, flag = 'test'):
-    # Prendiamo il primo sample del batch
-                    img_orig = x[0, 0].detach().cpu().numpy()      # Cubo originale (128, 128, 128)
-                    img_recon = x_hat[0, 0].detach().cpu().numpy() # Cubo ricostruito
+                    try:                        
+                        img_orig = x[0, 0].detach().cpu().numpy()      # Cubo originale (128, 128, 128)
+                        img_recon = x_hat[0, 0].detach().cpu().numpy() # Cubo ricostruito
+                    except:
+                        img_orig = x
+                        img_recon = x_hat
 
                     # 1. Calcoliamo la Slice Centrale
                     mid_z = img_orig.shape[0] // 2
@@ -61,19 +64,21 @@ def comparison_plots_ok(x, x_hat, flag = 'test'):
                     
                     
                     # Calcoliamo un vmax comune per le slice per vedere la differenza di contrasto
-                    vmax_slice = np.percentile(slice_orig_z, 99.9)
+                    vmax_slice_z = np.percentile(slice_orig_z, 99.9)
+                    vmax_slice_y = np.percentile(slice_orig_y, 99.9)
+                    vmax_slice_x = np.percentile(slice_orig_x, 99.9)
                     # Posizione 1-1: Slice Z originale
-                    im1 = axes[0, 0].imshow(slice_orig_z, cmap='hot', vmin=0, vmax=vmax_slice)
+                    im1 = axes[0, 0].imshow(slice_orig_z, cmap='hot', vmin=0, vmax=vmax_slice_z)
                     axes[0, 0].set_title(f"Originale (Slice Z={mid_z})")
                     plt.colorbar(im1, ax=axes[0, 0])
                     plt.subplots_adjust(hspace=0.8)
                     # Posizione 2-1: Slice X originale (usiamo lo stesso vmax per coerenza)
-                    im2 = axes[1, 0].imshow(slice_orig_x, cmap='hot', vmin=0, vmax=vmax_slice)
+                    im2 = axes[1, 0].imshow(slice_orig_x, cmap='hot', vmin=0, vmax=vmax_slice_x)
                     axes[1, 0].set_title(f"Originale (Slice X={mid_x})")
                     plt.colorbar(im2, ax=axes[1, 0])
                     plt.subplots_adjust(hspace=0.8)
                     # Posizione 3-1: Slice Y originale (usiamo lo stesso vmax per coerenza)
-                    im3 = axes[2, 0].imshow(slice_orig_y, cmap='hot', vmin=0, vmax=vmax_slice)
+                    im3 = axes[2, 0].imshow(slice_orig_y, cmap='hot', vmin=0, vmax=vmax_slice_y)
                     axes[2, 0].set_title(f"Originale (Slice Y={mid_y})")
                     plt.colorbar(im3, ax=axes[2, 0])
                     plt.subplots_adjust(hspace=0.8)
@@ -87,15 +92,15 @@ def comparison_plots_ok(x, x_hat, flag = 'test'):
 
                     # slice ricostruite: usiamo lo stesso vmax per vedere se il contrasto è simile
                     if flag == 'train':
-                        im5 = axes[0, 1].imshow(slice_recon_z, cmap='hot', vmin=0, vmax=vmax_slice)
+                        im5 = axes[0, 1].imshow(slice_recon_z, cmap='hot', vmin=0, vmax=vmax_slice_z)
                         axes[0, 1].set_title("Ricostruito (Slice Z)")
                         plt.colorbar(im5, ax=axes[0, 1])
                         plt.subplots_adjust(hspace=0.8)
-                        im6 = axes[1, 1].imshow(slice_recon_x, cmap='hot', vmin=0, vmax=vmax_slice)
+                        im6 = axes[1, 1].imshow(slice_recon_x, cmap='hot', vmin=0, vmax=vmax_slice_x)
                         axes[1, 1].set_title("Ricostruito (Slice X)")
                         plt.colorbar(im6, ax=axes[1, 1])
                         plt.subplots_adjust(hspace=0.8)
-                        im7 = axes[2, 1].imshow(slice_recon_y, cmap='hot', vmin=0, vmax=vmax_slice)
+                        im7 = axes[2, 1].imshow(slice_recon_y, cmap='hot', vmin=0, vmax=vmax_slice_y)
                         axes[2, 1].set_title("Ricostruito (Slice Y)")
                         plt.colorbar(im7, ax=axes[2, 1])
                         plt.subplots_adjust(hspace=0.8)
@@ -153,7 +158,7 @@ def draw_img_in_three_dim(img, title: str, output_folder: Path) -> None:
     
     # --- PIANO 1: XY (Axial / RA-Dec) ---
     img_slice = np.rot90(img[:, :, sk // 2], 1)
-    ax.imshow(img_slice, cmap="inferno", origin='lower') # 'inferno' è meglio per l'astro
+    ax.imshow(img_slice, cmap="hot", origin='lower') 
     ax.axis("off")
     ax.set_title(f"{dim_names[0]} (slice {sk // 2})")
     fig.savefig(output_folder / f"{title}_{dim_names[0]}.png", 
@@ -161,7 +166,7 @@ def draw_img_in_three_dim(img, title: str, output_folder: Path) -> None:
 
     # --- PIANO 2: XZ (Sagittal / RA-Freq) ---
     img_slice = np.rot90(img[:, sj // 2, :], 1)
-    ax.imshow(img_slice, cmap="inferno", origin='lower')
+    ax.imshow(img_slice, cmap="hot", origin='lower')
     ax.axis("off")
     ax.set_title(f"{dim_names[1]} (slice {sj // 2})")
     fig.savefig(output_folder / f"{title}_{dim_names[1]}.png", 
@@ -169,7 +174,7 @@ def draw_img_in_three_dim(img, title: str, output_folder: Path) -> None:
 
     # --- PIANO 3: YZ (Coronal / Dec-Freq) ---
     img_slice = np.rot90(img[si // 2, :, :], 1)
-    ax.imshow(img_slice, cmap="inferno", origin='lower')
+    ax.imshow(img_slice, cmap="hot", origin='lower')
     ax.axis("off")
     ax.set_title(f"{dim_names[2]} (slice {si // 2})")
     fig.savefig(output_folder / f"{title}_{dim_names[2]}.png", 
@@ -180,7 +185,7 @@ def draw_img_in_three_dim(img, title: str, output_folder: Path) -> None:
 
 
 # Configurazione default per Astro
-DEFAULT_CMAP = "inferno"  # O 'viridis', 'magma', 'cividis'
+DEFAULT_CMAP = "hot"  # O 'viridis', 'magma', 'cividis'
 BG_COLOR = "black"       # Spesso i plot astro sono più belli su sfondo scuro
 def draw_corrupted_images(
     img1: np.ndarray, img2: np.ndarray, img3: np.ndarray, img4: np.ndarray, ssim_: float

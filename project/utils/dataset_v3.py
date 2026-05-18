@@ -10,8 +10,12 @@ def normalize(data, norm_mode):
     if norm_mode == 'global_sym':
         # Mappa [-LIMIT, LIMIT] -> [0, 1] con zero a 0.5
         x_scaled = data / FITS_LIMIT
-        return (x_scaled + 1.0) / 2.0
-        
+        data_norm = (x_scaled + 1.0) / 2.0
+        try:
+            return torch.from_numpy(np.clip(data_norm, 0, 1))
+        except:
+            return torch.clamp(data_norm, 0, 1)
+
     elif norm_mode == 'local':
         # Stretching basato sulla singola patch
         try:
@@ -19,13 +23,19 @@ def normalize(data, norm_mode):
             p_max = np.percentile(data, 99.8) 
         except:
             p_min, p_max = -1.47e-03, 1.52e-03
-        return (data - p_min) / (p_max - p_min + 1e-8)
-        
+        data_norm = (data - p_min) / (p_max - p_min + 1e-8)
+        try:
+            return torch.from_numpy(np.clip(data_norm, 0, 1))
+        except:
+            return torch.clamp(data_norm, 0, 1)
+
     elif norm_mode == 'zscore':
-        # Standardizzazione (media 0, std 1)
-        # Nota: questa non garantisce il range [0, 1]
-        return (data - FITS_MEAN) / FITS_STD
-        
+        # Standardizzazione (media 0, deviazione 1) con clipping a [-1, 1]
+        data_norm = (data - FITS_MEAN) / FITS_STD
+        try:
+            return torch.from_numpy(np.clip(data_norm, -1, 1))
+        except:
+            return torch.clamp(data_norm, -1, 1)
     else:
         raise ValueError(f"Modalità {norm_mode} non supportata.")
 
@@ -73,12 +83,8 @@ class RadioPatchDataset(Dataset):
             data_numpy = data_numpy.squeeze()
 
         # Applicazione normalizzazione scelta
-        x_norm = normalize(data_numpy, self.norm_mode)
+        x_0 = normalize(data_numpy, self.norm_mode)
         
-        if self.norm_mode != 'zscore':
-            x_0 = torch.from_numpy(np.clip(x_norm, 0, 1))
-        else:
-            x_0 = torch.from_numpy(np.clip(x_norm, -1, 1))
 
         if x_0.ndim == 3: 
             x_0 = x_0.unsqueeze(0) 

@@ -157,6 +157,7 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
         raise FileNotFoundError(f"Nessun file trovato per {hparams.object_id}")
 
     img_path = potential_files[0]
+    print(f"Caricamento immagine target da: {img_path}")
     
     # 2. CARICAMENTO DATI RAW
     if hparams.data_format == "fits":
@@ -171,9 +172,6 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
     norm_mode = hparams.norm_data 
     img_tensor[2:5] = normalize(img_tensor[2:5], norm_mode=norm_mode)
 
-    # 4. CLIPPING FINALE
-    # Nota: Per 'zscore' il clipping a 0,1 distruggerebbe i dati. 
-    # Lo applichiamo solo per 'global_sym' e 'local' che devono stare in quel range.
     if norm_mode != 'zscore':
         img_tensor[2:5] = torch.clamp(img_tensor[2:5], 0, 1)
     else:
