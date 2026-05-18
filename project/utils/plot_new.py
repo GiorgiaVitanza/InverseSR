@@ -380,14 +380,6 @@ def draw_img(img: np.ndarray, title: str, step: str, output_folder: Path) -> Non
     plt.close(fig)
 
 
-def normalize_for_plot(img: np.ndarray):
-    """Normalizza l'immagine tra 0 e 1 per il plotting, gestendo NaN e Infinity."""
-    img = np.nan_to_num(img) # Sostituisce NaN con 0
-    vmin, vmax = img.min(), img.max()
-    if vmax - vmin < 1e-6:
-        return img
-    return (img - vmin) / (vmax - vmin)
-
 def plot_orthogonal_cuts(
     cube: np.ndarray, 
     title: str = "Astro Object", 
@@ -420,12 +412,16 @@ def plot_orthogonal_cuts(
     # 3. Taglio Spettrale Dec:
     img_spectral_dec = cube[:, :, nx // 2]
 
-    imgs = [img_spatial, img_spectral_ra, img_spectral_dec]
-    titles = ["Spatial (Moment 0)", "Spectral (Z - RA)", "Spectral (Z - Dec)"]
+    # 4. Taglio Ra-Dec (Slice centrale lungo Z):
+    #    Questo mostra la distribuzione spaziale a una frequenza/velocità specific
+    img_ra_dec = cube[:, nz // 2, :, :]
+
+    imgs = [img_spatial, img_spectral_ra, img_spectral_dec, img_ra_dec]
+    titles = ["Spatial (Moment 0)", "Spectral (Z - RA)", "Spectral (Z - Dec)", "RA-Dec (Z - Center)"]
     
     # --- Plotting ---
     fig = plt.figure(figsize=(15, 5))
-    gs = gridspec.GridSpec(1, 3)
+    gs = gridspec.GridSpec(1, 4)
     
     for i, img in enumerate(imgs):
         ax = plt.subplot(gs[i])
@@ -461,10 +457,10 @@ def compare_cubes(
     Confronta visivamente il cubo originale e quello generato/ricostruito
     mostrando la mappa spaziale integrata (M0).
     """
+    print(f"original.shape: {original.shape}")
+    print(f"reconstructed.shape: {reconstructed.shape}")
     # Gestione dimensioni [C, D, H, W] -> [H, W] (somma su C e D)
     if len(original.shape) == 4:
-        # Somma su canali e su asse spettrale (asse 1)
-        # original[0] -> shape (D, H, W) -> sum(0) -> (H, W)
         img_orig = np.sum(original[0], axis=0)
         img_recon = np.sum(reconstructed[0], axis=0)
     else:
