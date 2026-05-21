@@ -17,11 +17,7 @@ from skimage.metrics import normalized_root_mse as nmse
 from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import peak_signal_noise_ratio as psnr
 
-from models.BRGM.forward_models import (
-    ForwardDownsample,
-    ForwardFillMask,
-    ForwardAbstract,
-)
+from models.BRGM.forward_models import ForwardDownsample
 from models.ddim import DDIMSampler
 from utils.add_argument import add_argument
 from utils.utils_new import (
@@ -84,10 +80,11 @@ def add_hparams_to_tensorboard(
         "metrics/ssim": metrics["ssim"],
         "metrics/psnr": metrics["psnr"],
         "metrics/mse": metrics["mse"],
-        "inv_cond/hi_size": cond_vals[0].item(),
-        "inv_cond/line_flux_integral": cond_vals[1].item(),
-        "inv_cond/i": cond_vals[2].item(),
-        "inv_cond/w20": cond_vals[3].item(),
+        "metrics/nmse":metrics["nmse"],
+        "inv_cond/hi_size": cond_vals[0,0].item(),
+        "inv_cond/line_flux_integral": cond_vals[0,1].item(),
+        "inv_cond/i": cond_vals[0,2].item(),
+        "inv_cond/w20": cond_vals[0,3].item(),
     }
     
     writer.add_hparams(hparam_dict, metric_dict)
@@ -103,7 +100,7 @@ def create_mask_for_backprop(hparams: Namespace, device: torch.device) -> torch.
 def project(
     ddim: DDIMSampler,
     decoder: torch.nn.Module,
-    forward: ForwardAbstract,
+    forward: ForwardDownsample,
     target: torch.Tensor,
     device: torch.device,
     writer: SummaryWriter,
@@ -285,17 +282,23 @@ def project(
 
         latent_variable_out[step] = latent_variable.detach()[0]
         cond_out[step] = cond.detach()[0]
-        writer.add_scalar("loss/total", loss.item(), step)
-        writer.add_scalar("metrics/psnr_mid", psnr_, step)
-        writer.add_scalar("metrics/mse_mid", mse_, step)
-        writer.add_scalar("metrics/nmse_mid", nmse_, step)
-      
+
+        metrics = {"loss": loss,
+                   "ssim": ssim_,
+                   "psnr": psnr_,
+                   "mse": mse_,
+                   "nmse": nmse_}
         # Logghiamo i parametri fisici correnti 
         cond_phys = denormalize_cond(cond, catalogue=pd.DataFrame.from_dict(cat, orient='index'), feature_cols=feature_cols)
-        writer.add_scalar("inv_cond/hi_size", cond_phys[0, 0].item(), step)
-        writer.add_scalar("inv_cond/line_flux_integral", cond_phys[0, 1].item(), step)
-        writer.add_scalar("inv_cond/i", cond_phys[0, 2].item(), step)
-        writer.add_scalar("inv_cond/w20", cond_phys[0, 3].item(), step)
+        add_hparams_to_tensorboard(
+            hparams,
+            metrics=metrics,
+            cond_vals=cond_phys,
+            writer=writer,
+        )
+      
+      
+        
 
         
         if verbose:
