@@ -62,10 +62,6 @@ def get_val(v):
 def add_hparams_to_tensorboard(
     hparams: Namespace,
     metrics: dict,
-    cond1: torch.Tensor,
-    cond2: torch.Tensor,
-    cond3: torch.Tensor,
-    cond4: torch.Tensor,
     writer: SummaryWriter,
 ) -> None:
     """Logga i parametri e le metriche finali su TensorBoard."""
@@ -81,24 +77,12 @@ def add_hparams_to_tensorboard(
         "loss/final": metrics["loss"],
         "metrics/ssim": metrics["ssim"],
         "metrics/psnr": metrics["psnr"],
-        "metrics/mse": metrics["mse"],
-        "inv_cond/hi_size": cond1.item(),
-        "inv_cond/line_flux_integral": cond2.item(),
-        "inv_cond/i": cond3.item(),
-        "inv_cond/w20": cond4.item(),
+        "metrics/mse": metrics["mse"]
     }
     
     writer.add_hparams(hparam_dict, metric_dict)
 
 
-
-def create_mask_for_backprop(hparams: Namespace, device: torch.device) -> torch.Tensor:
-    mask_cond = torch.ones((1, 4), device=device)
-    mask_cond[:, 0] = 0 if not hparams.update_hi_size else 1
-    mask_cond[:, 1] = 0 if not hparams.update_line_flux_integral else 1
-    mask_cond[:, 2] = 0 if not hparams.update_i else 1
-    mask_cond[:, 3] = 0 if not hparams.update_w20 else 1
-    return mask_cond
 
 
 def compute_latent_vector_stats(
@@ -186,9 +170,9 @@ def project(
         latent_vector = latent_vector_mean.clone().detach()
     latent_vector.requires_grad = True
 
-    update_params = []
-    update_params.append(latent_vector)
+    update_params = [latent_vector]
 
+   
     optimizer_adam = torch.optim.Adam(
         update_params,
         betas=(0.9, 0.999),
@@ -208,27 +192,24 @@ def project(
         else math.prod(forward.mask.shape) - forward.mask.sum()
     )
 
+    # Definizione sicura dei percorsi all'inizio della funzione per evitare NameError
+    save_path = Path(hparams.output_dir_BRGM_decoder)
+    save_path.mkdir(parents=True, exist_ok=True)
+
     # Compute latent representation stats.
     for step in range(hparams.start_steps, hparams.num_steps):
-
 
         def closure():
             optimizer_adam.zero_grad()
 
-            synth_img = inference(
-                vqvae=vqvae,
-                latent_vectors=latent_vector,
-            )
+            synth_img = inference(vqvae=vqvae, latent_vectors=latent_vector)
             synth_img_corrupted = forward(synth_img)
 
             loss = 0
             downsampling_loss = 0
-            prior_loss = 0
-            indices = [0]
+            
             if hparams.corruption != "None":
-                pixelwise_loss = (
-                    synth_img_corrupted - target_img_corrupted
-                ).abs().sum() / total_num_pixels
+                pixelwise_loss = (synth_img_corrupted - target_img_corrupted).abs().sum() / total_num_pixels
                 loss += pixelwise_loss
 
                 synth_features = getVggFeatures(hparams, synth_img_corrupted, vgg16)
@@ -244,180 +225,110 @@ def project(
 
             loss.backward(retain_graph=True)
 
+
             synth_img_np = synth_img[0, 0].detach().cpu().numpy()
             target_np = target[0, 0].detach().cpu().numpy()
-            # data for metrics
+            
+            # Dati denormalizzati per metriche e plot stabili
             synth_m = denormalize_data(synth_img_np, norm_mode=hparams.norm_data)
             target_m = denormalize_data(target_np, norm_mode=hparams.norm_data)
 
-            ssim_ = ssim(
-                synth_m,
-                target_m,
-                win_size=11,
-                data_range=1.0,
-                gaussian_weights=True,
-                use_sample_covariance=False,
-            )
-            # Code for computing PSNR is adapted from
-            # https://github.com/agis85/multimodal_brain_synthesis/blob/master/error_metrics.py#L32
-            data_range = np.max([synth_m.max(), target_m.max()]) - np.min(
-                [synth_m.min(), target_m.min()]
-            )
+            ssim_ = ssim(synth_m, target_m, win_size=11, data_range=1.0, gaussian_weights=True, use_sample_covariance=False)
+            data_range = np.max([synth_m.max(), target_m.max()]) - np.min([synth_m.min(), target_m.min()])
             psnr_ = psnr(target_m, synth_m, data_range=data_range)
             mse_ = mse(target_m, synth_m)
             nmse_ = nmse(target_m, synth_m)
 
+            # Scrittura scalari TensorBoard
             writer.add_scalar("loss", loss, global_step=step)
             writer.add_scalar("pixelwise_loss", pixelwise_loss, global_step=step)
             writer.add_scalar("perceptual_loss", perc_loss, global_step=step)
             writer.add_scalar("downsampling_loss", downsampling_loss, global_step=step)
-            if prior_loss != 0:
-                writer.add_scalar("prior_loss", prior_loss, global_step=step)
-                writer.add_scalar("indice", indices[0], global_step=step)
             writer.add_scalar("ssim", ssim_, global_step=step)
             writer.add_scalar("psnr", psnr_, global_step=step)
             writer.add_scalar("mse", mse_, global_step=step)
             writer.add_scalar("nmse", nmse_, global_step=step)
 
             logprint(
-                f"step {step + 1:>4d}/{hparams.num_steps}: tloss {get_val(loss)} pix_loss {get_val(pixelwise_loss)} perc_loss {get_val(perc_loss)} prior_loss {get_val(prior_loss)}\n"
-                f"              : SSIM {get_val(ssim_)} PSNR {get_val(psnr_)} MSE {get_val(mse_)} NMSE {get_val(nmse_)}",
+                f"step {step + 1:>4d}/{hparams.num_steps}: tloss {get_val(loss)} pix_loss {get_val(pixelwise_loss)} perc_loss {get_val(perc_loss)}\n"
+                f"              : SSIM {get_val(ssim_)} PSNR {get_val(psnr_)} MSE {get_val(mse_)}",
                 verbose=verbose,
             )
 
-        
-
+            # PLOT INTERMEDI SU TENSORBOARD (Ogni 25 step)
             if step % 25 == 0:
-                step_ = f"{step}".zfill(4)
-                save_path = Path(hparams.output_dir_BRGM_decoder)
-                save_path.mkdir(parents=True, exist_ok=True)
-
+                step_str = f"{step}".zfill(4)
+                
+                # Salviamo l'immagine includendo lo step nel titolo per non sovrascriverla continuamente
                 draw_img(
-                    synth_img_np,
-                    title="synth",
-                    step=step_,
+                    synth_m,
+                    title=f"synth_step_{step_str}",
+                    step=step_str,
                     output_folder=save_path,
                 )
+                
                 if hparams.corruption != "None":
-                    imgs = draw_corrupted_images(
-                        synth_img_np,
-                        target_np,
-                        synth_img_corrupted[0, 0].detach().cpu().numpy(),
-                        target_img_corrupted[0, 0].detach().cpu().numpy(),
-                        ssim_=ssim_,
-                    )
+                    # Usiamo i dati denormalizzati per coerenza visiva su TensorBoard
+                    synth_corr_m = denormalize_data(synth_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data)
+                    target_corr_m = denormalize_data(target_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data)
+                    imgs = draw_corrupted_images(synth_m, target_m, synth_corr_m, target_corr_m, ssim_=ssim_)
                 else:
-                    imgs = draw_images(
-                        synth_img_np,
-                        target_np,
-                        ssim_=ssim_,
-                    )
+                    imgs = draw_images(synth_m, target_m, ssim_=ssim_)
             
-                writer.add_figure(f"step: {step_}", imgs, global_step=step)
+                writer.add_figure(f"step: {step_str}", imgs, global_step=step)
                 plt.close(imgs)
 
-            # Variabili necessarie all'esterno per l'ultimo step o checkpoint
+            # Salvataggio metriche nell'oggetto closure per l'esterno
             closure.final_metrics = {"loss": loss.item(), "ssim": ssim_, "psnr": psnr_, "mse": mse_, "nmse": nmse_}
             closure.final_synth = synth_img
             closure.final_synth_corr = synth_img_corrupted
 
             return loss
         
-    
         optimizer_adam.step(closure=closure)
+      
         latent_vector_out[step] = latent_vector.detach()[0]
 
+    # --- FUORI DAL CICLO FOR: PLOT E LOG FINALI ---
     final_metrics = closure.final_metrics
     synth_img = closure.final_synth
     synth_img_corrupted = closure.final_synth_corr
+    
+    # Registrazione iperparametri finale
     add_hparams_to_tensorboard(
-        hparams,
-        metrics=final_metrics,
-        cond1=cond_concat[0, 0, 0, 0, 0].cpu(),
-        cond2=cond_concat[0, 1, 0, 0, 0].cpu(),
-        cond3=cond_concat[0, 2, 0, 0, 0].cpu(),
-        cond4=cond_concat[0, 3, 0, 0, 0].cpu(),
+        hparams, metrics=final_metrics,
         writer=writer,
     )
 
-   
-    
-    # Portiamo tutto nella scala fisica Jy/beam prima di plottare
-    synth_vis = synth_img[0, 0].detach().cpu().numpy()
-    synth_vis = denormalize_data(synth_vis, hparams.norm_data)
-    # Calcola la STD del target reale
-
-    target_vis = target[0, 0].detach().cpu().numpy() 
-    target_vis = denormalize_data(target_vis, hparams.norm_data)
-
-    target_img_corrupted_vis = target_img_corrupted[0, 0].detach().cpu().numpy() 
-    target_img_corrupted_vis = denormalize_data(target_img_corrupted_vis, hparams.norm_data)
-    
-    synth_img_corrupted_vis = synth_img_corrupted[0, 0].detach().cpu().numpy() 
-    synth_img_corrupted_vis = denormalize_data(synth_img_corrupted_vis, hparams.norm_data)
+    # Denormalizzazione totale per i plot di chiusura (Scala fisica Jy/beam)
+    synth_vis = denormalize_data(synth_img[0, 0].detach().cpu().numpy(), hparams.norm_data)
+    target_vis = denormalize_data(target[0, 0].detach().cpu().numpy(), hparams.norm_data)
+    target_img_corrupted_vis = denormalize_data(target_img_corrupted[0, 0].detach().cpu().numpy(), hparams.norm_data)
+    synth_img_corrupted_vis = denormalize_data(synth_img_corrupted[0, 0].detach().cpu().numpy(), hparams.norm_data)
 
     print(f"TARGET - Min: {target_vis.min():.2e}, Max: {target_vis.max():.2e}, Mean: {target_vis.mean():.2e}")
     print(f"SYNTH  - Min: {synth_vis.min():.2e}, Max: {synth_vis.max():.2e}, Mean: {synth_vis.mean():.2e}")
 
-    draw_img(
-        target_vis,
-        title=f"target_{hparams.norm_data}",
-        step=step_,
-        output_folder=save_path,
-    )
+    # Stringa di safe finale per i nomi dei file
+    final_step_str = f"{hparams.num_steps}".zfill(4)
 
-    draw_img(
-        synth_img_corrupted_vis,
-        title=f"corrupted_{hparams.norm_data}",
-        step=step_,
-        output_folder=save_path,
-    )
+    draw_img(target_vis, title=f"final_target_{hparams.norm_data}", step=final_step_str, output_folder=save_path)
+    draw_img(synth_img_corrupted_vis, title=f"final_corrupted_{hparams.norm_data}", step=final_step_str, output_folder=save_path)
 
-    compare_cubes(
-        target_vis,
-        synth_vis,
-        title=f"target_vs_synth_{hparams.norm_data}",
-        save_path=save_path / "compare_target_vs_synth.png",
-    )
+    compare_cubes(target_vis, synth_vis, title=f"target_vs_synth_{hparams.norm_data}", save_path=save_path / "compare_target_vs_synth.png")
+    compare_cubes(target_img_corrupted_vis, synth_img_corrupted_vis, title=f"corr_target_vs_corr_synth_{hparams.norm_data}", save_path=save_path / "compare_corrupted_target_vs_corrupted_synth.png")
 
-    compare_cubes(
-        target_img_corrupted_vis,
-        synth_img_corrupted_vis,
-        title=f"corrupted_target_vs_corrupted_synth_{hparams.norm_data}",
-        save_path=save_path / "compare_corrupted_target_vs_corrupted_synth.png",
-    )
-
-    fig = comparison_plots_ok(
-        target_vis,
-        synth_vis,
-    )
+    fig = comparison_plots_ok(target_vis, synth_vis)
     fig.savefig(save_path / f"comparison_ok_{hparams.norm_data}.png")
     plt.close(fig)
 
-    fig_corrupted = comparison_plots_ok(
-        target_img_corrupted_vis,
-        synth_img_corrupted_vis,
-    )
+    fig_corrupted = comparison_plots_ok(target_img_corrupted_vis, synth_img_corrupted_vis)
     fig_corrupted.savefig(save_path / f"comparison_corrupted_ok_{hparams.norm_data}.png")
     plt.close(fig_corrupted)
 
-    plot_orthogonal_cuts(
-        synth_vis,
-        title=f"orthogonal_cuts_synth_{hparams.norm_data}",
-        save_path=save_path / "orthogonal_cuts_synth.png",
-    )
-
-    plot_orthogonal_cuts(
-        target_vis,
-        title=f"orthogonal_cuts_target_{hparams.norm_data}", 
-        save_path=save_path / "orthogonal_cuts_target.png",
-    )
-
-    plot_orthogonal_cuts(
-        synth_img_corrupted_vis,
-        title=f"orthogonal_cuts_corrupted_{hparams.norm_data}",
-        save_path=save_path / "orthogonal_cuts_corrupted.png",
-    )
+    plot_orthogonal_cuts(synth_vis, title=f"orthogonal_cuts_synth_{hparams.norm_data}", save_path=save_path / "orthogonal_cuts_synth.png")
+    plot_orthogonal_cuts(target_vis, title=f"orthogonal_cuts_target_{hparams.norm_data}", save_path=save_path / "orthogonal_cuts_target.png")
+    plot_orthogonal_cuts(synth_img_corrupted_vis, title=f"orthogonal_cuts_corrupted_{hparams.norm_data}", save_path=save_path / "orthogonal_cuts_corrupted.png")
 
     print("Plots saved to", save_path)
     writer.flush()
@@ -434,13 +345,6 @@ def project(
 
     print(f"Checkpoint saved to {save_path / 'checkpoint.pth'}")
 
-    row = [
-        hparams.object_id,
-        ssim_,
-        psnr_,
-        mse_,
-        nmse_,
-    ]
 
     with open(
         "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/decoder/result_decoder_downsample_2.csv",
