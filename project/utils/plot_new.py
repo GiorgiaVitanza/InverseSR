@@ -349,10 +349,15 @@ def draw_images(
 
 def draw_img(img: np.ndarray, title: str, step: str, output_folder: Path) -> None:
     fig, ax = plt.subplots()
-    si, sj, sk = img.shape # Ra Dec Freq
-    img_slice = np.rot90(img[:, :, sk // 2], -1)
-    ax.imshow(img_slice, cmap=DEFAULT_CMAP)
-    ax.axis("off")
+    si, sj, sk = img.shape # Freq Ra Dec 
+    img_slice = np.rot90(img[si // 2, :, :], -1)
+    img = ax.imshow(img_slice, cmap=DEFAULT_CMAP)
+    
+    ax.set_title(title)
+    ax.set_xlabel("Pixels")
+    ax.set_ylabel("Pixels")
+    plt.colorbar(img, ax=ax, fraction=0.046, pad=0.04)
+    
     fig.savefig(
         output_folder / f"{step}_{title}.png",
         bbox_inches="tight",
