@@ -173,8 +173,10 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
     img_tensor[2:5] = normalize(img_tensor[2:5], norm_mode=norm_mode)
 
     if norm_mode != 'zscore':
+        print('carico il target nel range [0, 1]')
         img_tensor[2:5] = torch.clamp(img_tensor[2:5], 0, 1)
     else:
+        print('carico il target nel range [-1,1]')
         img_tensor[2:5] = torch.clamp(img_tensor[2:5], -1, 1)
         
     return img_tensor
