@@ -211,6 +211,7 @@ def project(
     # Compute latent representation stats.
     for step in range(hparams.start_steps, hparams.num_steps):
 
+
         def closure():
             optimizer_adam.zero_grad()
 
@@ -243,101 +244,95 @@ def project(
 
             loss.backward(retain_graph=True)
 
-            return (
-                loss,
-                pixelwise_loss,
-                perc_loss,
-                downsampling_loss,
-                prior_loss,
-                synth_img,
-                synth_img_corrupted,
-                indices,
+            synth_img_np = synth_img[0, 0].detach().cpu().numpy()
+            target_np = target[0, 0].detach().cpu().numpy()
+            # data for metrics
+            synth_m = denormalize_data(synth_img_np, norm_mode=hparams.norm_data)
+            target_m = denormalize_data(target_np, norm_mode=hparams.norm_data)
+
+            ssim_ = ssim(
+                synth_m,
+                target_m,
+                win_size=11,
+                data_range=1.0,
+                gaussian_weights=True,
+                use_sample_covariance=False,
             )
+            # Code for computing PSNR is adapted from
+            # https://github.com/agis85/multimodal_brain_synthesis/blob/master/error_metrics.py#L32
+            data_range = np.max([synth_m.max(), target_m.max()]) - np.min(
+                [synth_m.min(), target_m.min()]
+            )
+            psnr_ = psnr(target_m, synth_m, data_range=data_range)
+            mse_ = mse(target_m, synth_m)
+            nmse_ = nmse(target_m, synth_m)
 
-        (
-            loss,
-            pixelwise_loss,
-            perc_loss,
-            downsampling_loss,
-            prior_loss,
-            synth_img,
-            synth_img_corrupted,
-            indices,
-        ) = optimizer_adam.step(closure=closure)
+            writer.add_scalar("loss", loss, global_step=step)
+            writer.add_scalar("pixelwise_loss", pixelwise_loss, global_step=step)
+            writer.add_scalar("perceptual_loss", perc_loss, global_step=step)
+            writer.add_scalar("downsampling_loss", downsampling_loss, global_step=step)
+            if prior_loss != 0:
+                writer.add_scalar("prior_loss", prior_loss, global_step=step)
+                writer.add_scalar("indice", indices[0], global_step=step)
+            writer.add_scalar("ssim", ssim_, global_step=step)
+            writer.add_scalar("psnr", psnr_, global_step=step)
+            writer.add_scalar("mse", mse_, global_step=step)
+            writer.add_scalar("nmse", nmse_, global_step=step)
 
-        synth_img_np = synth_img[0, 0].detach().cpu().numpy()
-        target_np = target[0, 0].detach().cpu().numpy()
-        ssim_ = ssim(
-            synth_img_np,
-            target_np,
-            win_size=11,
-            data_range=1.0,
-            gaussian_weights=True,
-            use_sample_covariance=False,
-        )
-        # Code for computing PSNR is adapted from
-        # https://github.com/agis85/multimodal_brain_synthesis/blob/master/error_metrics.py#L32
-        data_range = np.max([synth_img_np.max(), target_np.max()]) - np.min(
-            [synth_img_np.min(), target_np.min()]
-        )
-        psnr_ = psnr(target_np, synth_img_np, data_range=data_range)
-        mse_ = mse(target_np, synth_img_np)
-        nmse_ = nmse(target_np, synth_img_np)
-
-        writer.add_scalar("loss", loss, global_step=step)
-        writer.add_scalar("pixelwise_loss", pixelwise_loss, global_step=step)
-        writer.add_scalar("perceptual_loss", perc_loss, global_step=step)
-        writer.add_scalar("downsampling_loss", downsampling_loss, global_step=step)
-        if prior_loss != 0:
-            writer.add_scalar("prior_loss", prior_loss, global_step=step)
-            writer.add_scalar("indice", indices[0], global_step=step)
-        writer.add_scalar("ssim", ssim_, global_step=step)
-        writer.add_scalar("psnr", psnr_, global_step=step)
-        writer.add_scalar("mse", mse_, global_step=step)
-        writer.add_scalar("nmse", nmse_, global_step=step)
-
-        logprint(
-            f"step {step + 1:>4d}/{hparams.num_steps}: tloss {get_val(loss)} pix_loss {get_val(pixelwise_loss)} perc_loss {get_val(perc_loss)} prior_loss {get_val(prior_loss)}\n"
-            f"              : SSIM {get_val(ssim_)} PSNR {get_val(psnr_)} MSE {get_val(mse_)} NMSE {get_val(nmse_)}",
-            verbose=verbose,
-        )
+            logprint(
+                f"step {step + 1:>4d}/{hparams.num_steps}: tloss {get_val(loss)} pix_loss {get_val(pixelwise_loss)} perc_loss {get_val(perc_loss)} prior_loss {get_val(prior_loss)}\n"
+                f"              : SSIM {get_val(ssim_)} PSNR {get_val(psnr_)} MSE {get_val(mse_)} NMSE {get_val(nmse_)}",
+                verbose=verbose,
+            )
 
         
 
-        if step % 25 == 0:
-            step_ = f"{step}".zfill(4)
-            save_path = Path(hparams.output_dir_BRGM_decoder)
-            save_path.mkdir(parents=True, exist_ok=True)
+            if step % 25 == 0:
+                step_ = f"{step}".zfill(4)
+                save_path = Path(hparams.output_dir_BRGM_decoder)
+                save_path.mkdir(parents=True, exist_ok=True)
 
-            draw_img(
-                synth_img_np,
-                title="synth",
-                step=step_,
-                output_folder=save_path,
-            )
-            if hparams.corruption != "None":
-                imgs = draw_corrupted_images(
+                draw_img(
                     synth_img_np,
-                    target_np,
-                    synth_img_corrupted[0, 0].detach().cpu().numpy(),
-                    target_img_corrupted[0, 0].detach().cpu().numpy(),
-                    ssim_=ssim_,
+                    title="synth",
+                    step=step_,
+                    output_folder=save_path,
                 )
-            else:
-                imgs = draw_images(
-                    synth_img_np,
-                    target_np,
-                    ssim_=ssim_,
-                )
+                if hparams.corruption != "None":
+                    imgs = draw_corrupted_images(
+                        synth_img_np,
+                        target_np,
+                        synth_img_corrupted[0, 0].detach().cpu().numpy(),
+                        target_img_corrupted[0, 0].detach().cpu().numpy(),
+                        ssim_=ssim_,
+                    )
+                else:
+                    imgs = draw_images(
+                        synth_img_np,
+                        target_np,
+                        ssim_=ssim_,
+                    )
             
-            writer.add_figure(f"step: {step_}", imgs, global_step=step)
-            plt.close(imgs)
+                writer.add_figure(f"step: {step_}", imgs, global_step=step)
+                plt.close(imgs)
 
+            # Variabili necessarie all'esterno per l'ultimo step o checkpoint
+            closure.final_metrics = {"loss": loss.item(), "ssim": ssim_, "psnr": psnr_, "mse": mse_, "nmse": nmse_}
+            closure.final_synth = synth_img
+            closure.final_synth_corr = synth_img_corrupted
+
+            return loss
+        
+    
+        optimizer_adam.step(closure=closure)
         latent_vector_out[step] = latent_vector.detach()[0]
 
+    final_metrics = closure.final_metrics
+    synth_img = closure.final_synth
+    synth_img_corrupted = closure.final_synth_corr
     add_hparams_to_tensorboard(
         hparams,
-        metrics={"loss": loss.item(), "ssim": ssim_, "psnr": psnr_, "mse": mse_, "nmse": nmse_},
+        metrics=final_metrics,
         cond1=cond_concat[0, 0, 0, 0, 0].cpu(),
         cond2=cond_concat[0, 1, 0, 0, 0].cpu(),
         cond3=cond_concat[0, 2, 0, 0, 0].cpu(),
@@ -365,14 +360,14 @@ def project(
     print(f"SYNTH  - Min: {synth_vis.min():.2e}, Max: {synth_vis.max():.2e}, Mean: {synth_vis.mean():.2e}")
 
     draw_img(
-        target_np,
+        target_vis,
         title=f"target_{hparams.norm_data}",
         step=step_,
         output_folder=save_path,
     )
 
     draw_img(
-        synth_img_corrupted[0, 0].detach().cpu().numpy(),
+        synth_img_corrupted_vis,
         title=f"corrupted_{hparams.norm_data}",
         step=step_,
         output_folder=save_path,
@@ -461,7 +456,7 @@ def main(hparams: Namespace) -> None:
     # device = torch.device("cuda" if COMPUTECANADA else "cpu")
     # Don't have enough memory to run on GPU. :(
     device = hparams.device
-    img_tensor = load_target_image(hparams, device)
+    img_tensor = load_target_image(hparams, device) # carico il target normalizzato
 
 
     # 1. Prepara il dato (estrai la slice centrale del volume 3D)
@@ -474,7 +469,7 @@ def main(hparams: Namespace) -> None:
     plt.figure(figsize=(8, 8))
     plt.imshow(slice_to_plot, cmap='hot') 
     plt.colorbar(label='Intensità')
-    plt.title("Target image nel main (Slice centrale)")
+    plt.title(f"Target image nel main normalizzato {hparams.norm_data} (Slice centrale)")
 
     # 3. Gestione salvataggio
     output_path = Path(hparams.output_dir_BRGM_decoder) / "target_image_nel_main.png"
