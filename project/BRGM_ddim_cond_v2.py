@@ -29,7 +29,7 @@ from utils.utils_new import (
     getVggFeatures,
     load_vgg_perceptual
 )
-from utils.plot_new import draw_corrupted_images, draw_images 
+from utils.plot_new import draw_corrupted_images, draw_images, denormalize_data
 from utils.const import (
         INPUT_FOLDER_CAT
 )
@@ -199,113 +199,87 @@ def project(
             # Applichiamo la maschera se vogliamo ottimizzare solo alcuni parametri di cond 
             if hparams.update_conditioning and cond.grad is not None:
                 cond.grad *= mask_cond
-            return (
-                    loss,
-                    pixel_loss,
-                    perc_loss,
-                    prior_loss,
-                    synth_img,
-                    synth_img_corrupted,
-            )    
-        (
-            loss,
-            pixel_loss,
-            perc_loss,
-            prior_loss,
-            synth_img,
-            synth_img_corrupted,
-        ) = optimizer.step(closure=closure)
+            
+            synth_img_np = synth_img[0, 0].detach().cpu().numpy()
+            target_np = target[0, 0].detach().cpu().numpy()
+            synth_phys = denormalize_data(synth_img_np, norm_mode=hparams.norm_data)
+            target_phys = denormalize_data(target_np, norm_mode=hparams.norm_data)
+
+            # 2. Ricalcola le metriche sui dati fisici denormalizzati
+            if hparams.norm_data != 'zscore':
+                ssim_ = ssim(synth_phys, target_phys, win_size=11, data_range=1.0, gaussian_weights=True, use_sample_covariance=False)
+            else:
+                ssim_ = ssim(synth_phys, target_phys, win_size=11, data_range=2.0, gaussian_weights=True, use_sample_covariance=False)
+
+            # 3. Calcola il data_range corretto considerando il massimo picco globale tra i due cubi
+            global_max = max(target_phys.max(), synth_phys.max())
+            global_min = min(target_phys.min(), synth_phys.min())
+            data_range = global_max - global_min
+            
+
+            psnr_ = psnr(target_phys, synth_phys, data_range=data_range)
+            mse_ = mse(target_phys, synth_phys)
+            nmse_ = nmse(target_phys, synth_phys)
+
+            writer.add_scalar("loss", loss, global_step=step)
+            writer.add_scalar("pixelwise_loss", pixel_loss, global_step=step)
+            writer.add_scalar("perceptual_loss", perc_loss, global_step=step)
+            writer.add_scalar("prior_loss", prior_loss, global_step=step)
+            writer.add_scalar("ssim", ssim_, global_step=step)
+            writer.add_scalar("psnr", psnr_, global_step=step)
+            writer.add_scalar("mse", mse_, global_step=step)
+            writer.add_scalar("nmse", nmse_, global_step=step)
+
+            # Logghiamo i parametri fisici correnti 
+            cond_phys = denormalize_cond(cond, catalogue=pd.DataFrame.from_dict(cat, orient='index'), feature_cols=feature_cols)
+            if verbose:
+                    print(f"Step {step:03d} | Loss: {loss.item():.6f} | Hi Size: {cond_phys[0,0]:.4f} | Line Flux Integral: {cond_phys[0,1]:.4f} | I: {cond_phys[0,2]:.4f} | W20: {cond_phys[0,3]:.4f} | SSIM_mid: {ssim_:.4f}")
+
+            # E. LOGGING
+            if step % 10 == 0:
+                if hparams.corruption != "None":
+                    imgs = draw_corrupted_images(
+                        synth_img_np,
+                        target_np,
+                        synth_img_corrupted[0, 0].detach().cpu().numpy(),
+                        target_img_corrupted[0, 0].detach().cpu().numpy(),
+                        ssim_=ssim_,
+                    )
+                    
+                else:
+                    imgs = draw_images(
+                        synth_img_np,
+                        target_np,
+                        ssim_=ssim_,
+                    )
+                    
+                step_ = f"{step}".zfill(4)
+                writer.add_figure(f"step: {step_}", imgs, global_step=step)
+                plt.close(imgs)
+
+            closure.final_metrics = {"loss": loss.item(), "ssim": ssim_, "psnr": psnr_, "mse": mse_, "nmse": nmse_}
+            closure.final_cond_phys = cond_phys
+          
+            
+            return  loss
+        optimizer.step(closure=closure)
+        
         # Constraint: mantieni i parametri nel range di confidenza del modello
         with torch.no_grad():
             cond.clamp_(0, 1)
-        synth_img_np = synth_img[0, 0].detach().cpu().numpy()
-        target_np = target[0, 0].detach().cpu().numpy()
-        if hparams.norm_data != 'zscore':
-            ssim_ = ssim(
-                synth_img_np,
-                target_np,
-                win_size=11,
-                data_range=1.0,
-                gaussian_weights=True,
-                use_sample_covariance=False
-            )
-        else:
-            ssim_ = ssim(
-                synth_img_np,
-                target_np,
-                win_size=11,
-                data_range=2.0,
-                gaussian_weights=True,
-                use_sample_covariance=False,            
-            )
-
-
-        
-        # Code for computing PSNR is adapted from
-        # https://github.com/agis85/multimodal_brain_synthesis/blob/master/error_metrics.py#L32
-        data_range = target_np.max() - target_np.min()
-        psnr_ = psnr(target_np, synth_img_np, data_range=data_range)
-        mse_ = mse(target_np, synth_img_np)
-        nmse_ = nmse(target_np, synth_img_np)
-
-        writer.add_scalar("loss", loss, global_step=step)
-        writer.add_scalar("pixelwise_loss", pixel_loss, global_step=step)
-        writer.add_scalar("perceptual_loss", perc_loss, global_step=step)
-        writer.add_scalar("prior_loss", prior_loss, global_step=step)
-        writer.add_scalar("ssim", ssim_, global_step=step)
-        writer.add_scalar("psnr", psnr_, global_step=step)
-        writer.add_scalar("mse", mse_, global_step=step)
-        writer.add_scalar("nmse", nmse_, global_step=step)
-
-        # E. LOGGING
-        if step % 10 == 0:
-            if hparams.corruption != "None":
-                imgs = draw_corrupted_images(
-                    synth_img_np,
-                    target_np,
-                    synth_img_corrupted[0, 0].detach().cpu().numpy(),
-                    target_img_corrupted[0, 0].detach().cpu().numpy(),
-                    ssim_=ssim_,
-                )
-                
-            else:
-                imgs = draw_images(
-                    synth_img_np,
-                    target_np,
-                    ssim_=ssim_,
-                )
-                
-            step_ = f"{step}".zfill(4)
-            writer.add_figure(f"step: {step_}", imgs, global_step=step)
-            plt.close(imgs)
-          
-
         latent_variable_out[step] = latent_variable.detach()[0]
         cond_out[step] = cond.detach()[0]
 
-        metrics = {"loss": loss,
-                   "ssim": ssim_,
-                   "psnr": psnr_,
-                   "mse": mse_,
-                   "nmse": nmse_}
-        # Logghiamo i parametri fisici correnti 
-        cond_phys = denormalize_cond(cond, catalogue=pd.DataFrame.from_dict(cat, orient='index'), feature_cols=feature_cols)
-        add_hparams_to_tensorboard(
-            hparams,
-            metrics=metrics,
-            cond_vals=cond_phys,
-            writer=writer,
-        )
-      
-      
-        
-
-        
-        if verbose:
-                    print(f"Step {step:03d} | Loss: {loss.item():.6f} | Hi Size: {cond_phys[0,0]:.4f} | Line Flux Integral: {cond_phys[0,1]:.4f} | I: {cond_phys[0,2]:.4f} | W20: {cond_phys[0,3]:.4f} | SSIM_mid: {ssim_:.4f}")
+    add_hparams_to_tensorboard(
+        hparams,
+        metrics=closure.final_metrics,
+        cond_vals=closure.final_cond_phys,
+        writer=writer,
+    )
 
     writer.flush()
     writer.close()
+      
     os.makedirs(hparams.output_dir_BRGM_ddim, exist_ok=True)
     torch.save(
         {
@@ -317,7 +291,7 @@ def project(
         f"{hparams.output_dir_BRGM_ddim}/checkpoint.pth",
     )
 
-    return latent_variable_out, cond_out, {"loss": loss.item(), "ssim": ssim_}
+    return latent_variable_out, cond_out, {"loss": closure.final_metrics["loss"], "ssim": closure.final_metrics["ssim"]}
 
 
 def main(hparams: Namespace) -> None:
