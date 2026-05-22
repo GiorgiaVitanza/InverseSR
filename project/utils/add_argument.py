@@ -53,7 +53,7 @@ def add_argument(parser: ArgumentParser):
     "--image_size", 
         type=int, 
         nargs='+', 
-        default=[160, 224, 160], 
+        default=[128, 128, 128], 
         help="Risoluzione target (D, H, W)"
     )
 
