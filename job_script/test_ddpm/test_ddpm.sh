@@ -23,7 +23,7 @@ SCRATCH=/leonardo_scratch/large/userexternal/gvitanza/InverseSR
 source ${SCRATCH}/.venv/bin/activate
 
 python3 ${SCRATCH}/project/test_ddpm.py\
-    --data_dir $SCRATCH/data/inputs/128x128x128_stride128/test/npy_patches\
+    --test_dir $SCRATCH/data/inputs/128x128x128_stride128/test/npy_patches\
     --catalogue_path $SCRATCH/data/inputs/128x128x128_stride128/test/test_catalog.csv \
     --in_channels_unet 3\
     --out_channels_unet 3\

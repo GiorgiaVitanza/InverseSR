@@ -24,6 +24,7 @@ def quick_test_metrics(model, vae, dataloader, train_param, hparams, max_batches
     model.eval()
     vae.eval()
     
+    os.makedirs(train_param.test_fig, exist_ok=True)
     sampler = DDIMSampler(model)
     device = train_param.device
     epoch = train_param.epochs
@@ -129,7 +130,7 @@ if __name__ == "__main__":
     unet_cfg["params"].pop("out_channels_unet", None)  # Rimuoviamo i parametri specifici del config per evitare confusione
     unet_cfg["params"].pop("in_channels_unet", None)
     
-    dataset = RadioPatchDataset(data_dir=train_param.data_dir, catalogue_path=train_param.catalogue_path, in_channels=hparams.in_channels, norm_mode=train_param.norm_mode)
+    dataset = RadioPatchDataset(data_dir=train_param.test_dir, catalogue_path=train_param.catalogue_path, in_channels=hparams.in_channels, norm_mode=train_param.norm_mode)
     dataloader = DataLoader(dataset, batch_size=train_param.batch_size, shuffle=True, num_workers=1, pin_memory=True, persistent_workers=True)
 
     # Inizializza VAE e DDPM 

@@ -15,13 +15,12 @@ from utils.config_aekl_v3 import get_hparams
 from utils.plot_new import denormalize_data, comparison_plots_ok
 
 
-def test():
-    # 1. Caricamento Configurazioni
-    train_param, _ = train_config()
+def test(hparams, train_param):
+    
     device = train_param.device
-
+    os.makedirs(train_param.test_fig, exist_ok=True)
     print(f"Stai usando il dispositivo: {device}")
-    hparams, _ = get_hparams()
+   
 
     # 2. Dataset di Test
     test_dataset = RadioPatchDataset(
@@ -58,8 +57,6 @@ def test():
     # 4. Loop di Test
     test_recon_loss = []
     
-    # Assicurati che la cartella esista
-    os.makedirs("./job_script", exist_ok=True)
 
     with torch.no_grad():
         for i, batch in enumerate(tqdm(test_loader)):
@@ -74,6 +71,7 @@ def test():
             test_recon_loss.append(loss.item())
 
             # Salvataggio plot ogni 20 batch o all'ultimo
+            
             if i % 20 == 0 or i == len(test_loader) - 1:
                 # Applichiamo denormalizzazione per il plot
                 x_plot = denormalize_data(x, train_param.norm_mode)
@@ -84,7 +82,7 @@ def test():
                     x_hat_plot,
                     flag='test'
                 )
-                fig.savefig(f"./job_script/test_vae/test_vae_recon_batch_{i}_{train_param.norm_mode}.png")
+                fig.savefig(f"{train_param.test_fig}/test_vae_recon_batch_{i}_{train_param.norm_mode}.png")
             
             # Fondamentale per non saturare la RAM
             del x, x_hat, h, z
@@ -95,4 +93,7 @@ def test():
 
 
 if __name__ == "__main__":
-    test()
+    hparams, _ = get_hparams()
+    # 1. Caricamento Configurazioni
+    train_param, _ = train_config()
+    test(hparams, train_param)
