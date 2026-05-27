@@ -33,6 +33,7 @@ from utils.plot_new import draw_corrupted_images, draw_images, denormalize_data
 from utils.const import (
         INPUT_FOLDER_CAT
 )
+from project.visualizzazione_3d import volume_rendering
 
 
 
@@ -302,6 +303,29 @@ def main(hparams: Namespace) -> None:
 
     # 1. Carica il target (es. FITS 128x128x128)
     img_tensor = load_target_image(hparams, device=device)
+
+
+    # 1. Prepara il dato (estrai la slice centrale del volume 3D)
+    # img_tensor[0, 0] è [D, H, W]
+    img_data = img_tensor[0].cpu().numpy()
+    mid_slice = img_data.shape[0] // 2
+    slice_to_plot = img_data[mid_slice]
+
+    # 2. Crea il plot
+    plt.figure(figsize=(8, 8))
+    plt.imshow(slice_to_plot, cmap='hot') 
+    plt.colorbar(label='Intensità')
+    plt.title(f"Target image nel main normalizzato {hparams.norm_data} (Slice centrale)")
+
+    # 3. Gestione salvataggio
+    output_path = Path(hparams.output_dir_BRGM_ddim) / "target_image_nel_main.png"
+    output_path.parent.mkdir(parents=True, exist_ok=True) # Crea la cartella se non esiste
+
+    plt.savefig(output_path)
+    plt.show() # Opzionale, se sei in un notebook
+    plt.close() # Importante per liberare memoria
+    volume_rendering(img_data, "target", output_dir=output_path)
+    
     if img_tensor.ndim == 4:  # Se è [C, D, H, W], aggiungi batch
         img_tensor = img_tensor.unsqueeze(0)  # (1, C, D, H, W)
         
