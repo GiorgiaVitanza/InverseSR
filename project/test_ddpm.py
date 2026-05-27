@@ -70,7 +70,7 @@ def quick_test_metrics(model, vae, dataloader, train_param, hparams, max_batches
         
         if batch_idx % 50 == 0 or batch_idx == len(dataloader) - 1: # Salva alcune figure di confronto ogni 50 batch
             fig = comparison_plots_ok(x_start_norm, x_gen_norm, flag='test')
-            fig.savefig(f"./job_script/test_ddpm/test_ddpm_batch_{train_param.norm_mode}_{batch_idx}.png")
+            fig.savefig(f"{train_param.test_fig}/{train_param.norm_mode}_{batch_idx}.png")
             plt.close(fig) # Chiudi la figura per non consumare memoria
             print(f"Salvata figura di confronto per batch {batch_idx} (norm_mode={train_param.norm_mode})")
         
@@ -132,13 +132,42 @@ if __name__ == "__main__":
     dataset = RadioPatchDataset(data_dir=train_param.data_dir, catalogue_path=train_param.catalogue_path, in_channels=hparams.in_channels, norm_mode=train_param.norm_mode)
     dataloader = DataLoader(dataset, batch_size=train_param.batch_size, shuffle=True, num_workers=1, pin_memory=True, persistent_workers=True)
 
-    # Inizializza VAE e DDPM (assumendo che siano già addestrati)
+    # Inizializza VAE e DDPM 
     vae = AutoencoderKL(embed_dim=hparams.z_channels, hparams=vars(hparams)).to(train_param.device)
+    vae_path = train_param.vae_path
+    
+    if os.path.exists(vae_path):
+        vae_checkpoint = torch.load(vae_path, map_location=train_param.device, weights_only=True)
+        
+        if isinstance(vae_checkpoint, dict) and "model_state_dict" in vae_checkpoint:
+            state_dict = vae_checkpoint["model_state_dict"]
+            print("Estratto 'model_state_dict' dal checkpoint globale.")
+        else:
+            state_dict = vae_checkpoint
+        vae.load_state_dict(state_dict)
+        print(f"Pesi del VAE caricati con successo da {vae_path}!")
+    else:
+        print(f"ATTENZIONE: Checkpoint VAE non trovato in {vae_path}!")
+    
+
     model = DDPM(
         unet_config=unet_cfg,
         conditioning_key=train_param.cond_key, 
         learn_logvar=True
     ).to(train_param.device)
-
+    ddpm_path = train_param.output_dir_ddpm
+    if os.path.exists(ddpm_path):
+        ddpm_checkpoint = torch.load(ddpm_path, map_location=train_param.device, weights_only=True)
+        # Controlla se i pesi sono dentro 'model_state_dict' (come dice l'errore)
+        if isinstance(ddpm_checkpoint, dict) and "model_state_dict" in ddpm_checkpoint:
+            state_dict = ddpm_checkpoint["model_state_dict"]
+            print("Estratto 'model_state_dict' dal checkpoint globale.")
+        else:
+            state_dict =ddpm_checkpoint
+        # Adatta in base a come salvi il dizionario di stato (es. checkpoint['model_state_dict'])
+        model.load_state_dict(state_dict)
+        print(f"Pesi del DDPM caricati con successo da {ddpm_path}!")
+    else:
+        print(f"ATTENZIONE: Checkpoint DDPM non trovato in {ddpm_path}!")
     # Esegui il test rapido
     quick_test_metrics(model, vae, dataloader, train_param, hparams=hparams)

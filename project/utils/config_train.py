@@ -12,6 +12,8 @@ def train_config():
     parser.add_argument("--data_dir", type=str, default="./data/inputs/128x128x128_stride128/train/npy_patches", help="Path alla cartella dei dati")
     
     parser.add_argument("--test_dir", type=str, default="./data/inputs/128x128x128_stride128/test/npy_patches", help="Path alla cartella dei dati di test")
+
+    parser.add_argument("--test_fig", type=str, default="./data/outputs/test_ddpm", help="Path alla cartella dei plot di test")
     
     parser.add_argument("--vae_path", type=str, default="/leonardo_scratch/large/userexternal/gvitanza/InverseSR/checkpoints_vae_decoder_8_10epochs_May04_19-02-45/vae_full_ep10.pth", help="Path alla cartella dei pesi del VAE")
 
