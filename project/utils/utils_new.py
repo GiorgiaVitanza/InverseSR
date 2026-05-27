@@ -301,7 +301,6 @@ def load_vgg_perceptual(hparams: Namespace, target: torch.Tensor, device: torch.
     """Carica la versione Slim di VGG16 per dati Astro."""
     
     # 1. Istanzia il modello (usa lo stesso numero di blocchi dello script di generazione)
-    # 1. Istanzia il modello (usa lo stesso numero di blocchi dello script di generazione)
     if hparams.out_channels == 3:
         from utils.vgg_gen_3ch import AstroVGG_Slim
         vgg16 = AstroVGG_Slim("././data/trained_models_astro/vgg/vgg16_slim_astro.pth",in_channels=3, num_blocks=2).to(device)
