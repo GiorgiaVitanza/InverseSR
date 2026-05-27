@@ -209,8 +209,8 @@ if __name__ == "__main__":
         CHECKPOINT = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_opt_cond_None_7_down4_local_1/checkpoint.pth")
         RESULT_DIR = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_opt_cond_None_7_down4_local_1/visualizzazione")
     elif flag == "decoder":
-        CHECKPOINT = Path(f"{SCRATCH}/data/outputs/BRGM_decoder_3_down4_local_1000_opt_500_concat/checkpoint.pth")
-        RESULT_DIR = Path(f"{SCRATCH}/data/outputs/BRGM_decoder_3_down4_local_1000_opt_500_concat/visualizzazione")
+        CHECKPOINT = Path(f"{SCRATCH}/data/outputs/BRGM_decoder_3_down4_local_1000_fullopt_cond_500_concat_new/checkpoint.pth")
+        RESULT_DIR = Path(f"{SCRATCH}/data/outputs/BRGM_decoder_3_down4_local_1000_fullopt_cond_500_concat_new/visualizzazione")
 
     DECODER_MODEL = Path(f"{SCRATCH}/data/trained_models_astro/vae_decoder_train_100ep_z3_local_1e-4_newloss/Decoder_only/data/model.pth")
 
