@@ -33,7 +33,7 @@ from utils.plot_new import draw_corrupted_images, draw_images, denormalize_data
 from utils.const import (
         INPUT_FOLDER_CAT
 )
-from project.visualizzazione_3d import volume_rendering
+from visualizzazione_3d import volume_rendering
 
 
 
@@ -318,13 +318,15 @@ def main(hparams: Namespace) -> None:
     plt.title(f"Target image nel main normalizzato {hparams.norm_data} (Slice centrale)")
 
     # 3. Gestione salvataggio
+    os.makedirs(hparams.output_dir_BRGM_ddim, exist_ok=True)
     output_path = Path(hparams.output_dir_BRGM_ddim) / "target_image_nel_main.png"
     output_path.parent.mkdir(parents=True, exist_ok=True) # Crea la cartella se non esiste
+    file_immagine_output = output_path / "target_mid_slice.png"
+    plt.savefig(file_immagine_output) # <--- Ora punta a un file .png valido!
+    plt.close() 
+    
+    volume_rendering(img_data, "target", output_dir=str(output_path))
 
-    plt.savefig(output_path)
-    plt.show() # Opzionale, se sei in un notebook
-    plt.close() # Importante per liberare memoria
-    volume_rendering(img_data, "target", output_dir=output_path)
     
     if img_tensor.ndim == 4:  # Se è [C, D, H, W], aggiungi batch
         img_tensor = img_tensor.unsqueeze(0)  # (1, C, D, H, W)
