@@ -319,7 +319,7 @@ def main(hparams: Namespace) -> None:
 
     # 3. Gestione salvataggio
     os.makedirs(hparams.output_dir_BRGM_ddim, exist_ok=True)
-    output_path = Path(hparams.output_dir_BRGM_ddim) / "target_image_nel_main.png"
+    output_path = Path(hparams.output_dir_BRGM_ddim) 
     output_path.parent.mkdir(parents=True, exist_ok=True) # Crea la cartella se non esiste
     file_immagine_output = output_path / "target_mid_slice.png"
     plt.savefig(file_immagine_output) # <--- Ora punta a un file .png valido!
