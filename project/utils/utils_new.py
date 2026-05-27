@@ -146,7 +146,7 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
     if hparams.data_format == "npy" and hparams.inference:
         potential_files = list(INPUT_FOLDER_PATCHES.glob(f"*.npy"))
         print("Inference mode: loading npy patches")
-    elif hparams.data_format == "npy" and hparams.test:
+    elif hparams.data_format == "npy" and hparams.test_mode:
         potential_files = list(INPUT_FOLDER_TEST.glob(f"*.npy"))
     elif hparams.data_format == "fits":
         potential_files = list(INPUT_FOLDER_PATCHES.glob(f"*{hparams.object_id}*.fits"))

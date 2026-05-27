@@ -39,7 +39,7 @@ def add_argument(parser: ArgumentParser):
         action="store_true"
     )
     parser.add_argument(
-        "--test",
+        "--test_mode",
         action="store_true"
     )
     parser.add_argument(

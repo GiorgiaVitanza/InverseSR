@@ -61,7 +61,7 @@ python3 ${SCRATCH}/project/BRGM_ddim_cond_v2.py \
     --update_w20 \
     --prior_every=$PRIOR_EVERY \
     --data_format=$DATA_FORMAT \
-    --inference \
+    --test_mode \
     --corruption="$CORRUPTION" \
     --lambda_perc="$LAMBDA_PERC" \
     --learning_rate=$LEARNING_RATE \
