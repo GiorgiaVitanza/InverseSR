@@ -8,8 +8,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --account=IscrC_DATIV-ML
-#SBATCH --output=visual_%j.out
-#SBATCH --error=visual_%j.err
+#SBATCH --output=vis_ddim_%j.out
+#SBATCH --error=vis_ddim_%j.err
 
 
 module purge
@@ -22,5 +22,6 @@ SCRATCH=/leonardo_scratch/large/userexternal/gvitanza/InverseSR
 source ${SCRATCH}/.venv/bin/activate
 
 python3 $SCRATCH/project/visualizzazione_output.py\
-    --image_size 32 32 32\
+    --image_size 128 128 128\
     --z_channels 3\
+    --downsample_factor 4\

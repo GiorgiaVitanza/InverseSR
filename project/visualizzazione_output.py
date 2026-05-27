@@ -59,7 +59,7 @@ def visualize_reconstruction(checkpoint_path, model_path, output_path, flag, vae
         
         
         # Carichiamo il checkpoint
-        path_oggetto = Path("/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/trained_models_astro/ddpm_concat_100_2_z3_local/ddpm_final_model/data/model.pth")
+        path_oggetto = Path("/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/trained_models_astro/ddpm_concat_100_2_z7_local/ddpm_final_model/data/model.pth")
         ddpm = torch.load(path_oggetto, weights_only=False, map_location=device)
         
         
@@ -70,7 +70,10 @@ def visualize_reconstruction(checkpoint_path, model_path, output_path, flag, vae
             diffusion=ddpm,
             latent_variable=z_noisy,
             conditioning=conditioning_ottimizzato, # Quello salvato nel checkpoint
-            batch_size=1
+            batch_size=1,
+            image_size=hparams.image_size,
+            scale_factor= hparams.downsample_factor,
+            z_channels=hparams_vae.z_channels,
         )
     elif flag == "decoder":
         z = checkpoint['latent_vectors']
@@ -202,12 +205,12 @@ def run_comparative_plots(rec_np, output_dir, base_name="Ricostruzione_Astro"):
 
 
 if __name__ == "__main__":
-    flag = "decoder" 
+    flag = "ddim" 
     SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/"
     if flag == "ddim":
         # ADATTARE PATH AL CASO ASTRO
-        CHECKPOINT = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_opt_cond_None_7_down4_local_1/checkpoint.pth")
-        RESULT_DIR = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_opt_cond_None_7_down4_local_1/visualizzazione")
+        CHECKPOINT = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_fullopt_cond_concat_3_local_1000_new/checkpoint.pth")
+        RESULT_DIR = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_fullopt_cond_concat_3_local_1000_new/visualizzazione")
     elif flag == "decoder":
         CHECKPOINT = Path(f"{SCRATCH}/data/outputs/BRGM_decoder_3_down4_local_1000_fullopt_cond_500_concat_new/checkpoint.pth")
         RESULT_DIR = Path(f"{SCRATCH}/data/outputs/BRGM_decoder_3_down4_local_1000_fullopt_cond_500_concat_new/visualizzazione")
