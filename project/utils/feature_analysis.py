@@ -1,5 +1,8 @@
 import io
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -29,7 +32,8 @@ correlation_matrix = df_features.corr(method="spearman")  # Spearman rileva anch
 sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", fmt=".2f", vmin=-1, vmax=1)
 plt.title("Matrice di Correlazione di Spearman")
 plt.tight_layout()
-plt.show()
+plt.savefig("matrice_correlazione.png", dpi=300, bbox_inches='tight')
+plt.close()
 
 # ---------------------------------------------------------
 # METODO 2: Feature Importance con Random Forest
@@ -54,7 +58,8 @@ if target_variable in df_features.columns:
     plt.bar(range(X.shape[1]), importances[indices], align="center")
     plt.xticks(range(X.shape[1]), [X.columns[i] for i in indices], rotation=45)
     plt.tight_layout()
-    plt.show()
+    plt.savefig("Feature importance.png", dpi=300, bbox_inches='tight')
+    plt.close()
 
     print(f"\n--- Classifica Feature Importance per {target_variable} ---")
     for start, idx in enumerate(indices):
@@ -83,4 +88,5 @@ plt.figure(figsize=(8, 5))
 plt.bar(["PC1", "PC2"], pca.explained_variance_ratio_, color="darkcyan")
 plt.ylabel("Rapporto di Varianza Spiegata")
 plt.title("Varianza Spiegata dalle prime due Componenti Principali")
-plt.show()
+plt.savefig("PCA.png", dpi=300, bbox_inches='tight')
+plt.close()
