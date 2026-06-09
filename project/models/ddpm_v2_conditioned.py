@@ -474,18 +474,31 @@ class DiffusionWrapper(nn.Module):
         x_input = x
         context = None
 
-        # 2. Gestione CONCAT (Spatial) - Qui risolviamo l'errore dei 7 canali
+        # 2. Gestione CONCAT (Spatial) 
         if self.conditioning_key == 'concat':
             if c_concat is not None:
                 # c_concat è una lista, prendiamo il primo elemento o li stackiamo
                 cc_tensor = c_concat[0] if isinstance(c_concat, list) else c_concat
 
-                # Se cc_tensor è [1, 4], lo portiamo a [1, 4, 1, 1, 1]
+                # CASO A: Il condizionamento è un vettore globale [B, C]
                 if cc_tensor.dim() == 2:
                     cc_tensor = cc_tensor.view(cc_tensor.size(0), cc_tensor.size(1), 1, 1, 1)
-
-                # Espandiamo il condizionamento per matchare x [B, 3, D, H, W]
-                c_expanded = cc_tensor.expand(x.size(0), -1, x.size(2), x.size(3), x.size(4))
+                    c_expanded = cc_tensor.expand(x.size(0), -1, x.size(2), x.size(3), x.size(4))
+                
+                # CASO B: Il condizionamento è già un volume 3D [B, C, D, H, W]
+                elif cc_tensor.dim() == 5:
+                    # Se le dimensioni non coincidono con x, facciamo l'interpolazione (downsample/upsample)
+                    if cc_tensor.shape[2:] != x.shape[2:]:
+                        c_expanded = F.interpolate(
+                            cc_tensor, 
+                            size=(x.size(2), x.size(3), x.size(4)), 
+                            mode='trilinear', 
+                            align_corners=False
+                        )
+                    else:
+                        c_expanded = cc_tensor
+                else:
+                    raise ValueError(f"Dimensione di cc_tensor non supportata: {cc_tensor.dim()}")
 
                 # CONCATENIAMO: [B, 3, D, H, W] + [B, 4, D, H, W] -> [B, 7, D, H, W]
                 x_input = torch.cat([x, c_expanded], dim=1)

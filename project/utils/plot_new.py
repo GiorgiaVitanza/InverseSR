@@ -63,68 +63,52 @@ def comparison_plots_ok(x, x_hat, flag = 'test'):
                     fig, axes = plt.subplots(4, 2, figsize=(12, 10))
                     
                     
-                    # Calcoliamo un vmax comune per le slice per vedere la differenza di contrasto
+                    """ # Calcoliamo un vmax comune per le slice per vedere la differenza di contrasto
                     vmax_slice_z = np.percentile(slice_orig_z, 99.9)
                     vmax_slice_y = np.percentile(slice_orig_y, 99.9)
-                    vmax_slice_x = np.percentile(slice_orig_x, 99.9)
+                    vmax slice_x = np.percentile(slice_orig_x, 99.9)"""
                     # Posizione 1-1: Slice Z originale
-                    im1 = axes[0, 0].imshow(slice_orig_z, cmap='hot', vmin=0, vmax=vmax_slice_z)
+                    im1 = axes[0, 0].imshow(slice_orig_z, cmap='hot', origin='lower')
                     axes[0, 0].set_title(f"Originale (Slice Z={mid_z})")
                     plt.colorbar(im1, ax=axes[0, 0])
                     plt.subplots_adjust(hspace=0.8)
                     # Posizione 2-1: Slice X originale (usiamo lo stesso vmax per coerenza)
-                    im2 = axes[1, 0].imshow(slice_orig_x, cmap='hot', vmin=0, vmax=vmax_slice_x)
+                    im2 = axes[1, 0].imshow(slice_orig_x, cmap='hot', origin='lower')
                     axes[1, 0].set_title(f"Originale (Slice X={mid_x})")
                     plt.colorbar(im2, ax=axes[1, 0])
                     plt.subplots_adjust(hspace=0.8)
                     # Posizione 3-1: Slice Y originale (usiamo lo stesso vmax per coerenza)
-                    im3 = axes[2, 0].imshow(slice_orig_y, cmap='hot', vmin=0, vmax=vmax_slice_y)
+                    im3 = axes[2, 0].imshow(slice_orig_y, cmap='hot', origin='lower')
                     axes[2, 0].set_title(f"Originale (Slice Y={mid_y})")
                     plt.colorbar(im3, ax=axes[2, 0])
                     plt.subplots_adjust(hspace=0.8)
                     # --- MOMENTO 0 ---
                     # Calcoliamo un vmax comune per le proiezioni
-                    vmax_mom = np.percentile(mom0_orig, 99.9)
+                    # vmax_mom = np.percentile(mom0_orig, 99.9)
 
-                    im4 = axes[3, 0].imshow(mom0_orig, cmap='hot', vmin=0, vmax=vmax_mom)
+                    im4 = axes[3, 0].imshow(mom0_orig, cmap='hot', origin='lower')
                     axes[3, 0].set_title("Originale (Momento 0)")
                     plt.colorbar(im4, ax=axes[3, 0])
 
-                    # slice ricostruite: usiamo lo stesso vmax per vedere se il contrasto è simile
-                    if flag == 'train':
-                        im5 = axes[0, 1].imshow(slice_recon_z, cmap='hot', vmin=0, vmax=vmax_slice_z)
-                        axes[0, 1].set_title("Ricostruito (Slice Z)")
-                        plt.colorbar(im5, ax=axes[0, 1])
-                        plt.subplots_adjust(hspace=0.8)
-                        im6 = axes[1, 1].imshow(slice_recon_x, cmap='hot', vmin=0, vmax=vmax_slice_x)
-                        axes[1, 1].set_title("Ricostruito (Slice X)")
-                        plt.colorbar(im6, ax=axes[1, 1])
-                        plt.subplots_adjust(hspace=0.8)
-                        im7 = axes[2, 1].imshow(slice_recon_y, cmap='hot', vmin=0, vmax=vmax_slice_y)
-                        axes[2, 1].set_title("Ricostruito (Slice Y)")
-                        plt.colorbar(im7, ax=axes[2, 1])
-                        plt.subplots_adjust(hspace=0.8)
-                        im8 = axes[3, 1].imshow(mom0_recon, cmap='hot', vmin=0, vmax=vmax_mom)
-                        axes[3, 1].set_title("Ricostruito (Momento 0)")
-                        plt.colorbar(im8, ax=axes[3, 1])
-                    else:
-                        im5 = axes[0, 1].imshow(slice_recon_z, cmap='hot')                    
-                        axes[0, 1].set_title("Ricostruito (Slice Z)")
-                        plt.colorbar(im5, ax=axes[0, 1])
-                        plt.subplots_adjust(hspace=0.8)
-                        im6 = axes[1, 1].imshow(slice_recon_x, cmap='hot')
-                        axes[1, 1].set_title("Ricostruito (Slice X)")
-                        plt.colorbar(im6, ax=axes[1, 1])
-                        plt.subplots_adjust(hspace=0.8)
-                        im7 = axes[2, 1].imshow(slice_recon_y, cmap='hot')
-                        axes[2, 1].set_title("Ricostruito (Slice Y)")
-                        plt.colorbar(im7, ax=axes[2, 1])
-                        plt.subplots_adjust(hspace=0.8)
-                        im8 = axes[3, 1].imshow(mom0_recon, cmap='hot')
-                        axes[3, 1].set_title("Ricostruito (Momento 0)")
-                        plt.colorbar(im8, ax=axes[3, 1])
+                
+                    im5 = axes[0, 1].imshow(slice_recon_z, cmap='hot', origin='lower')
+                    axes[0, 1].set_title("Ricostruito (Slice Z)")
+                    plt.colorbar(im5, ax=axes[0, 1])
+                    plt.subplots_adjust(hspace=0.8)
+                    im6 = axes[1, 1].imshow(slice_recon_x, cmap='hot', origin='lower')
+                    axes[1, 1].set_title("Ricostruito (Slice X)")
+                    plt.colorbar(im6, ax=axes[1, 1])
+                    plt.subplots_adjust(hspace=0.8)
+                    im7 = axes[2, 1].imshow(slice_recon_y, cmap='hot', origin='lower')
+                    axes[2, 1].set_title("Ricostruito (Slice Y)")
+                    plt.colorbar(im7, ax=axes[2, 1])
+                    plt.subplots_adjust(hspace=0.8)
+                    im8 = axes[3, 1].imshow(mom0_recon, cmap='hot', origin='lower')
+                    axes[3, 1].set_title("Ricostruito (Momento 0)")
+                    plt.colorbar(im8, ax=axes[3, 1])
+                    
 
-                        
+                    plt.tight_layout()
                         
                     return fig
 
@@ -152,19 +136,19 @@ def draw_img_in_three_dim(img, title: str, output_folder: Path) -> None:
     si, sj, sk = img.shape
     # Nomi più appropriati per un Datacube (RA, Dec, Freq/Vel)
     # Di solito: Axial -> RA/Dec, Sagittal/Coronal -> Piani con Frequenza
-    dim_names = ["RA-Dec", "RA-Freq", "Dec-Freq"]
+    dim_names = ["RA-Dec", "Freq-Dec", "Freq-RA"]
     
     fig, ax = plt.subplots()
     
     # --- PIANO 1: XY (Axial / RA-Dec) ---
-    img_slice = np.rot90(img[:, :, sk // 2], 1)
+    img_slice = np.rot90(img[si//2, :, :], 1)
     ax.imshow(img_slice, cmap="hot", origin='lower') 
     ax.axis("off")
     ax.set_title(f"{dim_names[0]} (slice {sk // 2})")
     fig.savefig(output_folder / f"{title}_{dim_names[0]}.png", 
                 bbox_inches="tight", pad_inches=0.1, dpi=300)
 
-    # --- PIANO 2: XZ (Sagittal / RA-Freq) ---
+    # --- PIANO 2: XZ (Sagittal / Freq-Dec) ---
     img_slice = np.rot90(img[:, sj // 2, :], 1)
     ax.imshow(img_slice, cmap="hot", origin='lower')
     ax.axis("off")
@@ -172,8 +156,8 @@ def draw_img_in_three_dim(img, title: str, output_folder: Path) -> None:
     fig.savefig(output_folder / f"{title}_{dim_names[1]}.png", 
                 bbox_inches="tight", pad_inches=0.1, dpi=300)
 
-    # --- PIANO 3: YZ (Coronal / Dec-Freq) ---
-    img_slice = np.rot90(img[si // 2, :, :], 1)
+    # --- PIANO 3: YZ (Coronal / Freq-RA) ---
+    img_slice = np.rot90(img[:, :, sk//2], 1)
     ax.imshow(img_slice, cmap="hot", origin='lower')
     ax.axis("off")
     ax.set_title(f"{dim_names[2]} (slice {si // 2})")
@@ -365,10 +349,15 @@ def draw_images(
 
 def draw_img(img: np.ndarray, title: str, step: str, output_folder: Path) -> None:
     fig, ax = plt.subplots()
-    si, sj, sk = img.shape # Ra Dec Freq
-    img_slice = np.rot90(img[:, :, sk // 2], -1)
-    ax.imshow(img_slice, cmap=DEFAULT_CMAP)
-    ax.axis("off")
+    si, sj, sk = img.shape # Freq Ra Dec 
+    img_slice = np.rot90(img[si // 2, :, :], -1)
+    img = ax.imshow(img_slice, cmap=DEFAULT_CMAP)
+    
+    ax.set_title(title)
+    ax.set_xlabel("Pixels")
+    ax.set_ylabel("Pixels")
+    plt.colorbar(img, ax=ax, fraction=0.046, pad=0.04)
+    
     fig.savefig(
         output_folder / f"{step}_{title}.png",
         bbox_inches="tight",
@@ -414,25 +403,26 @@ def plot_orthogonal_cuts(
 
     # 4. Taglio Ra-Dec (Slice centrale lungo Z):
     #    Questo mostra la distribuzione spaziale a una frequenza/velocità specific
-    img_ra_dec = cube[:, nz // 2, :, :]
+    img_ra_dec = cube[nz // 2, :, :]
 
     imgs = [img_spatial, img_spectral_ra, img_spectral_dec, img_ra_dec]
     titles = ["Spatial (Moment 0)", "Spectral (Z - RA)", "Spectral (Z - Dec)", "RA-Dec (Z - Center)"]
     
     # --- Plotting ---
     fig = plt.figure(figsize=(15, 5))
-    gs = gridspec.GridSpec(1, 4)
+    gs = gridspec.GridSpec(2, 2)
     
     for i, img in enumerate(imgs):
         ax = plt.subplot(gs[i])
         
         # origin='lower' è CRUCIALE per i FITS, altrimenti l'immagine è capovolta
-        im = ax.imshow(img, cmap=DEFAULT_CMAP, origin='lower', aspect='auto')
+        im = ax.imshow(img, cmap=DEFAULT_CMAP, origin='lower')
         
         ax.set_title(titles[i])
         ax.set_xlabel("Pixels")
         ax.set_ylabel("Pixels")
         plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
 
     full_title = title
     if ssim is not None:
@@ -457,15 +447,9 @@ def compare_cubes(
     Confronta visivamente il cubo originale e quello generato/ricostruito
     mostrando la mappa spaziale integrata (M0).
     """
-    print(f"original.shape: {original.shape}")
-    print(f"reconstructed.shape: {reconstructed.shape}")
-    # Gestione dimensioni [C, D, H, W] -> [H, W] (somma su C e D)
-    if len(original.shape) == 4:
-        img_orig = np.sum(original[0], axis=0)
-        img_recon = np.sum(reconstructed[0], axis=0)
-    else:
-        img_orig = np.sum(original, axis=0)
-        img_recon = np.sum(reconstructed, axis=0)
+    
+    img_orig = np.sum(original, axis=0)
+    img_recon = np.sum(reconstructed, axis=0)
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     

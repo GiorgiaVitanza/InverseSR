@@ -146,7 +146,7 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
     if hparams.data_format == "npy" and hparams.inference:
         potential_files = list(INPUT_FOLDER_PATCHES.glob(f"*.npy"))
         print("Inference mode: loading npy patches")
-    elif hparams.data_format == "npy" and hparams.test:
+    elif hparams.data_format == "npy" and hparams.test_mode:
         potential_files = list(INPUT_FOLDER_TEST.glob(f"*.npy"))
     elif hparams.data_format == "fits":
         potential_files = list(INPUT_FOLDER_PATCHES.glob(f"*{hparams.object_id}*.fits"))
@@ -173,8 +173,10 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
     img_tensor[2:5] = normalize(img_tensor[2:5], norm_mode=norm_mode)
 
     if norm_mode != 'zscore':
+        print('carico il target nel range [0, 1]')
         img_tensor[2:5] = torch.clamp(img_tensor[2:5], 0, 1)
     else:
+        print('carico il target nel range [-1,1]')
         img_tensor[2:5] = torch.clamp(img_tensor[2:5], -1, 1)
         
     return img_tensor
@@ -298,7 +300,6 @@ def sampling_from_ddim(
 def load_vgg_perceptual(hparams: Namespace, target: torch.Tensor, device: torch.device) -> Tuple[Any, torch.Tensor]:
     """Carica la versione Slim di VGG16 per dati Astro."""
     
-    # 1. Istanzia il modello (usa lo stesso numero di blocchi dello script di generazione)
     # 1. Istanzia il modello (usa lo stesso numero di blocchi dello script di generazione)
     if hparams.out_channels == 3:
         from utils.vgg_gen_3ch import AstroVGG_Slim

@@ -44,24 +44,15 @@ class ForwardDownsample(ForwardAbstract):
         self.factor = factor
         self.target_size = target_size # Es: [32, 32, 32] o [20, 28, 20]
 
-    def __call__(self, x):
-        if self.target_size is not None:
-            # Metodo Sicuro: Forza la dimensione esatta del target
-            return F.interpolate(
-                x,
-                size=self.target_size,
-                mode="trilinear",
-                align_corners=False,
-            )
-        else:
-            # Metodo originale (rischioso per i mismatch)
-            return F.interpolate(
-                x,
-                scale_factor=1 / self.factor,
-                mode="trilinear",
-                recompute_scale_factor=True,
-                align_corners=False,
-            )
+    def __call__(self, x):        
+        # Metodo originale
+        return F.interpolate(
+            x,
+            scale_factor=1 / self.factor,
+            mode="trilinear",
+            recompute_scale_factor=True,
+            align_corners=False,
+        )
 
 class ForwardFillMask(ForwardAbstract):
     def __init__(self, device, mask: Optional[np.ndarray] = None):

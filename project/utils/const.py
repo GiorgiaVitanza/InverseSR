@@ -37,7 +37,7 @@ else:
     INPUT_FOLDER = DATA_ROOT / "inputs"
     INPUT_FOLDER_PATCHES = INPUT_FOLDER / "128x128x128_stride128" / "train"/ "npy_patches"# Se usi patch pre-estratti
     INPUT_FOLDER_CAT = INPUT_FOLDER / "128x128x128_stride128" / "train"/ "train_catalog.csv"
-    INPUT_FOLDER_TEST = DATA_ROOT / "test_5d"
+    INPUT_FOLDER_TEST = INPUT_FOLDER / "128x128x128_stride128" / "test"/ "npy_patches"
     MASK_FOLDER = DATA_ROOT / "masks"
     
     # Dataset specifici (Esempio: ALMA, LOFAR, Simulazioni TNG)

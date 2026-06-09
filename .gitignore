@@ -27,7 +27,6 @@ result/
 decoder/
 venv_ubuntu/
 outputs from Leonardo/
-job_script/
 
 *.png
 *.gif

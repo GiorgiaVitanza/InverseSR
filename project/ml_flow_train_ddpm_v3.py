@@ -74,7 +74,7 @@ def train():
         in_channels=hparams.in_channels,
         norm_mode=train_cfg.norm_mode
     )
-    dataloader = DataLoader(dataset, batch_size=train_cfg.batch_size, shuffle=True, num_workers=8, pin_memory=True)
+    dataloader = DataLoader(dataset, batch_size=train_cfg.batch_size, shuffle=True, num_workers=1, pin_memory=True)
 
     # Modello DDPM
     model = DDPM(
