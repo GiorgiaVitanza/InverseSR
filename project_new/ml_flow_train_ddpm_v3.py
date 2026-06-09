@@ -1,0 +1,219 @@
+import os
+import torch
+import torch.nn.functional as F
+import mlflow
+import numpy as np
+import matplotlib.pyplot as plt
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+# --- AGGIUNTA TENSORBOARD ---
+from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
+from argparse import ArgumentParser
+
+# Import dai tuoi moduli
+from models.aekl_no_attention import AutoencoderKL
+from models.BRGM.forward_models import ForwardDownsample
+from utils.add_argument import add_argument
+from utils.dataset_v3 import RadioPatchDataset
+from utils.config_unet_v3 import get_config
+from utils.config_train import train_config
+from utils.config_aekl_v3 import get_hparams
+from models.ddpm_v2_conditioned import DDPM
+from models.ddim import DDIMSampler
+from utils.plot_new import comparison_plots_ok, denormalize_data
+from utils.const import IMAGE_SHAPE
+
+
+
+# --- CONFIGURAZIONE PERCORSI E DIRECTORY ---
+train_cfg, _ = train_config()
+hparams, _ = get_hparams()
+parser = ArgumentParser(description="Inversione Diffusion Model per Dati Astrofisici")
+add_argument(parser) # Assicurati che questa funzione aggiunga tutti gli argomenti necessari
+args = parser.parse_args()
+
+# Cartella base per questa run
+BASE_SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/"
+RUN_DIR = train_cfg.output_dir_ddpm
+# Crea un nome unico basato sull'orario e sui parametri
+current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+
+print("Inizio configurazione MLFlow...")
+# --- MLFLOW SETUP LOCALE ---
+db_path = f"mlruns_ddpm.db"
+mlflow.set_tracking_uri(f"sqlite:///{db_path}")
+mlflow.set_experiment(f"Radio_DDPM_v2_{train_cfg.epochs}epochs_z{hparams.z_channels}_{current_time}")
+
+print(f"Caricamento VAE pre-addestrato dalla cartella {train_cfg.vae_path}")
+# --- CARICAMENTO VAE (Pre-trained) ---
+vae = AutoencoderKL(embed_dim=hparams.z_channels, hparams=vars(hparams)).to(train_cfg.device)
+checkpoint_vae = torch.load(train_cfg.vae_path, map_location=train_cfg.device, weights_only=False)
+vae.load_state_dict(checkpoint_vae['model_state_dict'])
+vae.eval() 
+
+
+
+
+def train():
+
+    corruption = ForwardDownsample(factor=hparams.downsample_factor)
+    CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"ddpm_{train_cfg.cond_key}_{hparams.z_channels}_{train_cfg.epochs}epochs_{train_cfg.norm_mode}_{current_time}")
+    TB_LOG_DIR = train_cfg.tensor_board_logger_ddpm
+  
+    log_dir = f"{TB_LOG_DIR}/run_{current_time}_lr_{train_cfg.learning_rate}_z{hparams.z_channels}"
+
+
+    os.makedirs(CHECKPOINT_DIR, exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
+
+    # Configurazione UNet
+    unet_cfg, _ = get_config()
+    unet_cfg["params"]["in_channels"] = unet_cfg["params"]["in_channels_unet"]
+    unet_cfg["params"]["out_channels"] = unet_cfg["params"]["out_channels_unet"]
+    unet_cfg["params"].pop("out_channels_unet", None)  # Rimuoviamo i parametri specifici del config per evitare confusione
+    unet_cfg["params"].pop("in_channels_unet", None)
+
+    # Dataset e DataLoader
+    dataset = RadioPatchDataset(
+        data_dir=train_cfg.data_dir, 
+        catalogue_path=train_cfg.catalogue_path,
+        in_channels=hparams.in_channels,
+        norm_mode=train_cfg.norm_mode
+    )
+    dataloader = DataLoader(dataset, batch_size=train_cfg.batch_size, shuffle=True, num_workers=1, pin_memory=True)
+
+    # Modello DDPM
+    model = DDPM(
+        unet_config=unet_cfg,
+        conditioning_key=train_cfg.cond_key, 
+        learn_logvar=True
+    ).to(train_cfg.device)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=train_cfg.learning_rate)
+    
+    # Inizializzazione Loggers
+    writer = SummaryWriter(log_dir=log_dir)
+
+    with mlflow.start_run(run_name=f"DDPM_Training_{current_time}"):
+        mlflow.log_params(vars(train_cfg))
+        mlflow.log_params({f"vae_{k}": v for k, v in vars(hparams).items()})
+        mlflow.log_params({f"unet_{k}": v for k, v in unet_cfg["params"].items()})
+       
+
+        for epoch in range(train_cfg.epochs):
+            model.train()
+            pbar = tqdm(dataloader, desc=f"Epoch {epoch}")
+            epoch_loss = []
+
+            for batch in pbar:
+                optimizer.zero_grad()
+                
+                x_start = batch["x_0"].to(train_cfg.device)
+                raw_context = batch["context"].to(train_cfg.device)
+               
+                # 1. Encoding nel Latent Space (z)
+                with torch.no_grad():
+                    h = vae.encoder(x_start)
+                    mu = vae.quant_conv_mu(h)
+                    log_var = vae.quant_conv_log_sigma(h)
+                    std = torch.exp(0.5 * log_var)
+                    eps = torch.randn_like(std)
+                    z = mu + eps * std
+
+                    x_corrupted = corruption(x_start)
+
+                
+
+                # Costruisci il condizionamento ibrido
+                condizionamento_ibrido = {
+                    "c_concat": [x_corrupted],    # Cubo degradato (guida la super-resolution voxel-by-voxel)
+                    "c_crossattn": [raw_context]     # Vettore di 4 elementi (guida la cinematica e la fisica globale)
+                }
+
+                # Passa tutto al DDPM
+                loss, loss_dict = model(z, condizionamento_ibrido)
+                # 2. Forward DDPM (Diffusion Loss)
+                #loss, loss_dict = model(z, x_corrupted)
+                
+                loss.backward()
+                optimizer.step()
+                
+                epoch_loss.append(loss.item())
+                pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+
+            # --- LOGGING METRICHE (TensorBoard & MLflow) ---
+            avg_loss = np.mean(epoch_loss)
+            writer.add_scalar("Loss/Train_DDPM", avg_loss, epoch)
+            mlflow.log_metric("avg_loss", avg_loss, step=epoch)
+
+            if epoch % 20 == 0:
+                model.eval()
+                with torch.no_grad():
+                    # 1. PREPARAZIONE CONDIZIONAMENTO
+                    # Prendiamo i primi 2 campioni del contesto dal batch corrente
+                    # Il DDPM condizionato ha bisogno di sapere 'cosa' generare
+                    curr_cond = raw_context[:2] 
+
+                    # 2. GENERAZIONE DAL DDPM
+                    # Ora passiamo esplicitamente il condizionamento al metodo sample
+                    # Nota: batch_size=2 perché stiamo usando raw_context[:2]
+                    # 2. Campionamento
+                    sampler = DDIMSampler(model) 
+                    latent_size = IMAGE_SHAPE[2] // 4  # Assumendo un downsampling di 4x nel VAE
+                    shape = (hparams.z_channels, latent_size, latent_size, latent_size)
+                      
+                    img_noise = torch.randn((train_cfg.batch_size, *shape), device=train_cfg.device)
+
+                    z_gen, _ = sampler.sample(
+                        S=50,
+                        batch_size=train_cfg.batch_size,
+                        shape=shape,
+                        conditioning=curr_cond,
+                        first_img=img_noise,
+                        eta=0.0, 
+                        verbose=False
+                    ) 
+                    
+                    # 3. DECODIFICA (Latent -> Image Space)
+                    # z_gen è nello spazio dei latenti del VAE
+                    x_gen = vae.decode(z_gen)
+                    
+                    # 4. VISUALIZZAZIONE COMPARATIVA
+                    x = denormalize_data(x_start, train_cfg.norm_mode)
+                    x_hat = denormalize_data(x_gen, train_cfg.norm_mode)
+                    fig =comparison_plots_ok(x, x_hat, flag='train')
+                    # Log su TensorBoard e MLflow
+                    writer.add_figure("Visual/3D_Comparison", fig, global_step=epoch)
+                    
+
+                model.train()
+            # --- SALVATAGGIO CHECKPOINT PERIODICO ---
+            if (epoch + 1) % 20 == 0 or (epoch + 1) == train_cfg.epochs:
+                ckpt_path = os.path.join(CHECKPOINT_DIR, f"ddpm_ep{epoch+1}.pth")
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                }, ckpt_path)
+
+        # --- SALVATAGGIO FINALE MODELLO (IMPACCHETTAMENTO MLFLOW) ---
+        print("Registrazione modello DDPM finale...")
+        
+        
+        # 1. Log interno al DB MLflow
+        mlflow.pytorch.log_model(
+            pytorch_model=model, 
+            name="ddpm",
+            registered_model_name=f"DDPM_{hparams.z_channels}ch"
+        )
+        
+        # 2. Salvataggio copia fisica locale in RUN_DIR
+        local_model_path = os.path.join(RUN_DIR, "ddpm_final_model")
+        mlflow.pytorch.save_model(model, path=local_model_path)
+
+    writer.close()
+    print(f"Training concluso. Checkpoint fisici in {CHECKPOINT_DIR}, log in {log_dir}")
+
+if __name__ == "__main__":
+    train()

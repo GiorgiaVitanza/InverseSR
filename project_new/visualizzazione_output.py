@@ -12,17 +12,18 @@ sys.path.append(str(root_dir))
 
 # Assicurati di importare le tue classi dal file dove sono definite
 from models.aekl_no_attention import AutoencoderKL 
-from utils.plot_new import draw_img_in_three_dim
+from utils.plot_new import draw_img_in_three_dim, denormalize_data
 from utils.utils_new import generating_latent_vector
 from utils.add_argument import add_argument
 from utils.config_aekl_v3 import get_hparams
-from data.visualizzazione_3d import preprocess, animate_slices, static_grid, volume_rendering, isosurface
-from BRGM_decoder import denormalize_data
+from visualizzazione_3d import preprocess,  animate_slices, static_grid, volume_rendering, isosurface
+
 
 parser=ArgumentParser()
 add_argument(parser)
 hparams = parser.parse_args()
 hparams_vae, _=get_hparams()
+
 def visualize_reconstruction(checkpoint_path, model_path, output_path, flag, vae_config=vars(hparams_vae)):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -45,20 +46,50 @@ def visualize_reconstruction(checkpoint_path, model_path, output_path, flag, vae
     
     # Il tuo codice salvava {'latent_vectors': ...}
     if flag == "ddim":    
-        z_noisy = checkpoint['latent_variable'] 
-        cond = checkpoint['cond']
-        cond_crossatten = cond.unsqueeze(1)
-        cond_concat = cond.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
-        cond_concat = cond_concat.expand(list(cond.shape[0:2]) + list(hparams.image_size)) # [1, 4, 32, 32, 32] --- ADATTATO PER ASTRO ---
+        # 1. Estrazione flessibile delle chiavi (gestisce sia results.pth che checkpoint.pth)
+        z_raw = checkpoint.get('z', checkpoint.get('latent_variable'))
+        cond_raw = checkpoint.get('cond', None)
+        
+        if z_raw is None or cond_raw is None:
+            raise KeyError("Impossibile trovare le chiavi corrette nel file .pth. Verifica se stai caricando 'results.pth' o 'checkpoint.pth'")
+        
+        print(f"\n--> SHAPE ORIGINALI DAL FILE: z_raw = {z_raw.shape} | cond_raw = {cond_raw.shape}")
+
+        # 2. GESTIONE DEL LATENTE ('z')
+        if z_raw.shape[0] == hparams.num_steps: # Arriva da final_z di results.pth
+            z_noisy = z_raw[-1].unsqueeze(0).float().to(device)
+        elif z_raw.dim() == 5 and z_raw.shape[0] == 1: # Arriva da checkpoint.pth
+            z_noisy = z_raw.float().to(device)
+        elif z_raw.dim() == 4: # Sicurezza nel caso fosse già a 4 dimensioni senza batch
+            z_noisy = z_raw.unsqueeze(0).float().to(device)
+        else:
+            z_noisy = z_raw.float().to(device)
+
+        print(f"shape z_noisy {z_noisy.shape}")
+        # 3. GESTIONE DEL CONDIZIONAMENTO ('cond')
+        # Se cond_raw ha gli step (es. shape [100, 4]), prendiamo l'ultimo step [-1]
+        # e aggiungiamo la dimensione del batch per ottenere [1, 4]
+        if cond_raw.dim() == 2 and cond_raw.shape[0] == hparams.num_steps: # Arriva da final_cond di results.pth
+            cond = cond_raw[-1].unsqueeze(0).float().to(device)
+        elif cond_raw.dim() == 2 and cond_raw.shape[0] == 1: # Arriva da checkpoint.pth
+            cond = cond_raw.float().to(device)
+        elif cond_raw.dim() == 1:
+            cond = cond_raw.unsqueeze(0).float().to(device)
+        else:
+            cond = cond_raw.float().to(device)
+
+        latent_spatial_shape = list(z_noisy.shape[2:])
+        cond_crossatten = cond.unsqueeze(1) # Sposta da [1, 4] a [1, 1, 4]
+        cond_concat = cond.view(1, cond.shape[1], 1, 1, 1).expand(1, cond.shape[1], *latent_spatial_shape) # [1, 4, 32, 32, 32]
+        
         conditioning_ottimizzato = {
-            "c_concat": [cond_concat.float().to(device)],
-            "c_crossattn": [cond_crossatten.float().to(device)],
+            "c_concat": [cond_concat],       
+            "c_crossattn": [cond_crossatten]
         }
-    
         
         
         # Carichiamo il checkpoint
-        path_oggetto = Path("./data/trained_models_astro/ddpm_cross_attn_100_2_z3_local/ddpm_final_model/data/model.pth")
+        path_oggetto = Path("/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/trained_models_astro/ddpm_concat_100_2_z7_local/ddpm_final_model/data/model.pth")
         ddpm = torch.load(path_oggetto, weights_only=False, map_location=device)
         
         
@@ -69,7 +100,10 @@ def visualize_reconstruction(checkpoint_path, model_path, output_path, flag, vae
             diffusion=ddpm,
             latent_variable=z_noisy,
             conditioning=conditioning_ottimizzato, # Quello salvato nel checkpoint
-            batch_size=1
+            batch_size=1,
+            image_size=hparams.image_size,
+            scale_factor= hparams.downsample_factor,
+            z_channels=hparams_vae.z_channels,
         )
     elif flag == "decoder":
         z = checkpoint['latent_vectors']
@@ -117,12 +151,12 @@ def visualize_reconstruction(checkpoint_path, model_path, output_path, flag, vae
     return rec_np
 
 
-def salva_datacube_gif(volume, output_path, axis=0, fps=15, use_log=True):
+def salva_datacube_gif(volume, output_path, axis=0, fps=15, use_log=False):
     """
     Versione ottimizzata per dati Radioastronomici:
     - Scaling logaritmico robusto
     - Normalizzazione globale con percentili (niente sfarfallio)
-    - Colormap 'inferno' applicata correttamente
+    - Colormap 'hot' applicata correttamente
     """
     # 1. Pulizia dimensioni
     volume = np.squeeze(volume)
@@ -142,7 +176,7 @@ def salva_datacube_gif(volume, output_path, axis=0, fps=15, use_log=True):
     v_max = np.percentile(volume, 99.9) 
 
     # Otteniamo la colormap
-    cmap = plt.get_cmap('inferno')
+    cmap = plt.get_cmap('hot')
     frames_rgb = []
 
     # 4. Generazione Frame lungo l'asse scelto
@@ -160,7 +194,7 @@ def salva_datacube_gif(volume, output_path, axis=0, fps=15, use_log=True):
         # 5. Normalizzazione e Clipping (0.0 - 1.0)
         # Importante: clippiamo prima di scalare per evitare overflow
         fetta_norm = np.clip(fetta, v_min, v_max)
-        fetta_norm = (fetta_norm - v_min) / (v_max - v_min + 1e-10)
+     
         
         # 6. Orientamento Astronomico (Tipico FITS)
         fetta_norm = np.flipud(fetta_norm) 
@@ -181,7 +215,7 @@ def salva_datacube_gif(volume, output_path, axis=0, fps=15, use_log=True):
 def run_comparative_plots(rec_np, output_dir, base_name="Ricostruzione_Astro"):
     # 1. Preprocessing 
     cube, vmin, vmax = preprocess(rec_np, use_log=False, use_percentile=True)
-    cube = denormalize_data(cube)
+    #cube = denormalize_data(cube,norm_mode=hparams.norm_data)
     
     print(f"\n--- Generazione Plot Comparativi per {base_name} ---")
     
@@ -201,16 +235,17 @@ def run_comparative_plots(rec_np, output_dir, base_name="Ricostruzione_Astro"):
 
 
 if __name__ == "__main__":
-    flag = "decoder" 
+    flag = "ddim" 
+    SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/"
     if flag == "ddim":
         # ADATTARE PATH AL CASO ASTRO
-        CHECKPOINT = Path("./data/outputs/BRGM_ddim_cond_z3_down4/checkpoint.pth")
-        RESULT_DIR = Path("./data/outputs/BRGM_ddim_cond_z3_down4/visualizzazione")
+        CHECKPOINT = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_z3_lambda1000_fullopt_concat_local/results.pth")
+        RESULT_DIR = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_z3_lambda1000_fullopt_concat_local/visualizzazione")
     elif flag == "decoder":
-        CHECKPOINT = Path("./data/outputs/BRGM_decoder_z3_down4/step_0099/checkpoint.pth")
-        RESULT_DIR = Path("./data/outputs/BRGM_decoder_z3_down4/visualizzazione")
+        CHECKPOINT = Path(f"{SCRATCH}/data/outputs/BRGM_decoder_3_down4_local_1000_fullopt_cond_500_concat_new/checkpoint.pth")
+        RESULT_DIR = Path(f"{SCRATCH}/data/outputs/BRGM_decoder_3_down4_local_1000_fullopt_cond_500_concat_new/visualizzazione")
 
-    DECODER_MODEL = Path("./data/trained_models_astro/vae_decoder_train_100ep_z3_local_1e-4_newloss/Decoder_only/data/model.pth")
+    DECODER_MODEL = Path(f"{SCRATCH}/data/trained_models_astro/vae_decoder_train_100ep_z3_local_1e-4_newloss/Decoder_only/data/model.pth")
 
 
     volume = visualize_reconstruction(CHECKPOINT, DECODER_MODEL, RESULT_DIR, flag=flag)

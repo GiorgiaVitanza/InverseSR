@@ -171,7 +171,7 @@ def process_radio_multiformat(fits_path, df_cat, output_dir, subset_name="train"
 if __name__ == "__main__":
     FITS_PATH = "./data/inputs/sky_dev_v2.fits"
     CATALOG_PATH = "./data/inputs/sky_dev_truthcat_v2.txt"
-    BASE_OUT_DIR = "./data/inputs/128x128x128_stride128" # Cambia questo percorso se vuoi un output diverso
+    BASE_OUT_DIR = "./data/inputs/128x128x128_stride128_fits" # Cambia questo percorso se vuoi un output diverso
     
     # 1. Split delle sorgenti a monte
     train_cat, test_cat = split_original_catalog(CATALOG_PATH, train_ratio=0.8)
@@ -185,11 +185,11 @@ if __name__ == "__main__":
         subset_name="train",
         patch_size=(128, 128, 128),
         stride=128, # Stride più piccolo per fare data augmentation nel train
-        output_format='npy'
+        output_format='fits'
     )
 
     # 3. Processamento Test Set
-    print("\n--- Processing TEST SET ---")
+    """print("\n--- Processing TEST SET ---")
     process_radio_multiformat(
         fits_path=FITS_PATH,
         df_cat=test_cat,
@@ -198,5 +198,5 @@ if __name__ == "__main__":
         patch_size=(128, 128, 128),
         stride=128, # Stride pieno per il test (meno ridondanza)
         output_format='npy'
-    )
+    )"""
     #visualize_patch_multi_view(f"{OUT_DIR}/npy_patches", "patch_000005.npy", os.path.join(OUT_DIR, "master_patch_catalog.csv"))
