@@ -239,8 +239,8 @@ if __name__ == "__main__":
     SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/"
     if flag == "ddim":
         # ADATTARE PATH AL CASO ASTRO
-        CHECKPOINT = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_fullopt_cond_concat_3_local_1000_new/checkpoint.pth")
-        RESULT_DIR = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_fullopt_cond_concat_3_local_1000_new/visualizzazione")
+        CHECKPOINT = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_z3_lambda1000_fullopt_concat_local/results.pth")
+        RESULT_DIR = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_z3_lambda1000_fullopt_concat_local/visualizzazione")
     elif flag == "decoder":
         CHECKPOINT = Path(f"{SCRATCH}/data/outputs/BRGM_decoder_3_down4_local_1000_fullopt_cond_500_concat_new/checkpoint.pth")
         RESULT_DIR = Path(f"{SCRATCH}/data/outputs/BRGM_decoder_3_down4_local_1000_fullopt_cond_500_concat_new/visualizzazione")
