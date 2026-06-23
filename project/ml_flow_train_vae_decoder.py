@@ -1,4 +1,5 @@
 import os
+from glob import glob
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,11 +13,13 @@ from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 
 # Import dei tuoi moduli
-from utils.dataset_v3 import RadioPatchDataset 
+# from utils.dataset_v3 import RadioPatchDataset 
+from utils.fields import FieldDataset
 from models.aekl_no_attention import AutoencoderKL, OnlyDecoder
 from utils.config_aekl_v3 import get_hparams 
 from utils.config_train import train_config
 from utils.plot_new import comparison_plots_ok, denormalize_data
+import utils.cosmology as cosmology
 
 
 # --- CONFIGURAZIONE AMBIENTE LEONARDO ---
@@ -79,13 +82,29 @@ def train():
     TB_LOG_DIR = train_param.tensor_board_logger_vae
   
     log_dir = f"{TB_LOG_DIR}/run_{current_time}_lr_{train_param.learning_rate}_z{hparams.z_channels}"
+    
+    in_patterns = ["/leonardo_scratch/large/userexternal/gvitanza/InverseSR/BrunoData/LR/seed*dis*.npy"]
+    tgt_patterns = ["/leonardo_scratch/large/userexternal/gvitanza/InverseSR/BrunoData/HR/seed*dis*.npy"]
+
+    class NormWrapper:
+        def __init__(self, norm_func):
+            self.norm_func = norm_func
+        def __len__(self):
+            return 1
+        def __call__(self, *args, **kwargs):
+            return self.norm_func(*args, **kwargs)
+
+    # Avvolgiamo la funzione cosmology.dis
+    wrapped_norm = NormWrapper(cosmology.dis)
 
     print("Caricamento dataset...")
-    dataset = RadioPatchDataset(
-        data_dir=train_param.data_dir,
-        catalogue_path=train_param.catalogue_path, 
-        in_channels=hparams.in_channels,
-        norm_mode=train_param.norm_mode)
+    dataset = FieldDataset( 
+        in_patterns, tgt_patterns,
+        in_norms=wrapped_norm, tgt_norms=wrapped_norm, 
+        crop=32, crop_start=2, crop_stop=130, crop_step=32,
+        in_pad=2, tgt_pad=2, scale_factor=2
+    )
+    
     dataloader = DataLoader(dataset, batch_size=train_param.batch_size, shuffle=True, num_workers=1, pin_memory=True, persistent_workers=True)
 
     
@@ -112,7 +131,7 @@ def train():
             pbar = tqdm(dataloader, desc=f"Epoch {epoch}")
 
             for batch in pbar:
-                x = batch["x_0"].to(train_param.device)
+                x = batch["target"].to(train_param.device)
                 optimizer.zero_grad()
                 total_loss, rec_loss, kl_loss, x_hat = run_step(model, x, epoch=epoch, total_epochs=train_param.epochs)
                 total_loss.backward()

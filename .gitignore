@@ -27,6 +27,7 @@ result/
 decoder/
 venv_ubuntu/
 outputs from Leonardo/
+BrunoData/
 
 *.png
 *.gif
