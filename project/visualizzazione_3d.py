@@ -271,7 +271,7 @@ def isosurface(cube, base_name, output_dir="visualizzazione_patches"):
 # ===============================
 
 def main():
-    path = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/128x128x128_stride128/train/npy_patches/patch_000012.npy"
+    path = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/128x128x128_stride128/test/npy_patches/patch_000372.npy"
     if not os.path.exists(path):
         print("Errore: File non trovato.")
         return

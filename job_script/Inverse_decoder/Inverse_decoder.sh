@@ -22,8 +22,9 @@ module load python/3.11.7
 
 SCRATCH=/leonardo_scratch/large/userexternal/gvitanza/InverseSR
 
-source ${SCRATCH}/.venv/bin/activate
+HOME=/leonardo/home/userexternal/gvitanza
 
+source ${HOME}/.venv/bin/activate
 # run script
 echo -e '\n\n\n'
 echo "$(date +"%T"):  start running model!"
@@ -36,7 +37,7 @@ Z_CHANNELS=3
 START_STEPS=0
 NUM_STEPS=500
 LAMBDA_PRIOR=0
-LEARNING_RATE=1e-4
+LEARNING_RATE=1e-3
 LAMBDA_PERC=1000
 CORRUPTION=downsample
 PRIOR_EVERY=15

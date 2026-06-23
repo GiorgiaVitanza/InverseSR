@@ -351,10 +351,11 @@ class DDPM(nn.Module):
             return img, intermediates
         return img
 
-    def sample(self, batch_size=16, return_intermediates=False):
+    def sample(self, cond, batch_size=16, return_intermediates=False):
         image_size = self.image_size
         channels = self.channels
         return self.p_sample_loop(
+            cond,
             (batch_size, channels, image_size, image_size, image_size),
             return_intermediates=return_intermediates,
         )
@@ -461,7 +462,7 @@ class DDPM(nn.Module):
             return x_recon
 
 
-class DiffusionWrapper(nn.Module):
+""" class DiffusionWrapper(nn.Module):
     def __init__(self, unet_config, conditioning_key):
         super().__init__()
         # Estraiamo i parametri corretti se unet_config è un oggetto Config o un dict
@@ -516,4 +517,51 @@ class DiffusionWrapper(nn.Module):
         # 4. UNICA CHIAMATA ALLA UNET
         out = self.diffusion_model(x_input, t, context=context)
 
+        return out """
+class DiffusionWrapper(nn.Module):
+    def __init__(self, unet_config, conditioning_key):
+        super().__init__()
+        params = unet_config.get("params", dict()) if isinstance(unet_config, dict) else unet_config
+        self.diffusion_model = UNetModel(**params)
+        self.conditioning_key = conditioning_key
+
+    def forward(self, x, t, c_concat: list = None, c_crossattn: list = None):
+        x_input = x
+        context = None
+
+        # 1. Gestione CONCAT (Ideale per il cubo LR in Super-Resolution)
+        if self.conditioning_key == 'concat' or self.conditioning_key == 'hybrid':
+            if c_concat is not None:
+                cc_tensor = c_concat[0] if isinstance(c_concat, list) else c_concat
+
+                if cc_tensor.dim() == 2:
+                    # Ottimizzato: expand non alloca nuova memoria, ma occhio ai canali
+                    cc_tensor = cc_tensor.view(cc_tensor.size(0), cc_tensor.size(1), 1, 1, 1)
+                    c_expanded = cc_tensor.expand(-1, -1, x.size(2), x.size(3), x.size(4))
+                elif cc_tensor.dim() == 5:
+                    if cc_tensor.shape[2:] != x.shape[2:]:
+                        c_expanded = F.interpolate(
+                            cc_tensor, 
+                            size=x.shape[2:], 
+                            mode='trilinear', 
+                            align_corners=False
+                        )
+                    else:
+                        c_expanded = cc_tensor
+                else:
+                    raise ValueError(f"Dimensione di cc_tensor non supportata: {cc_tensor.dim()}")
+
+                x_input = torch.cat([x, c_expanded], dim=1)
+            elif self.conditioning_key == 'concat':
+                raise ValueError("conditioning_key is 'concat' but c_concat is None")
+
+        # 2. Gestione CROSS-ATTENTION (Perfetto per Feature Tabellari come inclinazione o hi_size)
+        if c_crossattn is not None:
+            context = torch.cat(c_crossattn, dim=1) if isinstance(c_crossattn, list) else c_crossattn
+            if context.dim() == 2:
+                # [B, N_FEATURES] -> [B, 1, N_FEATURES] richiesto dai blocchi di attenzione della UNet
+                context = context.unsqueeze(1) 
+
+        # 3. Chiamata alla UNet 3D
+        out = self.diffusion_model(x_input, t, context=context)
         return out

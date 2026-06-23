@@ -20,7 +20,9 @@ module load python/3.11.7
 
 SCRATCH=/leonardo_scratch/large/userexternal/gvitanza/InverseSR
 
-source ${SCRATCH}/.venv/bin/activate
+HOME=/leonardo/home/userexternal/gvitanza
+
+source ${HOME}/.venv/bin/activate
 
 python3 ${SCRATCH}/project/test_ddpm.py\
     --test_dir $SCRATCH/data/inputs/128x128x128_stride128/test/npy_patches\

@@ -8,8 +8,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --account=IscrC_DATIV-ML
-#SBATCH --output=ddpm_concat_%j.out
-#SBATCH --error=ddpm_concat_%j.err
+#SBATCH --output=ddpm_concat_new_%j.out
+#SBATCH --error=ddpm_concat_new_%j.err
 
 
 module purge
@@ -18,10 +18,11 @@ module load cuda/12.2
 module load python/3.11.7
 
 SCRATCH=/leonardo_scratch/large/userexternal/gvitanza/InverseSR
+HOME=/leonardo/home/userexternal/gvitanza
 
-source ${SCRATCH}/.venv/bin/activate
+source ${HOME}/.venv/bin/activate
 
-EPOCHS=100
+EPOCHS=2
 NORM_MODE='local'
 Z_CHANNELS=3
 IN_UNET_CHANNELS=7

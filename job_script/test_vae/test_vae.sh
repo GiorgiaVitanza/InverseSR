@@ -19,8 +19,9 @@ module load cuda/12.2
 module load python/3.11.7
 
 SCRATCH=/leonardo_scratch/large/userexternal/gvitanza/InverseSR
+HOME=/leonardo/home/userexternal/gvitanza
 
-source ${SCRATCH}/.venv/bin/activate
+source ${HOME}/.venv/bin/activate
 
 python3 ${SCRATCH}/project/test_vae.py\
     --test_dir "$SCRATCH/data/inputs/128x128x128_stride128/test/npy_patches"\

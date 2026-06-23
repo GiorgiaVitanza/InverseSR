@@ -16,7 +16,7 @@ from utils.plot_new import draw_img_in_three_dim, denormalize_data
 from utils.utils_new import generating_latent_vector
 from utils.add_argument import add_argument
 from utils.config_aekl_v3 import get_hparams
-from data.visualizzazione_3d import preprocess,  animate_slices, static_grid, volume_rendering, isosurface
+from visualizzazione_3d import preprocess,  animate_slices, static_grid, volume_rendering, isosurface
 
 
 parser=ArgumentParser()
@@ -46,16 +46,46 @@ def visualize_reconstruction(checkpoint_path, model_path, output_path, flag, vae
     
     # Il tuo codice salvava {'latent_vectors': ...}
     if flag == "ddim":    
-        z_noisy = checkpoint['latent_variable'] 
-        cond = checkpoint['cond']
-        cond_crossatten = cond.unsqueeze(1)
-        cond_concat = cond.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
-        cond_concat = cond_concat.expand(list(cond.shape[0:2]) + list(hparams.image_size)) # [1, 4, 32, 32, 32] --- ADATTATO PER ASTRO ---
+        # 1. Estrazione flessibile delle chiavi (gestisce sia results.pth che checkpoint.pth)
+        z_raw = checkpoint.get('z', checkpoint.get('latent_variable'))
+        cond_raw = checkpoint.get('cond', None)
+        
+        if z_raw is None or cond_raw is None:
+            raise KeyError("Impossibile trovare le chiavi corrette nel file .pth. Verifica se stai caricando 'results.pth' o 'checkpoint.pth'")
+        
+        print(f"\n--> SHAPE ORIGINALI DAL FILE: z_raw = {z_raw.shape} | cond_raw = {cond_raw.shape}")
+
+        # 2. GESTIONE DEL LATENTE ('z')
+        if z_raw.shape[0] == hparams.num_steps: # Arriva da final_z di results.pth
+            z_noisy = z_raw[-1].unsqueeze(0).float().to(device)
+        elif z_raw.dim() == 5 and z_raw.shape[0] == 1: # Arriva da checkpoint.pth
+            z_noisy = z_raw.float().to(device)
+        elif z_raw.dim() == 4: # Sicurezza nel caso fosse già a 4 dimensioni senza batch
+            z_noisy = z_raw.unsqueeze(0).float().to(device)
+        else:
+            z_noisy = z_raw.float().to(device)
+
+        print(f"shape z_noisy {z_noisy.shape}")
+        # 3. GESTIONE DEL CONDIZIONAMENTO ('cond')
+        # Se cond_raw ha gli step (es. shape [100, 4]), prendiamo l'ultimo step [-1]
+        # e aggiungiamo la dimensione del batch per ottenere [1, 4]
+        if cond_raw.dim() == 2 and cond_raw.shape[0] == hparams.num_steps: # Arriva da final_cond di results.pth
+            cond = cond_raw[-1].unsqueeze(0).float().to(device)
+        elif cond_raw.dim() == 2 and cond_raw.shape[0] == 1: # Arriva da checkpoint.pth
+            cond = cond_raw.float().to(device)
+        elif cond_raw.dim() == 1:
+            cond = cond_raw.unsqueeze(0).float().to(device)
+        else:
+            cond = cond_raw.float().to(device)
+
+        latent_spatial_shape = list(z_noisy.shape[2:])
+        cond_crossatten = cond.unsqueeze(1) # Sposta da [1, 4] a [1, 1, 4]
+        cond_concat = cond.view(1, cond.shape[1], 1, 1, 1).expand(1, cond.shape[1], *latent_spatial_shape) # [1, 4, 32, 32, 32]
+        
         conditioning_ottimizzato = {
-            "c_concat": [cond_concat.float().to(device)],
-            "c_crossattn": [cond_crossatten.float().to(device)],
+            "c_concat": [cond_concat],       
+            "c_crossattn": [cond_crossatten]
         }
-    
         
         
         # Carichiamo il checkpoint
@@ -209,8 +239,8 @@ if __name__ == "__main__":
     SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/"
     if flag == "ddim":
         # ADATTARE PATH AL CASO ASTRO
-        CHECKPOINT = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_fullopt_cond_concat_3_local_1000_new/checkpoint.pth")
-        RESULT_DIR = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_fullopt_cond_concat_3_local_1000_new/visualizzazione")
+        CHECKPOINT = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_z3_lambda1000_fullopt_concat_local/results.pth")
+        RESULT_DIR = Path(f"{SCRATCH}/data/outputs/BRGM_ddim_z3_lambda1000_fullopt_concat_local/visualizzazione")
     elif flag == "decoder":
         CHECKPOINT = Path(f"{SCRATCH}/data/outputs/BRGM_decoder_3_down4_local_1000_fullopt_cond_500_concat_new/checkpoint.pth")
         RESULT_DIR = Path(f"{SCRATCH}/data/outputs/BRGM_decoder_3_down4_local_1000_fullopt_cond_500_concat_new/visualizzazione")

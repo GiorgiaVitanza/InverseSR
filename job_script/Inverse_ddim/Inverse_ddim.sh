@@ -22,7 +22,9 @@ module load python/3.11.7
 
 SCRATCH=/leonardo_scratch/large/userexternal/gvitanza/InverseSR
 
-source ${SCRATCH}/.venv/bin/activate
+HOME=/leonardo/home/userexternal/gvitanza
+
+source ${HOME}/.venv/bin/activate
 
 # run script
 echo -e '\n\n\n'
@@ -39,7 +41,7 @@ PRIOR_EVERY=15
 DATA_FORMAT="npy"
 DOWNSAMPLE_FACTOR=4
 DDIM_ETA=0.0
-EXPERIMENT_NAME=z3_lambda1000_concat_local
+EXPERIMENT_NAME=z3_lambda1000_fullopt_concat_local
 Z_CHANNELS=3
 LOG_DIR=$SCRATCH/logs/$EXPERIMENT_NAME
 

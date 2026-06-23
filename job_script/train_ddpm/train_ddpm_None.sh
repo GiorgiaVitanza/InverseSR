@@ -19,8 +19,9 @@ module load python/3.11.7
 
 SCRATCH=/leonardo_scratch/large/userexternal/gvitanza/InverseSR
 
-source ${SCRATCH}/.venv/bin/activate
+HOME=/leonardo/home/userexternal/gvitanza
 
+source ${HOME}/.venv/bin/activate
 
 EPOCHS=100
 Z_CHANNELS=3

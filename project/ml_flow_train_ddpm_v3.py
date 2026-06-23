@@ -9,9 +9,12 @@ from tqdm import tqdm
 # --- AGGIUNTA TENSORBOARD ---
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
+from argparse import ArgumentParser
 
 # Import dai tuoi moduli
 from models.aekl_no_attention import AutoencoderKL
+from models.BRGM.forward_models import ForwardDownsample
+from utils.add_argument import add_argument
 from utils.dataset_v3 import RadioPatchDataset
 from utils.config_unet_v3 import get_config
 from utils.config_train import train_config
@@ -26,6 +29,9 @@ from utils.const import IMAGE_SHAPE
 # --- CONFIGURAZIONE PERCORSI E DIRECTORY ---
 train_cfg, _ = train_config()
 hparams, _ = get_hparams()
+parser = ArgumentParser(description="Inversione Diffusion Model per Dati Astrofisici")
+add_argument(parser) # Assicurati che questa funzione aggiunga tutti gli argomenti necessari
+args = parser.parse_args()
 
 # Cartella base per questa run
 BASE_SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/"
@@ -51,6 +57,7 @@ vae.eval()
 
 def train():
 
+    corruption = ForwardDownsample(factor=hparams.downsample_factor)
     CHECKPOINT_DIR = os.path.join(BASE_SCRATCH, f"ddpm_{train_cfg.cond_key}_{hparams.z_channels}_{train_cfg.epochs}epochs_{train_cfg.norm_mode}_{current_time}")
     TB_LOG_DIR = train_cfg.tensor_board_logger_ddpm
   
@@ -104,7 +111,7 @@ def train():
                 
                 x_start = batch["x_0"].to(train_cfg.device)
                 raw_context = batch["context"].to(train_cfg.device)
-
+               
                 # 1. Encoding nel Latent Space (z)
                 with torch.no_grad():
                     h = vae.encoder(x_start)
@@ -114,8 +121,20 @@ def train():
                     eps = torch.randn_like(std)
                     z = mu + eps * std
 
+                    x_corrupted = corruption(x_start)
+
+                
+
+                # Costruisci il condizionamento ibrido
+                condizionamento_ibrido = {
+                    "c_concat": [x_corrupted],    # Cubo degradato (guida la super-resolution voxel-by-voxel)
+                    "c_crossattn": [raw_context]     # Vettore di 4 elementi (guida la cinematica e la fisica globale)
+                }
+
+                # Passa tutto al DDPM
+                loss, loss_dict = model(z, condizionamento_ibrido)
                 # 2. Forward DDPM (Diffusion Loss)
-                loss, loss_dict = model(z, raw_context)
+                #loss, loss_dict = model(z, x_corrupted)
                 
                 loss.backward()
                 optimizer.step()
