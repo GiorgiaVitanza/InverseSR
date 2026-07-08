@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=train_vae
+#SBATCH --job-name=zscore_vae
 #SBATCH --partition=boost_usr_prod
 #SBATCH --qos=normal
 #SBATCH --nodes=1
@@ -8,8 +8,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --account=IscrC_DATIV-ML
-#SBATCH --output=vae_%j.out
-#SBATCH --error=vae_%j.err
+#SBATCH --output=vae_zscore_%j.out
+#SBATCH --error=vae_zscore_%j.err
 #SBATCH --mem=160G
 
 

@@ -18,9 +18,9 @@ module load cuda/12.2
 module load python/3.11.7
 
 SCRATCH=/leonardo_scratch/large/userexternal/gvitanza/InverseSR
+HOME=/leonardo/home/userexternal/gvitanza/
 
-source ${SCRATCH}/.venv/bin/activate
-
+source ${HOME}/.venv/bin/activate
 
 EPOCHS=100
 Z_CHANNELS=3
@@ -28,8 +28,8 @@ NORM_MODE='local'
 COND='None'
 
 python3 ${SCRATCH}/project/ml_flow_train_ddpm_v3.py\
-    --data_dir "${SCRATCH}/data/inputs/128x128x128_stride128/train/npy_patches"\
-    --catalogue_path "${SCRATCH}/data/inputs/128x128x128_stride128/train/train_catalog.csv"\
+    --data_dir "${SCRATCH}/ska_hi_dataset/hr"\
+    --catalogue_path "${SCRATCH}/ska_hi_dataset/global_catalog.csv"\
     --in_channels_unet $Z_CHANNELS\
     --out_channels_unet $Z_CHANNELS\
     --tensor_board_logger_ddpm "${SCRATCH}/logs_ddpm/ddpm_${COND}_${EPOCHS}_z${Z_CHANNELS}_${NORM_MODE}"\
@@ -39,4 +39,4 @@ python3 ${SCRATCH}/project/ml_flow_train_ddpm_v3.py\
     --norm_mode $NORM_MODE\
     --learning_rate 1e-4\
     --cond_key $COND\
-    --vae_path "${SCRATCH}/vae_decoder_3_100epochs_local_May22_20-59-37/vae_full_ep100.pth"
+    --vae_path "${SCRATCH}/vae_decoder_3_100epochs_local_Jul08_10-50-02/vae_full_ep50.pth"
