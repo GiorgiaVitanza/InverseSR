@@ -21,7 +21,7 @@ def get_hparams():
     # ch_mult: downsample 1x2x2 = 4
     parser.add_argument("--ch_mult", type=int, nargs='+', default=[1, 2, 2], help="Moltiplicatori canali (64 -> 128)")
     
-    parser.add_argument("--resolution", type=int, nargs='+', default=[160, 224, 160], help="Risoluzione spaziale del datacube")
+    parser.add_argument("--resolution", type=int, nargs='+', default=[128, 128, 128], help="Risoluzione spaziale del datacube")
     parser.add_argument("--attn_resolutions", type=int, nargs='+', default=[], help="Risoluzioni per Self-Attention (non rilevata nell'analisi)")
 
     

@@ -25,7 +25,7 @@ source ${HOME}/.venv/bin/activate
 
 EPOCHS=100
 Z_CHANNELS=3
-NORM_MODE='local'
+NORM_MODE='zscore'
 
 python3 ${SCRATCH}/project/ml_flow_train_vae_decoder.py\
     --data_dir "${SCRATCH}/ska_hi_dataset/hr"\
