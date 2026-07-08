@@ -12,7 +12,7 @@ from datetime import datetime
 
 # Import dai tuoi moduli
 from models.aekl_no_attention import AutoencoderKL
-from utils.dataset_v3 import RadioPatchDataset
+from utils.fields import FieldDataset
 from utils.config_unet_v3 import get_config
 from utils.config_train import train_config
 from utils.config_aekl_v3 import get_hparams
@@ -20,6 +20,7 @@ from models.ddpm_v2_conditioned import DDPM
 from models.ddim import DDIMSampler
 from utils.plot_new import comparison_plots_ok, denormalize_data
 from utils.const import IMAGE_SHAPE
+import utils.cosmology as cosmology
 
 
 
@@ -68,12 +69,28 @@ def train():
     unet_cfg["params"].pop("in_channels_unet", None)
 
     # Dataset e DataLoader
-    dataset = RadioPatchDataset(
-        data_dir=train_cfg.data_dir, 
-        catalogue_path=train_cfg.catalogue_path,
-        in_channels=hparams.in_channels,
-        norm_mode=train_cfg.norm_mode
+    in_patterns = ["/leonardo_scratch/large/userexternal/gvitanza/InverseSR/BrunoData/LR/seed*dis*.npy"]
+    tgt_patterns = ["/leonardo_scratch/large/userexternal/gvitanza/InverseSR/BrunoData/HR/seed*dis*.npy"]
+
+    class NormWrapper:
+        def __init__(self, norm_func):
+            self.norm_func = norm_func
+        def __len__(self):
+            return 1
+        def __call__(self, *args, **kwargs):
+            return self.norm_func(*args, **kwargs)
+
+    # Avvolgiamo la funzione cosmology.dis
+    wrapped_norm = NormWrapper(cosmology.dis)
+    catalogue_path = train_cfg.catalogue_path
+    print("Caricamento dataset...")
+    dataset = FieldDataset( 
+        tgt_patterns, catalogue_path,
+        tgt_norms=wrapped_norm, 
+        crop=32, crop_start=2, crop_stop=130, crop_step=32,
+        tgt_pad=0, scale_factor=2
     )
+    
     dataloader = DataLoader(dataset, batch_size=train_cfg.batch_size, shuffle=True, num_workers=1, pin_memory=True)
 
     # Modello DDPM
@@ -102,9 +119,10 @@ def train():
             for batch in pbar:
                 optimizer.zero_grad()
                 
-                x_start = batch["x_0"].to(train_cfg.device)
+                x_start = batch["target"].to(train_cfg.device)
                 raw_context = batch["context"].to(train_cfg.device)
-
+                print(x_start.shape)
+                print(raw_context.shape)
                 # 1. Encoding nel Latent Space (z)
                 with torch.no_grad():
                     h = vae.encoder(x_start)
@@ -141,7 +159,8 @@ def train():
                     # Nota: batch_size=2 perché stiamo usando raw_context[:2]
                     # 2. Campionamento
                     sampler = DDIMSampler(model) 
-                    latent_size = IMAGE_SHAPE[2] // 4  # Assumendo un downsampling di 4x nel VAE
+                    latent_size = IMAGE_SHAPE[2] // 2 # Assumendo un downsampling di 4x nel VAE
+                    print(latent_size)
                     shape = (hparams.z_channels, latent_size, latent_size, latent_size)
                       
                     img_noise = torch.randn((train_cfg.batch_size, *shape), device=train_cfg.device)

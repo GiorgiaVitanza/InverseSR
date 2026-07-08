@@ -63,7 +63,7 @@ FITS_LIMIT = 1.6e-03
 FITS_MEAN = 1.37400534e-09 # whole cube
 FITS_STD = 3.11374637e-05 # whole cube
 
-IMAGE_SHAPE = [1, 1, 128, 128, 128] 
+IMAGE_SHAPE = [1, 3, 256, 256, 256] 
 
 # LATENT_SHAPE: La dimensione compressa nel "Latent Space" del VAE.
 # Dipende dal fattore di downsampling del tuo modello (spesso f=4 o f=8).

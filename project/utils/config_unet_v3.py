@@ -5,10 +5,10 @@ def get_config():
     parser = argparse.ArgumentParser(description="Unet Configuration - Deep 3D LDM Analysis")
 
     # --- Dimensioni canali ---
-    parser.add_argument("--in_channels_unet", type=int, default=8) # 3 canali latenti (z_channels del VAE) 
+    parser.add_argument("--in_channels_unet", type=int, default=3) # 3 canali latenti (z_channels del VAE) 
     
     # Rilevato dai parametri iniziali dell'analisi
-    parser.add_argument("--out_channels_unet", type=int, default=8)
+    parser.add_argument("--out_channels_unet", type=int, default=3)
     
     # model_channels rilevato: 256 (il primo blocco proietta a 256)
     parser.add_argument("--model_channels", type=int, default=256) 
@@ -49,7 +49,7 @@ def get_config():
 
     # --- Condizionamento (Cross-Attention) ---
     parser.add_argument("--use_spatial_transformer", action="store_true", default=False)
-    parser.add_argument("--transformer_depth", type=int, default=1)
+    parser.add_argument("--transformer_depth", type=int, default=3)
     
     # context_dim rilevato: 4!!
     # Guarda layer: attn2.to_k.weight | Shape: [512, 4]

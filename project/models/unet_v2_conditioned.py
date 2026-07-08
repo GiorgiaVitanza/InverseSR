@@ -567,9 +567,9 @@ class UNetModel(nn.Module):
         h = x
         # --- MODIFICA 2: Input Blocks con Checkpointing ---
         for module in self.input_blocks:
-            # Invece di h = module(h, emb, context)
+            h = module(h, emb, context)
             # Usiamo checkpoint per non salvare la memoria interna del blocco
-            h = checkpoint(module, h, emb, context, use_reentrant=False)
+            # h = checkpoint(module, h, emb, context, use_reentrant=False)
             hs.append(h)
         
         # --- MODIFICA 3: Middle Block con Checkpointing ---

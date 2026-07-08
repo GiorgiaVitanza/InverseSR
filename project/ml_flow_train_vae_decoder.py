@@ -83,7 +83,6 @@ def train():
   
     log_dir = f"{TB_LOG_DIR}/run_{current_time}_lr_{train_param.learning_rate}_z{hparams.z_channels}"
     
-    in_patterns = ["/leonardo_scratch/large/userexternal/gvitanza/InverseSR/BrunoData/LR/seed*dis*.npy"]
     tgt_patterns = ["/leonardo_scratch/large/userexternal/gvitanza/InverseSR/BrunoData/HR/seed*dis*.npy"]
 
     class NormWrapper:
@@ -99,13 +98,20 @@ def train():
 
     print("Caricamento dataset...")
     dataset = FieldDataset( 
-        in_patterns, tgt_patterns,
-        in_norms=wrapped_norm, tgt_norms=wrapped_norm, 
+        tgt_patterns, train_param.catalogue_path,
+        tgt_norms=wrapped_norm, 
         crop=32, crop_start=2, crop_stop=130, crop_step=32,
-        in_pad=2, tgt_pad=2, scale_factor=2
+        tgt_pad=2, scale_factor=4
     )
     
-    dataloader = DataLoader(dataset, batch_size=train_param.batch_size, shuffle=True, num_workers=1, pin_memory=True, persistent_workers=True)
+    dataloader = DataLoader(dataset, 
+                            batch_size=train_param.batch_size, 
+                            shuffle=True, 
+                            num_workers=4, 
+                            pin_memory=True, 
+                            persistent_workers=True,
+                            multiprocessing_context="fork"
+                        )
 
     
     os.makedirs(CHECKPOINT_DIR, exist_ok=True)
@@ -118,7 +124,7 @@ def train():
     optimizer = torch.optim.Adam(model.parameters(), lr=train_param.learning_rate)
 
     # Inizializzazione Loggers
-    writer = SummaryWriter(log_dir=log_dir)
+    writer = SummaryWriter(log_dir=log_dir, max_queue=1)
 
     with mlflow.start_run(run_name=f"VAE_Hybrid_Training_{current_time}"):
         mlflow.log_params(hparams_dict)
@@ -147,6 +153,8 @@ def train():
             writer.add_scalar("Loss/Total", avg_total, epoch)
             writer.add_scalar("Loss/Recon", np.mean(epoch_recon_loss), epoch)
             writer.add_scalar("Loss/KL", np.mean(epoch_kl_loss), epoch)
+
+            writer.flush()
             
             # --- LOGGING (MLflow Metrics) ---
             mlflow.log_metric("avg_total_loss", avg_total, step=epoch)
