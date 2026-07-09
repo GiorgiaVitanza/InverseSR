@@ -100,7 +100,7 @@ def train():
     dataset = FieldDataset( 
         tgt_patterns, train_param.catalogue_path,
         tgt_norms=wrapped_norm, 
-        crop=32, crop_start=2, crop_stop=130, crop_step=32,
+        crop=132, crop_start=0, crop_stop=132, crop_step=132,
         tgt_pad=2, scale_factor=4
     )
     
