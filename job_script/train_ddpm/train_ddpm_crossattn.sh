@@ -18,8 +18,9 @@ module load cuda/12.2
 module load python/3.11.7
 
 SCRATCH=/leonardo_scratch/large/userexternal/gvitanza/InverseSR
+HOME=/leonardo/home/userexternal/gvitanza/
 
-source ${SCRATCH}/.venv/bin/activate
+source ${HOME}/.venv/bin/activate
 
 EPOCHS=100
 NORM_MODE='local'
@@ -29,15 +30,17 @@ OUT_UNET_CHANNELS=3
 COND='crossattn'
 
 python3 ${SCRATCH}/project/ml_flow_train_ddpm_v3.py\
-    --data_dir "${SCRATCH}/data/inputs/128x128x128_stride128/train/npy_patches"\
-    --catalogue_path "${SCRATCH}/data/inputs/128x128x128_stride128/train/train_catalog.csv"\
+    --data_dir "${SCRATCH}/data/inputs/16x128x128_stride128_cont_dev/train/npy_patches"\
+    --catalogue_path "${SCRATCH}/data/inputs/16x128x128_stride128_cont_dev/train/train_catalog.csv"\
     --in_channels_unet $IN_UNET_CHANNELS\
     --out_channels_unet $OUT_UNET_CHANNELS\
-    --tensor_board_logger_ddpm "${SCRATCH}/logs_ddpm/ddpm_${COND}_${EPOCHS}_z${Z_CHANNELS}_${NORM_MODE}"\
-    --output_dir_ddpm "${SCRATCH}/data/trained_models_astro/ddpm_${COND}_${EPOCHS}_z${Z_CHANNELS}_${NORM_MODE}"\
+    --tensor_board_logger_ddpm "${SCRATCH}/logs_ddpm/ddpm_${COND}_${EPOCHS}_z${Z_CHANNELS}_${NORM_MODE}_cont_dev"\
+    --output_dir_ddpm "${SCRATCH}/data/trained_models_astro/ddpm_${COND}_${EPOCHS}_z${Z_CHANNELS}_${NORM_MODE}_cont_dev"\
     --epochs $EPOCHS\
     --z_channels $Z_CHANNELS\
     --norm_mode $NORM_MODE\
     --learning_rate 1e-4\
     --cond_key $COND\
-    --vae_path "${SCRATCH}/vae_decoder_3_100epochs_local_May22_20-59-37/vae_full_ep100.pth"
+    --vae_path "${SCRATCH}/vae_decoder_3_100epochs_local_Jul10_13-07-55/vae_full_ep100.pth"\
+    --scale_factor 4
+  

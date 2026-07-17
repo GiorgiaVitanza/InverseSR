@@ -22,7 +22,7 @@ def add_argument(parser: ArgumentParser):
     parser.add_argument(
         "--norm_data",
         # Modificato: Path generico per astro
-        default="global_sym",
+        default="local",
         help="Modalità di normalizzazione dei dati",
     )
     
@@ -53,7 +53,7 @@ def add_argument(parser: ArgumentParser):
     "--image_size", 
         type=int, 
         nargs='+', 
-        default=[128, 128, 128], 
+        default=[16, 128, 128], 
         help="Risoluzione target (D, H, W)"
     )
 

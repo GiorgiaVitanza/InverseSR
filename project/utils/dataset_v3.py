@@ -5,7 +5,7 @@ import numpy as np
 import os
 import pandas as pd
 
-def normalize_dynamic(data, norm_mode, stats):
+def normalize_dynamic(data, norm_mode, stats={}):
     """
     Applica la normalizzazione usando le statistiche calcolate dinamicamente dal dataset.
     stats e' un dizionario contenente: 'limit', 'mean', 'std'

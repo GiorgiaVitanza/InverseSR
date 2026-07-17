@@ -35,9 +35,9 @@ else:
     DATA_ROOT = ROOT_DIR / "data"
     
     INPUT_FOLDER = DATA_ROOT / "inputs"
-    INPUT_FOLDER_PATCHES = INPUT_FOLDER / "128x128x128_stride128" / "train"/ "npy_patches"# Se usi patch pre-estratti
-    INPUT_FOLDER_CAT = INPUT_FOLDER / "128x128x128_stride128" / "train"/ "train_catalog.csv"
-    INPUT_FOLDER_TEST = INPUT_FOLDER / "128x128x128_stride128" / "test"/ "npy_patches"
+    INPUT_FOLDER_PATCHES = INPUT_FOLDER / "16x128x128_stride128_cont_dev" / "train"/ "npy_patches"# Se usi patch pre-estratti
+    INPUT_FOLDER_CAT = INPUT_FOLDER / "16x128x128_stride128_cont_dev" / "train"/ "train_catalog.csv"
+    INPUT_FOLDER_TEST = INPUT_FOLDER / "16x128x128_stride128_cont_dev" / "test"/ "npy_patches"
     MASK_FOLDER = DATA_ROOT / "masks"
     
     # Dataset specifici (Esempio: ALMA, LOFAR, Simulazioni TNG)
@@ -63,7 +63,7 @@ FITS_LIMIT = 1.6e-03
 FITS_MEAN = 1.37400534e-09 # whole cube
 FITS_STD = 3.11374637e-05 # whole cube
 
-IMAGE_SHAPE = [1, 1, 128, 128, 128] 
+IMAGE_SHAPE = [1, 1, 16, 128, 128] 
 
 # LATENT_SHAPE: La dimensione compressa nel "Latent Space" del VAE.
 # Dipende dal fattore di downsampling del tuo modello (spesso f=4 o f=8).

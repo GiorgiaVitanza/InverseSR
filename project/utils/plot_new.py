@@ -37,7 +37,7 @@ def denormalize_data(x, norm_mode):
 
 def comparison_plots_ok(x, x_hat, flag = 'test'):
                     try:                        
-                        img_orig = x[0, 0].detach().cpu().numpy()      # Cubo originale (128, 128, 128)
+                        img_orig = x[0, 0].detach().cpu().numpy()      # Cubo originale 
                         img_recon = x_hat[0, 0].detach().cpu().numpy() # Cubo ricostruito
                     except:
                         img_orig = x

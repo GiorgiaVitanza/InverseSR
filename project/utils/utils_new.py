@@ -32,7 +32,7 @@ from utils.const import (
     FITS_LIMIT,
     FITS_STD,
 )
-from utils.dataset_v3 import normalize
+from utils.dataset_v3 import normalize_dynamic
 
 
 def generating_latent_vector(
@@ -170,7 +170,7 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
 
     # 3. APPLICAZIONE NORMALIZZAZIONE MULTI-MODE
     norm_mode = hparams.norm_data 
-    img_tensor[2:5] = normalize(img_tensor[2:5], norm_mode=norm_mode)
+    img_tensor[2:5] = normalize_dynamic(img_tensor[2:5], norm_mode=norm_mode)
 
     if norm_mode != 'zscore':
         print('carico il target nel range [0, 1]')
@@ -243,7 +243,6 @@ def setup_noise_inputs(cat, device: torch.device, hparams: Namespace) -> Tuple[t
     cond_normalized.requires_grad_(True)
 
     # --- Gestione Latente ---
-    # (Il resto del codice rimane invariato)
     f = hparams.downsample_factor if hparams.corruption == "downsample" else 1
     latent_shape = (1, hparams.z_channels, hparams.image_size[0]//f, hparams.image_size[1]//f, hparams.image_size[2]//f)
     latent_variable = torch.randn(latent_shape, device=device, requires_grad=True)

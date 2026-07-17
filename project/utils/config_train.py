@@ -39,6 +39,9 @@ def train_config():
 
     parser.add_argument("--epochs", type=int, default=10)
 
+    
+    parser.add_argument("--scale_factor", type=int, default=4)
+
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
 
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=zscore_vae
+#SBATCH --job-name=local_vae
 #SBATCH --partition=boost_usr_prod
 #SBATCH --qos=normal
 #SBATCH --nodes=1
@@ -8,8 +8,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --account=IscrC_DATIV-ML
-#SBATCH --output=vae_zscore_%j.out
-#SBATCH --error=vae_zscore_%j.err
+#SBATCH --output=vae_local_%j.out
+#SBATCH --error=vae_local_%j.err
 #SBATCH --mem=160G
 
 
@@ -25,13 +25,13 @@ source ${HOME}/.venv/bin/activate
 
 EPOCHS=100
 Z_CHANNELS=3
-NORM_MODE='zscore'
+NORM_MODE='local'
 
 python3 ${SCRATCH}/project/ml_flow_train_vae_decoder.py\
-    --data_dir "${SCRATCH}/ska_hi_dataset/hr"\
-    --catalogue_path "${SCRATCH}/ska_hi_dataset/global_catalog.csv"\
+    --data_dir "${SCRATCH}/data/inputs/16x128x128_stride128_cont_dev/train/npy_patches"\
+    --catalogue_path "${SCRATCH}/data/inputs/16x128x128_stride128_cont_dev/train/train_catalog.csv"\
     --tensor_board_logger_vae "${SCRATCH}/logs_vae/vae_decoder_${EPOCHS}_z${Z_CHANNELS}_${NORM_MODE}"\
-    --output_dir_vae "${SCRATCH}/data/trained_models_astro/vae_decoder_${EPOCHS}_z${Z_CHANNELS}_${NORM_MODE}"\
+    --output_dir_vae "${SCRATCH}/data/trained_models_astro/vae_decoder_${EPOCHS}_z${Z_CHANNELS}_${NORM_MODE}_cont_dev"\
     --epochs $EPOCHS\
     --z_channels $Z_CHANNELS\
     --norm_mode $NORM_MODE\

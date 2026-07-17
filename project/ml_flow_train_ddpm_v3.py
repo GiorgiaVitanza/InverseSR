@@ -16,6 +16,7 @@ from utils.dataset_v3 import RadioPatchDataset
 from utils.config_unet_v3 import get_config
 from utils.config_train import train_config
 from utils.config_aekl_v3 import get_hparams
+
 from models.ddpm_v2_conditioned import DDPM
 from models.ddim import DDIMSampler
 from utils.plot_new import comparison_plots_ok, denormalize_data
@@ -141,8 +142,9 @@ def train():
                     # Nota: batch_size=2 perché stiamo usando raw_context[:2]
                     # 2. Campionamento
                     sampler = DDIMSampler(model) 
-                    latent_size = IMAGE_SHAPE[2] // 4  # Assumendo un downsampling di 4x nel VAE
-                    shape = (hparams.z_channels, latent_size, latent_size, latent_size)
+                    latent_size = IMAGE_SHAPE[3] // train_cfg.scale_factor  
+                    latent_size_0 = IMAGE_SHAPE[2] // train_cfg.scale_factor
+                    shape = (hparams.z_channels, latent_size_0, latent_size, latent_size)
                       
                     img_noise = torch.randn((train_cfg.batch_size, *shape), device=train_cfg.device)
 
