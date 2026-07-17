@@ -45,9 +45,9 @@ else:
     
     PRETRAINED_MODEL_FOLDER = DATA_ROOT / "trained_models_astro"
     
-    PRETRAINED_MODEL_DDPM_PATH = PRETRAINED_MODEL_FOLDER  / "ddpm_cross_attn_10_2_z3_zscore"  / "ddpm_final_model"
-    PRETRAINED_MODEL_DECODER_PATH = PRETRAINED_MODEL_FOLDER / "vae_decoder_train_10ep_z3_zscore" / "Decoder_only"
-    PRETRAINED_MODEL_VAE_PATH = PRETRAINED_MODEL_FOLDER / "vae_decoder_train_10ep_z3_zscore" / "VAE_full"
+    PRETRAINED_MODEL_DDPM_PATH = PRETRAINED_MODEL_FOLDER  / "ddpm_crossattn_100_z3_local_cont_dev"  / "ddpm_final_model"
+    PRETRAINED_MODEL_DECODER_PATH = PRETRAINED_MODEL_FOLDER / "vae_decoder_100_z3_local_cont_dev" / "Decoder_only"
+    PRETRAINED_MODEL_VAE_PATH = PRETRAINED_MODEL_FOLDER / "vae_decoder_100_z3_local_cont_dev" / "VAE_full"
     
     # Percorso per un eventuale modello di feature extraction (es. per loss percettiva)
     # Nota: VGG16 è per immagini 2D. Se usi cubi 3D, potresti non usarlo o usare una 3D-ResNet.

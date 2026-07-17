@@ -26,11 +26,7 @@ from utils.const import (
     INPUT_FOLDER_PATCHES,
     INPUT_FOLDER_TEST,
     MASK_FOLDER,
-    PRETRAINED_MODEL_VAE_PATH,
-    PRETRAINED_MODEL_DDPM_PATH,
     PRETRAINED_MODEL_VGG_PATH,
-    FITS_LIMIT,
-    FITS_STD,
 )
 from utils.dataset_v3 import normalize_dynamic
 
@@ -319,7 +315,7 @@ def load_vgg_perceptual(hparams: Namespace, target: torch.Tensor, device: torch.
 def getVggFeatures(hparams, img, vgg16):
     
     mid_idx = img.shape[2] // 2 
-    slice_2d = img[:, :, mid_idx, :, :] 
+    slice_2d = img[:, 0:1, mid_idx, :, :] 
     
     features = vgg16(slice_2d)
     return features
