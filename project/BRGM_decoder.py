@@ -30,10 +30,6 @@ from pathlib import Path
 
 from utils.add_argument import add_argument
 from utils.const import (
-    FITS_LIMIT,
-    FITS_MEAN,
-    FITS_STD,
-    PRETRAINED_MODEL_DECODER_PATH,
     INPUT_FOLDER_CAT
 )
 from utils.plot_new import draw_corrupted_images, draw_images, draw_img, compare_cubes, plot_orthogonal_cuts, comparison_plots_ok, denormalize_data
@@ -285,6 +281,8 @@ def project(
 
             return loss
         
+        torch.nn.utils.clip_grad_norm_([latent_vector], max_norm=1.0)
+        
         optimizer_adam.step(closure=closure)
       
         latent_vector_out[step] = latent_vector.detach()[0]
@@ -306,8 +304,16 @@ def project(
     target_img_corrupted_vis = denormalize_data(target_img_corrupted[0, 0].detach().cpu().numpy(), hparams.norm_data)
     synth_img_corrupted_vis = denormalize_data(synth_img_corrupted[0, 0].detach().cpu().numpy(), hparams.norm_data)
 
+    # --- SANITIZZAZIONE NAN / INF PER MATPLOTLIB ---
+    synth_vis = np.nan_to_num(synth_vis, nan=0.0, posinf=1.0, neginf=0.0)
+    target_vis = np.nan_to_num(target_vis, nan=0.0, posinf=1.0, neginf=0.0)
+    synth_img_corrupted_vis = np.nan_to_num(synth_img_corrupted_vis, nan=0.0, posinf=1.0, neginf=0.0)
+    target_img_corrupted_vis = np.nan_to_num(target_img_corrupted_vis, nan=0.0, posinf=1.0, neginf=0.0)
+
+    # --- DEBUG PRINT CORRETTI ---
     print(f"TARGET - Min: {target_vis.min():.2e}, Max: {target_vis.max():.2e}, Mean: {target_vis.mean():.2e}")
     print(f"SYNTH  - Min: {synth_vis.min():.2e}, Max: {synth_vis.max():.2e}, Mean: {synth_vis.mean():.2e}")
+    print("Synth ha NaN?:", np.isnan(synth_vis).any())
 
     # Stringa di safe finale per i nomi dei file
     final_step_str = f"{hparams.num_steps}".zfill(4)
@@ -317,7 +323,7 @@ def project(
 
     compare_cubes(target_vis, synth_vis, title=f"target_vs_synth_{hparams.norm_data}", save_path=save_path / "compare_target_vs_synth.png")
     compare_cubes(target_img_corrupted_vis, synth_img_corrupted_vis, title=f"corr_target_vs_corr_synth_{hparams.norm_data}", save_path=save_path / "compare_corrupted_target_vs_corrupted_synth.png")
-
+    
     fig = comparison_plots_ok(target_vis, synth_vis)
     fig.savefig(save_path / f"comparison_ok_{hparams.norm_data}.png")
     plt.close(fig)
@@ -371,7 +377,7 @@ def main(hparams: Namespace) -> None:
 
     # 2. Crea il plot
     plt.figure(figsize=(8, 8))
-    plt.imshow(slice_to_plot, cmap='hot') 
+    plt.imshow(slice_to_plot, cmap='hot', origin="lower") 
     plt.colorbar(label='Intensità')
     plt.title(f"Target image nel main normalizzato {hparams.norm_data} (Slice centrale)")
 
@@ -382,7 +388,8 @@ def main(hparams: Namespace) -> None:
     plt.savefig(output_path)
     plt.show() # Opzionale, se sei in un notebook
     plt.close() # Importante per liberare memoria
-    
+    print("Ha NaN?:", np.isnan(img_tensor.detach().cpu().numpy()).any())
+    print("Min:", np.nanmin(img_tensor.detach().cpu().numpy()), "Max:", np.nanmax(img_tensor.detach().cpu().numpy()))
     if img_tensor.dim() == 4:  # Se manca la dimensione del batch, aggiungila
         img_tensor = img_tensor.unsqueeze(0)
     writer = SummaryWriter(log_dir=hparams.tensor_board_logger_decoder)
