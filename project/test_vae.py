@@ -72,7 +72,7 @@ def test(hparams, train_param):
 
             # Salvataggio plot ogni 20 batch o all'ultimo
             
-            if i % 20 == 0 or i == len(test_loader) - 1:
+            if i % 10 == 0 or i == len(test_loader) - 1:
                 # Applichiamo denormalizzazione per il plot
                 x_plot = denormalize_data(x, train_param.norm_mode)
                 x_hat_plot = denormalize_data(x_hat, train_param.norm_mode)
