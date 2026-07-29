@@ -270,8 +270,8 @@ def isosurface(cube, base_name, output_dir="visualizzazione_patches"):
 # MAIN
 # ===============================
 
-def main():
-    path = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/128x128x128_stride128/train/npy_patches/patch_000012.npy"
+def main(path, choice = "4"):
+    
     if not os.path.exists(path):
         print("Errore: File non trovato.")
         return
@@ -297,7 +297,7 @@ def main():
     print("4 - Volume rendering 3D")
     print("5 - Isosuperficie 3D")
 
-    choice = "4"
+    
 
     if choice == "1":
         animate_slices(cube, vmin, vmax, base_name,    output_dir="visualizzazione_patches")
@@ -319,4 +319,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    path = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/16x128x128_stride128_cont_dev/train/npy_patches/patch_000025.npy"
+    main(path, choice="1")
