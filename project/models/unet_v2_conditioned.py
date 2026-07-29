@@ -1,6 +1,6 @@
-# Modifica 1
+# Modifica 1: PyTorch Activation Checkpointing per risparmiare VRAM 3D
 from torch.utils.checkpoint import checkpoint
-#-------------------------------------------------
+# -------------------------------------------------
 import math
 from abc import abstractmethod
 
@@ -15,14 +15,6 @@ from models.attention import SpatialTransformer
 
 
 def timestep_embedding(timesteps, dim, max_period=10000, repeat_only=False):
-    """
-    Create sinusoidal timestep embeddings.
-    :param timesteps: a 1-D Tensor of N indices, one per batch element.
-                      These may be fractional.
-    :param dim: the dimension of the output.
-    :param max_period: controls the minimum frequency of the embeddings.
-    :return: an [N x dim] Tensor of positional embeddings.
-    """
     if not repeat_only:
         half = dim // 2
         freqs = torch.exp(
@@ -42,9 +34,6 @@ def timestep_embedding(timesteps, dim, max_period=10000, repeat_only=False):
 
 
 def zero_module(module):
-    """
-    Zero out the parameters of a module and return it.
-    """
     for p in module.parameters():
         p.detach().zero_()
     return module
@@ -53,17 +42,10 @@ def zero_module(module):
 class TimestepBlock(nn.Module):
     @abstractmethod
     def forward(self, x, emb):
-        """
-        Apply the module to `x` given `emb` timestep embeddings.
-        """
+        """Apply the module to `x` given `emb` timestep embeddings."""
 
 
 class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
-    """
-    A sequential module that passes timestep embeddings to the children that
-    support it as an extra input.
-    """
-
     def forward(self, x, emb, context=None):
         for layer in self:
             if isinstance(layer, TimestepBlock):
@@ -80,48 +62,24 @@ def Normalize(in_channels):
 
 
 def count_flops_attn(model, _x, y):
-    """
-    A counter for the `thop` package to count the operations in an
-    attention operation.
-    Meant to be used like:
-        macs, params = thop.profile(
-            model,
-            inputs=(inputs, timestamps),
-            custom_ops={QKVAttention: QKVAttention.count_flops},
-        )
-    """
     b, c, *spatial = y[0].shape
     num_spatial = int(np.prod(spatial))
-    # We perform two matmuls with the same number of ops.
-    # The first computes the weight matrix, the second computes
-    # the combination of the value vectors.
     matmul_ops = 2 * b * (num_spatial**2) * c
     model.total_ops += th.DoubleTensor([matmul_ops])
 
 
 class QKVAttentionLegacy(nn.Module):
-    """
-    A module which performs QKV attention. Matches legacy QKVAttention + input/ouput heads shaping
-    """
-
     def __init__(self, n_heads):
         super().__init__()
         self.n_heads = n_heads
 
     def forward(self, qkv):
-        """
-        Apply QKV attention.
-        :param qkv: an [N x (H * 3 * C) x T] tensor of Qs, Ks, and Vs.
-        :return: an [N x (H * C) x T] tensor after attention.
-        """
         bs, width, length = qkv.shape
         assert width % (3 * self.n_heads) == 0
         ch = width // (3 * self.n_heads)
         q, k, v = qkv.reshape(bs * self.n_heads, ch * 3, length).split(ch, dim=1)
         scale = 1 / math.sqrt(math.sqrt(ch))
-        weight = th.einsum(
-            "bct,bcs->bts", q * scale, k * scale
-        )  # More stable with f16 than dividing afterwards
+        weight = th.einsum("bct,bcs->bts", q * scale, k * scale)
         weight = th.softmax(weight.float(), dim=-1).type(weight.dtype)
         a = th.einsum("bts,bcs->bct", weight, v)
         return a.reshape(bs, -1, length)
@@ -132,12 +90,6 @@ class QKVAttentionLegacy(nn.Module):
 
 
 class AttentionBlock(nn.Module):
-    """
-    An attention block that allows spatial positions to attend to each other.
-    Originally ported from here, but adapted to the N-d case.
-    https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/models/unet.py#L66.
-    """
-
     def __init__(
         self,
         channels,
@@ -158,13 +110,10 @@ class AttentionBlock(nn.Module):
         self.norm = Normalize(channels)
         self.qkv = nn.Conv1d(channels, channels * 3, 1)
         self.attention = QKVAttentionLegacy(self.num_heads)
-
         self.proj_out = zero_module(nn.Conv1d(channels, channels, 1))
 
     def forward(self, x):
-        return self._forward(
-            x,
-        )
+        return self._forward(x)
 
     def _forward(self, x):
         b, c, *spatial = x.shape
@@ -176,13 +125,6 @@ class AttentionBlock(nn.Module):
 
 
 class Downsample(nn.Module):
-    """
-    A downsampling layer with an optional convolution.
-
-    :param channels: channels in the inputs and outputs.
-    :param use_conv: a bool determining if a convolution is applied.
-    """
-
     def __init__(self, channels, use_conv, out_channels=None, padding=1):
         super().__init__()
         self.channels = channels
@@ -202,12 +144,6 @@ class Downsample(nn.Module):
 
 
 class Upsample(nn.Module):
-    """
-    An upsampling layer with an optional convolution.
-    :param channels: channels in the inputs and outputs.
-    :param use_conv: a bool determining if a convolution is applied.
-    """
-
     def __init__(self, channels, use_conv, out_channels=None, padding=1):
         super().__init__()
         self.channels = channels
@@ -225,19 +161,6 @@ class Upsample(nn.Module):
 
 
 class ResBlock(TimestepBlock):
-    """
-    A residual block that can optionally change the number of channels.
-    :param channels: the number of input channels.
-    :param emb_channels: the number of timestep embedding channels.
-    :param dropout: the rate of dropout.
-    :param out_channels: if specified, the number of out channels.
-    :param use_conv: if True and out_channels is specified, use a spatial
-        convolution instead of a smaller 1x1 convolution to change the
-        channels in the skip connection.
-    :param up: if True, use this block for upsampling.
-    :param down: if True, use this block for downsampling.
-    """
-
     def __init__(
         self,
         channels,
@@ -339,10 +262,12 @@ class UNetModel(nn.Module):
         num_heads_upsample=-1,
         use_scale_shift_norm=False,
         resblock_updown=False,
-        use_spatial_transformer=False,  # custom transformer support
-        transformer_depth=1,  # custom transformer support
-        context_dim=None,  # custom transformer support
-        n_embed=None,  # custom support for prediction of discrete ids into codebook of first stage vq model
+        use_spatial_transformer=False,
+        transformer_depth=1,
+        context_dim=None,
+        n_embed=None,
+        use_checkpoint=True,  # Attivatore gradient checkpointing
+        **kwargs
     ):
         super().__init__()
 
@@ -373,6 +298,7 @@ class UNetModel(nn.Module):
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
         self.predict_codebook_ids = n_embed is not None
+        self.use_checkpoint = use_checkpoint
 
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
@@ -527,31 +453,29 @@ class UNetModel(nn.Module):
                 self.output_blocks.append(TimestepEmbedSequential(*layers))
                 self._feature_size += ch
 
+        # FIX FONDAMENTALE: self.out prende in input 'ch' (ovvero model_channels * channel_mult[0])
         self.out = nn.Sequential(
             Normalize(ch),
             nn.SiLU(),
-            zero_module(nn.Conv3d(model_channels, out_channels, 3, padding=1)),
+            zero_module(nn.Conv3d(ch, out_channels, 3, padding=1)),
         )
         if self.predict_codebook_ids:
             self.id_predictor = nn.Sequential(
                 Normalize(ch),
-                nn.Conv3d(model_channels, n_embed, 1),
+                nn.Conv3d(ch, n_embed, 1),
             )
 
     def forward(self, x, timesteps=None, context=None, y=None, **kwargs):
-        """
-        Apply the model to an input batch.
-        :param x: an [N x C x ...] Tensor of inputs.
-        :param timesteps: a 1-D batch of timesteps.
-        :param context: conditioning plugged in via crossattn
-        :param y: an [N] Tensor of labels, if class-conditional.
-        :return: an [N x C x ...] Tensor of outputs.
-        """
         assert (y is not None) == (
             self.num_classes is not None
         ), "must specify y if and only if the model is class-conditional"
         assert timesteps is not None, "need to implement no-timestep usage"
-        hs = []
+
+        # Se context è passato in kwargs come c_crossattn, estrailo
+        if context is None and "c_crossattn" in kwargs:
+            c_ca = kwargs["c_crossattn"]
+            context = c_ca[0] if isinstance(c_ca, list) else c_ca
+
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
 
@@ -559,31 +483,32 @@ class UNetModel(nn.Module):
             assert y.shape == (x.shape[0],)
             emb = emb + self.label_emb(y)
 
-        # --- MODIFICA 1: Assicuriamo che l'input abbia gradienti ---
-        # Necessario affinché il primo checkpoint funzioni correttamente
+        # Helper per l'activation checkpointing sicuro
+        def run_block(block, *args):
+            if self.use_checkpoint:
+                return checkpoint(block, *args, use_reentrant=False)
+            return block(*args)
+
         if x.requires_grad is False:
-             x.requires_grad_(True)
+            x.requires_grad_(True)
 
         h = x
-        # --- MODIFICA 2: Input Blocks con Checkpointing ---
+        hs = []
+
+        # Input blocks
         for module in self.input_blocks:
-            # Invece di h = module(h, emb, context)
-            # Usiamo checkpoint per non salvare la memoria interna del blocco
-            h = checkpoint(module, h, emb, context, use_reentrant=False)
+            h = run_block(module, h, emb, context)
             hs.append(h)
-        
-        # --- MODIFICA 3: Middle Block con Checkpointing ---
-        # Invece di h = self.middle_block(h, emb, context)
-        h = checkpoint(self.middle_block, h, emb, context, use_reentrant=False)
-        
-        # --- MODIFICA 4: Output Blocks con Checkpointing ---
+
+        # Middle block
+        h = run_block(self.middle_block, h, emb, context)
+
+        # Output blocks
         for module in self.output_blocks:
             h = th.cat([h, hs.pop()], dim=1)
-            # Invece di h = module(h, emb, context)
-            h = checkpoint(module, h, emb, context, use_reentrant=False)
+            h = run_block(module, h, emb, context)
 
         if self.predict_codebook_ids:
-            # return self.out(h), self.id_predictor(h)
             return self.id_predictor(h)
         else:
             return self.out(h)

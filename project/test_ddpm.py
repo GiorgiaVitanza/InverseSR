@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -19,11 +20,13 @@ from models.ddim import DDIMSampler
 from utils.plot_new import denormalize_data, comparison_plots_ok
 from utils.const import IMAGE_SHAPE
 
-@torch.no_grad()
-def quick_test_metrics(model, vae, dataloader, train_param, hparams, max_batches=None):
+SCALE_FACTOR_VAE = 0.18215
+
+
+def quick_test_metrics(model, vae, dataloader, train_param, hparams, unet_cfg):
     model.eval()
     vae.eval()
-    
+     
     os.makedirs(train_param.test_fig, exist_ok=True)
     sampler = DDIMSampler(model)
     device = train_param.device
@@ -35,87 +38,142 @@ def quick_test_metrics(model, vae, dataloader, train_param, hparams, max_batches
     latent_size = IMAGE_SHAPE[2] // 4
     shape = (hparams.z_channels, latent_size, latent_size, latent_size)
     ddim_steps = 50 
+    use_mask_channel = unet_cfg["params"]["use_mask_channel"]  # Assicurati sia booleano dal tuo argparser
     
-    print(f"Inizio valutazione su {len(dataloader) if max_batches is None else max_batches} batch...")
-    
-    # 1. Ciclo su tutto il dataloader
-    for batch_idx, batch in enumerate(dataloader):
-        if max_batches is not None and batch_idx >= max_batches:
-            break
-            
-        x_start = batch["x_0"].to(device)
-        context = batch["context"].to(device)
-        current_batch_size = x_start.shape[0] # Gestisce anche l'ultimo batch se più piccolo
-        
-        # Generazione rumore dinamica in base al batch size corrente
-        img_noise = torch.randn((current_batch_size, *shape), device=device)
-        
-        # 2. Campionamento
-        z_gen, _ = sampler.sample(
-            S=ddim_steps,
-            batch_size=current_batch_size,
-            shape=shape,
-            conditioning=context,
-            first_img=img_noise,
-            eta=0.0, 
-            verbose=False
-        )
-        
-        # 3. Decodifica e Denormalizzazione
-        x_gen = vae.decode(z_gen)
-        if not isinstance(x_gen, torch.Tensor):
-            x_gen = x_gen.sample()
-            
-        x_start_norm = denormalize_data(x_start, hparams)
-        x_gen_norm = denormalize_data(x_gen, hparams)
-        
-        if batch_idx % 50 == 0 or batch_idx == len(dataloader) - 1: # Salva alcune figure di confronto ogni 50 batch
-            fig = comparison_plots_ok(x_start_norm, x_gen_norm, flag='test')
-            fig.savefig(f"{train_param.test_fig}/{train_param.norm_mode}_{batch_idx}.png")
-            plt.close(fig) # Chiudi la figura per non consumare memoria
-            print(f"Salvata figura di confronto per batch {batch_idx} (norm_mode={train_param.norm_mode})")
-        
-        # 4. Ciclo su OGNI elemento del batch corrente
-        for i in range(current_batch_size):
-            # Portiamo in CPU/Numpy l'i-esimo elemento
-            img_true = x_start_norm[i, 0].cpu().numpy()
-            img_gen = x_gen_norm[i, 0].cpu().numpy()
-            img_gen = np.clip(img_gen, 0, 1)
-            
-            # --- NOTA SULLE METRICHE 3D ---
-            # Se i tuoi dati sono 3D (visto che usi z_channels, D, H, W), calcolare le metriche 
-            # solo sulla slice centrale potrebbe essere riduttivo. 
-            # Opzione A: Mantieni la slice centrale (veloce)
-            mid = img_true.shape[0] // 2
-            true_slice = img_true[mid]
-            gen_slice = img_gen[mid]
-            
-            mses.append(mse(true_slice, gen_slice))
-            ssims.append(ssim(true_slice, gen_slice, data_range=1.0))
-            psnrs.append(psnr(true_slice, gen_slice, data_range=1.0))
-            
-            # Opzione B (Consigliata se hai tempo): Calcola SSIM/PSNR sull'intero volume 3D
-            # Per farlo, skimage.metrics supporta volumi 3D se specifichi data_range.
-            # mses.append(mse(img_true, img_gen))
-            # ssims.append(ssim(img_true, img_gen, data_range=1.0))
-            # psnrs.append(psnr(img_true, img_gen, data_range=1.0))
+    with torch.no_grad():
+        for batch_idx, batch in enumerate(dataloader):
+            x_start = batch["x_0"].to(device)
+            spatial_mask = batch.get("spatial_mask", None)
+            if spatial_mask is not None:
+                spatial_mask = spatial_mask.to(device)
+                
+            context = batch.get("context", None)
+            if context is not None:
+                context = context.to(device)
 
-    # 5. Aggregazione finale di tutti gli elementi di tutti i batch
-    metrics = {
-        "test/mse": np.mean(mses),
-        "test/ssim": np.mean(ssims),
-        "test/psnr": np.mean(psnrs)
-    }
-    
-    print(f"\n--- GLOBAL TEST METRICS EPOCH {epoch} ---")
-    for k, v in metrics.items():
-        print(f"{k}: {v:.6f}")
-        try:
-            mlflow.log_metric(k, v, step=epoch)
-        except:
-            pass
-    
-    return metrics
+            # --- 1. ENCODING LATENTE VIA VAE ---
+            h = vae.encoder(x_start)
+            z = vae.quant_conv_mu(h)
+            z = z * SCALE_FACTOR_VAE
+
+            # --- 2. PREPARAZIONE MASK LATENT (Se abilitata) ---
+            mask_latent = None
+            if use_mask_channel and spatial_mask is not None:
+                latent_shape = z.shape[2:]  # (D_lat, H_lat, W_lat)
+                mask_latent = F.interpolate(
+                    spatial_mask, 
+                    size=latent_shape, 
+                    mode='trilinear', 
+                    align_corners=False
+                )
+
+            # --- 3. COSTRUZIONE COND_PAYLOAD ---
+            cond_payload = {}
+            if train_param.cond_key == "crossattn" and context is not None:
+                cond_payload["c_crossattn"] = [context]
+
+            if train_param.cond_key == "concat" and mask_latent is not None:
+                cond_payload["c_concat"] = [mask_latent]
+
+            # --- 4. SAMPLING CON DDIM ---
+            current_batch_size = x_start.shape[0]
+            _, _, D_lat, H_lat, W_lat = z.shape
+            shape = (hparams.z_channels, D_lat, H_lat, W_lat)
+            
+            sampler = DDIMSampler(model)
+            img_noise = torch.randn((current_batch_size, *shape), device=train_param.device)
+
+            # Passa cond_payload (oppure None se cond_key == "None")
+            conditioning = cond_payload if train_param.cond_key not in [None, "None", "none"] else None
+
+            z_gen, _ = sampler.sample(
+                S=ddim_steps,
+                batch_size=current_batch_size,
+                shape=shape,
+                conditioning=conditioning,  # <-- Usa il payload corretto!
+                first_img=img_noise,
+                eta=0.0,
+                verbose=False
+            )
+
+            # --- 5. DECODING VAE E METRICHE ---
+            z_gen_unscaled = z_gen / SCALE_FACTOR_VAE
+            x_gen = vae.decode(z_gen_unscaled)
+            
+
+
+            x_start_norm = denormalize_data(x_start, hparams)
+            x_gen_norm = denormalize_data(x_gen, hparams)
+
+
+            if batch_idx % 10 == 0 or batch_idx == len(dataloader) - 1:
+                # 1. Recupera i nomi dal batch (se disponibili nel dizionario del dataset)
+                # Esempio: batch["patch_name_x0"] e batch["patch_name_context"]
+                name_real = batch.get("name_x0", [f"Patch_x0_{batch_idx}"])[0]
+                name_cond = batch.get("name_context", [f"Patch_context_{batch_idx}"])[0]
+                
+
+                if train_param.cond_key in [None, "None", "none"]:
+                    title_r = f"Real Target: {name_real}"
+                    title_g = f"Unconditioned Sample (Epoch {train_param.epochs})"
+                else:
+                    name_cond = batch.get("name_context", [f"Patch_context_{batch_idx}"])[0]
+                    title_r = f"Real Target: {name_real}"
+                    title_g = f"Generated from: {name_cond}"
+                
+                # 2. Chiama la funzione aggiornata con i nomi
+                fig = comparison_plots_ok(
+                    x_start_norm, 
+                    x_gen_norm, 
+                    title_real=title_r, 
+                    title_gen=title_g, 
+                    flag='test'
+                )
+                
+                fig.savefig(f"{train_param.test_fig}/{train_param.norm_mode}_{batch_idx}.png")
+                plt.close(fig)
+                print(f"Salvata figura di confronto per batch {batch_idx}")
+            # 4. Ciclo su OGNI elemento del batch corrente
+            for i in range(current_batch_size):
+                # Portiamo in CPU/Numpy l'i-esimo elemento
+                img_true = x_start_norm[i, 0].cpu().numpy()
+                img_gen = x_gen_norm[i, 0].cpu().numpy()
+                img_gen = np.clip(img_gen, 0, 1)
+                
+                # --- NOTA SULLE METRICHE 3D ---
+                # Se i tuoi dati sono 3D (visto che usi z_channels, D, H, W), calcolare le metriche 
+                # solo sulla slice centrale potrebbe essere riduttivo. 
+                # Opzione A: Mantieni la slice centrale (veloce)
+                mid = img_true.shape[0] // 2
+                true_slice = img_true[mid]
+                gen_slice = img_gen[mid]
+                
+                mses.append(mse(true_slice, gen_slice))
+                ssims.append(ssim(true_slice, gen_slice, data_range=1.0))
+                psnrs.append(psnr(true_slice, gen_slice, data_range=1.0))
+                
+                # Opzione B (Consigliata se hai tempo): Calcola SSIM/PSNR sull'intero volume 3D
+                # Per farlo, skimage.metrics supporta volumi 3D se specifichi data_range.
+                # mses.append(mse(img_true, img_gen))
+                # ssims.append(ssim(img_true, img_gen, data_range=1.0))
+                # psnrs.append(psnr(img_true, img_gen, data_range=1.0))
+
+        # 5. Aggregazione finale di tutti gli elementi di tutti i batch
+        metrics = {
+            "test/mse": np.mean(mses),
+            "test/ssim": np.mean(ssims),
+            "test/psnr": np.mean(psnrs)
+        }
+        
+        print(f"\n--- GLOBAL TEST METRICS EPOCH {epoch} ---")
+        for k, v in metrics.items():
+            print(f"{k}: {v:.6f}")
+            try:
+                mlflow.log_metric(k, v, step=epoch)
+            except:
+                pass
+        
+        return metrics
 
 if __name__ == "__main__":
     # Esempio di utilizzo
@@ -171,4 +229,4 @@ if __name__ == "__main__":
     else:
         print(f"ATTENZIONE: Checkpoint DDPM non trovato in {ddpm_path}!")
     # Esegui il test rapido
-    quick_test_metrics(model, vae, dataloader, train_param, hparams=hparams)
+    quick_test_metrics(model, vae, dataloader, train_param, hparams=hparams, unet_cfg=unet_cfg)

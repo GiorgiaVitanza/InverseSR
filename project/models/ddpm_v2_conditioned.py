@@ -455,10 +455,15 @@ class DDPM(nn.Module):
             cond = {key: cond}
 
         x_recon = self.model(x_noisy, t, **cond)
+        
         if isinstance(x_recon, tuple) and not return_ids:
-            return x_recon[0]
-        else:
-            return x_recon
+            x_recon = x_recon[0]
+
+        # SE L'OUTPUT HA PIÙ CANALI DEL TARGET (es. UNet restituisce 4 canali ma x ne ha 3):
+        if x_recon.shape[1] != x_noisy.shape[1]:
+            x_recon = x_recon[:, :x_noisy.shape[1], ...]  # Prende solo i primi N canali
+
+        return x_recon
 
 
 class DiffusionWrapper(nn.Module):
@@ -469,13 +474,15 @@ class DiffusionWrapper(nn.Module):
         self.diffusion_model = UNetModel(**params)
         self.conditioning_key = conditioning_key
 
-    def forward(self, x, t, c_concat: list = None, c_crossattn: list = None):
+    # Aggiunto **kwargs nella firma per catturare spatial_mask e altri argomenti extra
+    def forward(self, x, t, c_concat: list = None, c_crossattn: list = None, **kwargs):
         # 1. Inizializziamo le variabili per la UNet
         x_input = x
         context = None
 
+
         # 2. Gestione CONCAT (Spatial) 
-        if self.conditioning_key == 'concat':
+        if self.conditioning_key == 'concat' or self.conditioning_key == 'hybrid':
             if c_concat is not None:
                 # c_concat è una lista, prendiamo il primo elemento o li stackiamo
                 cc_tensor = c_concat[0] if isinstance(c_concat, list) else c_concat
@@ -500,20 +507,18 @@ class DiffusionWrapper(nn.Module):
                 else:
                     raise ValueError(f"Dimensione di cc_tensor non supportata: {cc_tensor.dim()}")
 
-                # CONCATENIAMO: [B, 3, D, H, W] + [B, 4, D, H, W] -> [B, 7, D, H, W]
+                # CONCATENIAMO: [B, C_x, D, H, W] + [B, C_cond, D, H, W]
                 x_input = torch.cat([x, c_expanded], dim=1)
             else:
                 raise ValueError("conditioning_key is 'concat' but c_concat is None")
 
-        # 3. Gestione CROSS-ATTENTION (Se usata insieme al concat)
+        # 3. Gestione CROSS-ATTENTION (Se usata da sola o insieme al concat)
         if c_crossattn is not None:
             context = torch.cat(c_crossattn, dim=1) if isinstance(c_crossattn, list) else c_crossattn
-            # Se context è [B, 4], potrebbe servire un piccolo strato lineare 
-            # per portarlo alla dimensione attesa dalla UNet (es. 512)
             if context.dim() == 2:
-                context = context.unsqueeze(1) # Diventa [B, 1, 4] per l'attenzione
+                context = context.unsqueeze(1) # Diventa [B, 1, C] per la cross-attention
 
-        # 4. UNICA CHIAMATA ALLA UNET
-        out = self.diffusion_model(x_input, t, context=context)
+        # 4. UNICA CHIAMATA ALLA UNET (passiamo **kwargs per inoltrare ad esempio spatial_mask)
+        out = self.diffusion_model(x_input, t, context=context, **kwargs)
 
         return out
