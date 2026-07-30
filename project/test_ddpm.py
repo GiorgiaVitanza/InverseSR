@@ -69,11 +69,19 @@ def quick_test_metrics(model, vae, dataloader, train_param, hparams, unet_cfg):
 
             # --- 3. COSTRUZIONE COND_PAYLOAD ---
             cond_payload = {}
-            if train_param.cond_key == "crossattn" and context is not None:
-                cond_payload["c_crossattn"] = [context]
+            
+            # 1. Preparazione canale di concatenazione (Maschera)
+            if train_param.cond_key in ["concat", "hybrid"]:
+                latent_shape = z.shape[2:]  # (D_lat, H_lat, W_lat)
+                mask_latent = F.interpolate(spatial_mask, size=latent_shape, mode='trilinear', align_corners=False)
+                cond_payload["c_concat"] = [mask_latent]  # Il DDPM concatenerà questo [1, 1, D, H, W] a z [1, 3, D, H, W]
 
-            if train_param.cond_key == "concat" and mask_latent is not None:
-                cond_payload["c_concat"] = [mask_latent]
+            # 2. Preparazione vettori Cross-Attention (Context)
+            if train_param.cond_key in ["crossattn", "hybrid"] and context is not None:
+                context_attn = context.unsqueeze(1) if context.ndim == 2 else context
+                cond_payload["c_crossattn"] = [context_attn]
+
+            
 
             # --- 4. SAMPLING CON DDIM ---
             current_batch_size = x_start.shape[0]

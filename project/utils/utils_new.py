@@ -134,16 +134,17 @@ def seed_everything(seed: int) -> None:
 
 
 
-def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
+def load_target_image(hparams: Namespace, device: torch.device):
     """
-    Carica l'immagine target e applica la normalizzazione specificata in hparams.norm_mode.
+    Carica l'immagine target e applica la normalizzazione specificata in hparams.norm_data.
+    Restituisce: (img_tensor, patch_stats)
     """
-    # 1. IDENTIFICAZIONE FILE (Mantengo la tua logica esistente)
+    # 1. IDENTIFICAZIONE FILE
     if hparams.data_format == "npy" and hparams.inference:
-        potential_files = list(INPUT_FOLDER_PATCHES.glob(f"*.npy"))
+        potential_files = list(INPUT_FOLDER_PATCHES.glob("*.npy"))
         print("Inference mode: loading npy patches")
     elif hparams.data_format == "npy" and hparams.test_mode:
-        potential_files = list(INPUT_FOLDER_TEST.glob(f"*.npy"))
+        potential_files = list(INPUT_FOLDER_TEST.glob("*.npy"))
     elif hparams.data_format == "fits":
         potential_files = list(INPUT_FOLDER_PATCHES.glob(f"*{hparams.object_id}*.fits"))
     else:
@@ -157,25 +158,43 @@ def load_target_image(hparams: Namespace, device: torch.device) -> torch.Tensor:
     
     # 2. CARICAMENTO DATI RAW
     if hparams.data_format == "fits":
-        # Assumendo che transform_img carichi il FITS e lo porti su device
         img_tensor = transform_img(img_path, device=device)
     else:
         data = np.load(img_path).astype(np.float32)
         img_tensor = torch.from_numpy(data).to(device)
 
-
     # 3. APPLICAZIONE NORMALIZZAZIONE MULTI-MODE
     norm_mode = hparams.norm_data 
-    img_tensor[2:5] = normalize_dynamic(img_tensor[2:5], norm_mode=norm_mode)
 
-    if norm_mode != 'zscore':
-        print('carico il target nel range [0, 1]')
-        img_tensor[2:5] = torch.clamp(img_tensor[2:5], 0, 1)
-    else:
-        print('carico il target nel range [-1,1]')
-        img_tensor[2:5] = torch.clamp(img_tensor[2:5], -1, 1)
+    # --- CONTROLLO SICURO DELLE DIMENSIONI ---
+    # Se il tensor ha una prima dimensione >= 5 applichiamo lo slice [2:5],
+    # altrimenti normalizziamo l'intero tensor per evitare slice vuoti.
+    if img_tensor.shape[0] >= 5:
+        target_slice = img_tensor[2:5]
+        norm_data, patch_stats = normalize_dynamic(target_slice, norm_mode=norm_mode)
         
-    return img_tensor
+        # Applicazione Clamp dinamico in base alla modalità
+        if norm_mode == 'zscore':
+            print('Carico il target nel range [-1, 1]')
+            norm_data = torch.clamp(norm_data, -1.0, 1.0)
+        else:
+            print('Carico il target nel range [0, 1]')
+            norm_data = torch.clamp(norm_data, 0.0, 1.0)
+            
+        img_tensor[2:5] = norm_data
+    else:
+        # Se è un dato 3D/Single-channel puro (es. [Z, Y, X])
+        img_tensor, patch_stats = normalize_dynamic(img_tensor, norm_mode=norm_mode)
+        
+        if norm_mode == 'zscore':
+            print('Carico il target nel range [-1, 1]')
+            img_tensor = torch.clamp(img_tensor, -1.0, 1.0)
+        else:
+            print('Carico il target nel range [0, 1]')
+            img_tensor = torch.clamp(img_tensor, 0.0, 1.0)
+
+    return img_tensor, patch_stats
+
         
     
 
@@ -249,47 +268,67 @@ def sampling_from_ddim(
     ddim: DDIMSampler,
     latent_variable: torch.Tensor,
     decoder: OnlyDecoder,
-    cond: torch.Tensor,
+    cond: Any,  # Può essere un torch.Tensor oppure un dict (cond_payload)
     hparams: Namespace,
 ) -> torch.Tensor:
-    # 1. Cross-Attention: [Batch, Sequence, Features] -> [1, 1, 4]
-    cond_crossatten = cond.unsqueeze(1) 
-    
-    # 2. Concatenazione spaziale: [1, 4, 1, 1, 1]
-    cond_concat = cond.view(1, 4, 1, 1, 1)
-    dim_1 = hparams.image_size[0] // hparams.downsample_factor if hparams.corruption == "downsample" else hparams.image_size[0]
-    dim_2 = hparams.image_size[1] // hparams.downsample_factor if hparams.corruption == "downsample" else hparams.image_size[1]
-    dim_3 = hparams.image_size[2] // hparams.downsample_factor if hparams.corruption == "downsample" else hparams.image_size[2]
-    cond_concat = cond_concat.expand(-1, -1, dim_1, dim_2, dim_3) # [1, 4, 32, 32, 32]
+    """
+    Genera un'immagine campionando dal modello di diffusione DDIM.
+    Supporta conditioning di tipo 'concat', 'crossattn' e 'hybrid'.
+    """
+    # 1. COSTRUZIONE O VALIDAZIONE DEL CONDITIONING DICTIONARY
+    if isinstance(cond, dict):
+        # Se cond è già un dizionario (cond_payload preparato nel project script)
+        conditioning = cond
+    else:
+        # Fallback se viene passato un singolo tensore (es. cond sui parametri fisici)
+        conditioning = {}
+        cond_key = getattr(hparams, "cond_key", "hybrid")
 
-    conditioning = {
-        "c_concat": [cond_concat],
-        "c_crossattn": [cond_crossatten],
-    }
-    
+        # Gestione Cross-Attention (Parametri fisici)
+        if cond_key in ["crossattn", "hybrid"]:
+            cond_crossattn = cond.unsqueeze(1) if cond.ndim == 2 else cond
+            conditioning["c_crossattn"] = [cond_crossattn]
+
+        # Gestione Concatenazione Spaziale
+        if cond_key in ["concat", "hybrid"]:
+            # Se è un tensore 1D/2D, viene espanso nelle dimensioni spaziali
+            if cond.ndim <= 2:
+                dim_1 = hparams.image_size[0] // hparams.downsample_factor if hparams.corruption == "downsample" else hparams.image_size[0]
+                dim_2 = hparams.image_size[1] // hparams.downsample_factor if hparams.corruption == "downsample" else hparams.image_size[1]
+                dim_3 = hparams.image_size[2] // hparams.downsample_factor if hparams.corruption == "downsample" else hparams.image_size[2]
+                
+                cond_concat = cond.view(1, cond.shape[-1], 1, 1, 1).expand(-1, -1, dim_1, dim_2, dim_3)
+            else:
+                cond_concat = cond
+                
+            conditioning["c_concat"] = [cond_concat]
+
+    # 2. ESTRAZIONE DIMENSIONI LATENTI
+    # Ricaviamo le dimensioni trascinandole dal tensore latente effettivo
+    dim_0, dim_1, dim_2, dim_3 = latent_variable.shape[-4:]
+
+    # 3. CAMPIONAMENTO DDIM
     latent_vectors, _ = ddim.sample(
         S=hparams.ddim_num_timesteps,
         conditioning=conditioning,
-        batch_size=1,
-        shape=[hparams.z_channels, dim_1, dim_2, dim_3], # Esclude dimensione Batch
+        batch_size=latent_variable.shape[0],
+        shape=[dim_0, dim_1, dim_2, dim_3],
         first_img=latent_variable,
         eta=hparams.ddim_eta,
         verbose=False,
-        )
+    )
         
-     
-    
     if hasattr(latent_vectors, "as_tensor"):
         latent_vectors = latent_vectors.as_tensor()
 
-    # Passaggio a FP16 per il decoding (risparmia VRAM)
+    # Passaggio a FP32/FP16 coerente per il decoding
     decoder.float()
     latent_vectors = latent_vectors.float()
 
+    # 4. DECODIFICA NEL DOMINIO IMMAGINE
     astro_img = decoder.reconstruct_ldm_outputs(latent_vectors)
      
     return astro_img
-
 # --- PERCEPTUAL LOSS UTILS (VGG) ---
 
 def load_vgg_perceptual(hparams: Namespace, target: torch.Tensor, device: torch.device) -> Tuple[Any, torch.Tensor]:

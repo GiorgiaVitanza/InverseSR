@@ -43,7 +43,7 @@ def get_config():
     # --- Condizionamento (Cross-Attention) ---
     # Per abilitare il meccanismo di attenzione sul contesto (es. i 4 parametri fisici)
     parser.add_argument("--use_spatial_transformer", action=argparse.BooleanOptionalAction,
-        default=True,
+        default=False,
         help="Abilita o disabilita il canale della maschera",)
     parser.add_argument(
         "--use_mask_channel",

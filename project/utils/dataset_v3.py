@@ -5,40 +5,65 @@ import numpy as np
 import os
 import pandas as pd
 
+import torch
+import numpy as np
+def normalize_dynamic(data, norm_mode, stats=None):
+    """
+    Applica la normalizzazione ed evita la perdita dei min/max locali.
+    Restituisce: (data_norm, patch_stats)
+    """
+    if stats is None: 
+        stats = {}
+    
+    is_torch = isinstance(data, torch.Tensor)
 
-def normalize_dynamic(data, norm_mode, stats={}):
-    """
-    Applica la normalizzazione usando le statistiche calcolate dinamicamente dal dataset.
-    """
+    # --- CONTROLLO SICUREZZA PER TENSOR / ARRAY VUOTI ---
+    numel = data.numel() if is_torch else data.size
+    if numel == 0:
+        # Restituiamo sempre una tupla (data, stats) per non rompere l'unpacking
+        return data, stats
+
     if norm_mode == 'global_sym':
-        limit = stats['limit']
+        limit = stats.get('limit', 1.0)
         x_scaled = data / (limit + 1e-8)
         data_norm = (x_scaled + 1.0) / 2.0
-        try:
-            return torch.from_numpy(np.clip(data_norm, 0, 1))
-        except:
-            return torch.clamp(data_norm, 0, 1)
+        
+        if is_torch:
+            return torch.clamp(data_norm, 0.0, 1.0), {'limit': limit}
+        return np.clip(data_norm, 0.0, 1.0), {'limit': limit}
 
     elif norm_mode == 'local':
-        try:
-            p_min = data.min()
-            p_max = np.percentile(data, 99.8) 
-        except:
-            p_min, p_max = -1.47e-03, 1.52e-03
+        if is_torch:
+            p_min = float(data.min())
+            # torch.quantile richiede float ed equivale a np.percentile
+            p_max = float(torch.quantile(data.float(), 0.998))
+        else:
+            p_min = float(np.min(data))
+            p_max = float(np.percentile(data, 99.8))
+
+        # Evitiamo divisioni per zero se la patch è piatta
+        if p_max <= p_min:
+            p_max = p_min + 1e-5
+
         data_norm = (data - p_min) / (p_max - p_min + 1e-8)
-        try:
-            return torch.from_numpy(np.clip(data_norm, 0, 1))
-        except:
-            return torch.clamp(data_norm, 0, 1)
+        patch_stats = {'p_min': p_min, 'p_max': p_max}
+
+        if is_torch:
+            return torch.clamp(data_norm, 0.0, 1.0), patch_stats
+        return np.clip(data_norm, 0.0, 1.0), patch_stats
 
     elif norm_mode == 'zscore':
-        data_norm = (data - stats['mean']) / (stats['std'] + 1e-8)
-        try:
-            return torch.from_numpy(np.clip(data_norm, -1, 1))
-        except:
-            return torch.clamp(data_norm, -1, 1)
+        mean = stats.get('mean', 0.0)
+        std = stats.get('std', 1.0)
+        data_norm = (data - mean) / (std + 1e-8)
+        patch_stats = {'mean': mean, 'std': std}
+
+        if is_torch:
+            return torch.clamp(data_norm, -1.0, 1.0), patch_stats
+        return np.clip(data_norm, -1.0, 1.0), patch_stats
+        
     else:
-        raise ValueError(f"Modalità {norm_mode} non supportata.")
+        raise ValueError(f"Modalità '{norm_mode}' non supportata.")
 
 
 def create_3d_gaussian_mask(shape, x_c, y_c, z_c, sigma=1.5):

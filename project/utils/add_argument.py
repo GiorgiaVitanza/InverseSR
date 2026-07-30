@@ -264,3 +264,5 @@ def add_argument(parser: ArgumentParser):
         help="Path per caricare il modello VAE pre-allenato (decoder)"
     )
 
+    parser.add_argument("--cond_key", type=str, default=None)
+
