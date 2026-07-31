@@ -19,8 +19,9 @@ module load python/3.11.7 # Assicurati che coincida con la tua venv
 
 # 2. Attivazione ambiente virtuale
 # Sostituisci con il percorso reale della tua venv su Leonardo
-source /leonardo_scratch/large/userexternal/gvitanza/InverseSR/.venv/bin/activate
+HOME=/leonardo/home/userexternal/gvitanza/
 
+source ${HOME}/.venv/bin/activate
 # 3. Impostazione variabili d'ambiente per PyTorch
 export CUDA_VISIBLE_DEVICES=0
 

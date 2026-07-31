@@ -1,38 +1,41 @@
-# Code is adpated from: https://huggingface.co/spaces/Warvito/diffusion_brain/blob/main/app.py and
+# Code is adapted from: https://huggingface.co/spaces/Warvito/diffusion_brain/blob/main/app.py and
 # https://colab.research.google.com/drive/1xJAor6_Ky36gxIk6ICNP--NMBjSlYKil?usp=sharing#scrollTo=4XDeCy-Vj59b
-# A lot of thanks to the author of the code
 # Reference:
 # [1] Pinaya, W. H., et al. (2022). "Brain Imaging Generation with Latent Diffusion Models." arXiv preprint arXiv:2209.07162.
 # [2] Marinescu, R., et al. (2020). Bayesian Image Reconstruction using Deep Generative Models.
 
 import math
 import os
-
-# from joblib import dump, load
+import csv
 from argparse import ArgumentParser, Namespace
 from time import perf_counter
 from typing import List, Tuple
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import csv
-from models.BRGM.forward_models import ForwardAbstract
 from skimage.metrics import mean_squared_error as mse
 from skimage.metrics import normalized_root_mse as nmse
 from skimage.metrics import peak_signal_noise_ratio as psnr
 from skimage.metrics import structural_similarity as ssim
 from sklearn.neighbors import NearestNeighbors
 from torch.utils.tensorboard import SummaryWriter
-from pathlib import Path
 
+from models.BRGM.forward_models import ForwardAbstract
 from utils.add_argument import add_argument
-from utils.const import (
-    INPUT_FOLDER_CAT
+from utils.const import INPUT_FOLDER_CAT
+from utils.plot_new import (
+    draw_corrupted_images, 
+    draw_images, 
+    draw_img, 
+    compare_cubes, 
+    plot_orthogonal_cuts, 
+    comparison_plots_ok, 
+    denormalize_data
 )
-from utils.plot_new import draw_corrupted_images, draw_images, draw_img, compare_cubes, plot_orthogonal_cuts, comparison_plots_ok, denormalize_data
 from utils.utils_new import (
     create_corruption_function,
     generating_latent_vector,
@@ -45,7 +48,6 @@ from utils.utils_new import (
     load_vgg_perceptual,
     setup_noise_inputs,
 )
-
 
 
 def logprint(message: str, verbose: bool) -> None:
@@ -61,7 +63,6 @@ def add_hparams_to_tensorboard(
     writer: SummaryWriter,
 ) -> None:
     """Logga i parametri e le metriche finali su TensorBoard."""
-    
     hparam_dict = {
         "lr": hparams.learning_rate,
         "obj_id": hparams.object_id,
@@ -77,8 +78,6 @@ def add_hparams_to_tensorboard(
     }
     
     writer.add_hparams(hparam_dict, metric_dict)
-
-
 
 
 def compute_latent_vector_stats(
@@ -123,6 +122,7 @@ def project(
     device: torch.device,
     writer: SummaryWriter,
     hparams: Namespace,
+    patch_stats: dict = None, # <-- AGGIUNTO: Per trasferire le statistiche dinamiche di scala
     verbose: bool = False,
 ):
     latent_vectors_tensor = load_ddpm_latent_vectors(device, hparams)
@@ -146,6 +146,7 @@ def project(
     cond_crossatten = cond.unsqueeze(1)
     cond_concat = cond.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
     cond_concat = cond_concat.expand(list(cond.shape[0:2]) + list(hparams.image_size))
+    
     if not hparams.mean_latent_vector:
         ddpm = load_ddpm_model(ddpm_path=hparams.path_to_ddpm_checkpoint, device=device)        
         conditioning = {
@@ -168,7 +169,6 @@ def project(
 
     update_params = [latent_vector]
 
-   
     optimizer_adam = torch.optim.Adam(
         update_params,
         betas=(0.9, 0.999),
@@ -188,11 +188,9 @@ def project(
         else math.prod(forward.mask.shape) - forward.mask.sum()
     )
 
-    # Definizione sicura dei percorsi all'inizio della funzione per evitare NameError
     save_path = Path(hparams.output_dir_BRGM_decoder)
     save_path.mkdir(parents=True, exist_ok=True)
 
-    # Compute latent representation stats.
     for step in range(hparams.start_steps, hparams.num_steps):
 
         def closure():
@@ -221,16 +219,27 @@ def project(
 
             loss.backward(retain_graph=True)
 
-
             synth_img_np = synth_img[0, 0].detach().cpu().numpy()
             target_np = target[0, 0].detach().cpu().numpy()
             
-            # Dati denormalizzati per metriche e plot stabili
-            synth_m = denormalize_data(synth_img_np, norm_mode=hparams.norm_data)
-            target_m = denormalize_data(target_np, norm_mode=hparams.norm_data)
+            # --- FIX: Passiamo patch_stats a denormalize_data se presenti ---
+            synth_m = denormalize_data(synth_img_np, norm_mode=hparams.norm_data, patch_stats=patch_stats)
+            target_m = denormalize_data(target_np, norm_mode=hparams.norm_data, patch_stats=patch_stats)
 
-            ssim_ = ssim(synth_m, target_m, win_size=11, data_range=1.0, gaussian_weights=True, use_sample_covariance=False)
-            data_range = np.max([synth_m.max(), target_m.max()]) - np.min([synth_m.min(), target_m.min()])
+            data_range = float(np.max([synth_m.max(), target_m.max()]) - np.min([synth_m.min(), target_m.min()]))
+
+            if data_range == 0:
+                data_range = 1.0
+
+            ssim_ = ssim(
+                synth_m, 
+                target_m, 
+                win_size=11, 
+                data_range=data_range, 
+                gaussian_weights=True, 
+                use_sample_covariance=False
+            )
+            
             psnr_ = psnr(target_m, synth_m, data_range=data_range)
             mse_ = mse(target_m, synth_m)
             nmse_ = nmse(target_m, synth_m)
@@ -251,11 +260,10 @@ def project(
                 verbose=verbose,
             )
 
-            # PLOT INTERMEDI SU TENSORBOARD (Ogni 25 step)
+            # PLOT INTERMEDI SU TENSORBOARD
             if step % 25 == 0:
                 step_str = f"{step}".zfill(4)
                 
-                # Salviamo l'immagine includendo lo step nel titolo per non sovrascriverla continuamente
                 draw_img(
                     synth_m,
                     title=f"synth_step_{step_str}",
@@ -264,9 +272,8 @@ def project(
                 )
                 
                 if hparams.corruption != "None":
-                    # Usiamo i dati denormalizzati per coerenza visiva su TensorBoard
-                    synth_corr_m = denormalize_data(synth_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data)
-                    target_corr_m = denormalize_data(target_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data)
+                    synth_corr_m = denormalize_data(synth_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data, patch_stats=patch_stats)
+                    target_corr_m = denormalize_data(target_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data, patch_stats=patch_stats)
                     imgs = draw_corrupted_images(synth_m, target_m, synth_corr_m, target_corr_m, ssim_=ssim_)
                 else:
                     imgs = draw_images(synth_m, target_m, ssim_=ssim_)
@@ -274,7 +281,6 @@ def project(
                 writer.add_figure(f"step: {step_str}", imgs, global_step=step)
                 plt.close(imgs)
 
-            # Salvataggio metriche nell'oggetto closure per l'esterno
             closure.final_metrics = {"loss": loss.item(), "ssim": ssim_, "psnr": psnr_, "mse": mse_, "nmse": nmse_}
             closure.final_synth = synth_img
             closure.final_synth_corr = synth_img_corrupted
@@ -282,9 +288,7 @@ def project(
             return loss
         
         torch.nn.utils.clip_grad_norm_([latent_vector], max_norm=1.0)
-        
         optimizer_adam.step(closure=closure)
-      
         latent_vector_out[step] = latent_vector.detach()[0]
 
     # --- FUORI DAL CICLO FOR: PLOT E LOG FINALI ---
@@ -292,30 +296,28 @@ def project(
     synth_img = closure.final_synth
     synth_img_corrupted = closure.final_synth_corr
     
-    # Registrazione iperparametri finale
     add_hparams_to_tensorboard(
         hparams, metrics=final_metrics,
         writer=writer,
     )
 
-    # Denormalizzazione totale per i plot di chiusura (Scala fisica Jy/beam)
-    synth_vis = denormalize_data(synth_img[0, 0].detach().cpu().numpy(), hparams.norm_data)
-    target_vis = denormalize_data(target[0, 0].detach().cpu().numpy(), hparams.norm_data)
-    target_img_corrupted_vis = denormalize_data(target_img_corrupted[0, 0].detach().cpu().numpy(), hparams.norm_data)
-    synth_img_corrupted_vis = denormalize_data(synth_img_corrupted[0, 0].detach().cpu().numpy(), hparams.norm_data)
+    # --- FIX: Denormalizzazione sicura con patch_stats ---
+    synth_vis = denormalize_data(synth_img[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data, patch_stats=patch_stats)
+    target_vis = denormalize_data(target[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data, patch_stats=patch_stats)
+    target_img_corrupted_vis = denormalize_data(target_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data, patch_stats=patch_stats)
+    synth_img_corrupted_vis = denormalize_data(synth_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data, patch_stats=patch_stats)
 
-    # --- SANITIZZAZIONE NAN / INF PER MATPLOTLIB ---
+    # --- SANITIZZAZIONE NAN / INF ---
     synth_vis = np.nan_to_num(synth_vis, nan=0.0, posinf=1.0, neginf=0.0)
     target_vis = np.nan_to_num(target_vis, nan=0.0, posinf=1.0, neginf=0.0)
     synth_img_corrupted_vis = np.nan_to_num(synth_img_corrupted_vis, nan=0.0, posinf=1.0, neginf=0.0)
     target_img_corrupted_vis = np.nan_to_num(target_img_corrupted_vis, nan=0.0, posinf=1.0, neginf=0.0)
 
-    # --- DEBUG PRINT CORRETTI ---
+    # DEBUG PRINT
     print(f"TARGET - Min: {target_vis.min():.2e}, Max: {target_vis.max():.2e}, Mean: {target_vis.mean():.2e}")
     print(f"SYNTH  - Min: {synth_vis.min():.2e}, Max: {synth_vis.max():.2e}, Mean: {synth_vis.mean():.2e}")
     print("Synth ha NaN?:", np.isnan(synth_vis).any())
 
-    # Stringa di safe finale per i nomi dei file
     final_step_str = f"{hparams.num_steps}".zfill(4)
 
     draw_img(target_vis, title=f"final_target_{hparams.norm_data}", step=final_step_str, output_folder=save_path)
@@ -342,7 +344,7 @@ def project(
 
     torch.save(
         {
-            "epoch": step,
+            "epoch": hparams.num_steps - 1,
             "latent_vectors": latent_vector,
             "optimizer": optimizer_adam.state_dict(),
         },
@@ -351,47 +353,66 @@ def project(
 
     print(f"Checkpoint saved to {save_path / 'checkpoint.pth'}")
 
-
-    with open(
-        "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/decoder/result_decoder_downsample_2.csv",
-        "a",
-    ) as file:
-        writer = csv.writer(file)
-        writer.writerow(row)
+    csv_results_path = Path("/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/decoder/result_decoder_downsample_2.csv")
+    csv_results_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(csv_results_path, "a") as file:
+        writer_csv = csv.writer(file)
+        writer_csv.writerow([
+            hparams.object_id,
+            final_metrics["loss"],
+            final_metrics["ssim"],
+            final_metrics["psnr"],
+            final_metrics["mse"],
+            final_metrics["nmse"]
+        ])
 
     return latent_vector_out
 
 
 def main(hparams: Namespace) -> None:
-    # device = torch.device("cuda" if COMPUTECANADA else "cpu")
-    # Don't have enough memory to run on GPU. :(
     device = hparams.device
-    img_tensor = load_target_image(hparams, device) # carico il target normalizzato
+    
+    # --- FIX: Estrazione se load_target_image restituisce anche le patch_stats ---
+    target_data = load_target_image(hparams, device)
+    if isinstance(target_data, tuple):
+        img_tensor, patch_stats = target_data
+    else:
+        img_tensor, patch_stats = target_data, {}
 
+    # Estraggo i dati e rimuovo dimensioni fittizie
+    img_data = img_tensor.squeeze().cpu().numpy() # [Z, Y, X]
 
-    # 1. Prepara il dato (estrai la slice centrale del volume 3D)
-    # img_tensor[0, 0] è [D, H, W]
-    img_data = img_tensor[0].cpu().numpy()
+    moment_0 = np.sum(img_data, axis=0) 
+
     mid_slice = img_data.shape[0] // 2
     slice_to_plot = img_data[mid_slice]
+    
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
-    # 2. Crea il plot
-    plt.figure(figsize=(8, 8))
-    plt.imshow(slice_to_plot, cmap='hot', origin="lower") 
-    plt.colorbar(label='Intensità')
-    plt.title(f"Target image nel main normalizzato {hparams.norm_data} (Slice centrale)")
+    vmax_slice = np.percentile(slice_to_plot, 99.5)
+    im0 = axes[0].imshow(slice_to_plot, origin="lower", cmap="inferno", vmax=vmax_slice)
+    axes[0].set_title(f"Target Slice Z={mid_slice}")
+    plt.colorbar(im0, ax=axes[0])
 
-    # 3. Gestione salvataggio
+    vmax_mom0 = np.percentile(moment_0, 99.5)
+
+    im1 = axes[1].imshow(moment_0, origin="lower", cmap="inferno", vmin=0, vmax=vmax_mom0)
+    axes[1].set_title("Target - Momento 0 (Integrato su Z)")
+    plt.colorbar(im1, ax=axes[1])
+
     output_path = Path(hparams.output_dir_BRGM_decoder) / "target_image_nel_main.png"
-    output_path.parent.mkdir(parents=True, exist_ok=True) # Crea la cartella se non esiste
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     plt.savefig(output_path)
-    plt.show() # Opzionale, se sei in un notebook
-    plt.close() # Importante per liberare memoria
+    plt.close()
+    
     print("Ha NaN?:", np.isnan(img_tensor.detach().cpu().numpy()).any())
     print("Min:", np.nanmin(img_tensor.detach().cpu().numpy()), "Max:", np.nanmax(img_tensor.detach().cpu().numpy()))
-    if img_tensor.dim() == 4:  # Se manca la dimensione del batch, aggiungila
+    
+    if img_tensor.dim() == 4:
         img_tensor = img_tensor.unsqueeze(0)
+        
     writer = SummaryWriter(log_dir=hparams.tensor_board_logger_decoder)
 
     forward = create_corruption_function(hparams=hparams, device=device)
@@ -408,6 +429,7 @@ def main(hparams: Namespace) -> None:
         forward=forward,
         target=img_tensor,
         device=device,
+        patch_stats=patch_stats, # <-- Passato alle funzioni di plot
         verbose=True,
     )
     print(f"Elapsed: {(perf_counter() - start_time):.1f} s")
@@ -424,5 +446,4 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="Trainer args", add_help=False)
     add_argument(parser)
     hparams = parser.parse_args()
-    # seed_everything(hparams.seed)
     main(hparams)

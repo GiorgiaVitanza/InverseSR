@@ -41,6 +41,8 @@ python3 ${SCRATCH}/project/ml_flow_train_ddpm_v3.py\
     --norm_mode $NORM_MODE\
     --learning_rate 1e-4\
     --cond_key $COND\
-    --vae_path "${SCRATCH}/vae_decoder_3_100epochs_local_Jul10_13-07-55/vae_full_ep100.pth"\
-    --scale_factor 4
-  
+    --vae_path "${SCRATCH}/vae_decoder_3_100epochs_local_Jul17_16-52-58/vae_full_ep100.pth"\
+    --scale_factor 4\
+    --context_dim 4\
+    --no-use_mask_channel \
+    --use_spatial_transformer 

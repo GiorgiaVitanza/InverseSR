@@ -18,8 +18,9 @@ module load cuda/12.2
 module load python/3.11.7
 
 SCRATCH=/leonardo_scratch/large/userexternal/gvitanza/InverseSR
+HOME=/leonardo/home/userexternal/gvitanza/
 
-source ${SCRATCH}/.venv/bin/activate
+source ${HOME}/.venv/bin/activate
 
 python3 $SCRATCH/project/visualizzazione_output.py\
     --image_size 128 128 128\

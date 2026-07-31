@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=Inv_decoder
+#SBATCH --job-name=Inv_decoder_cont_dev
 #SBATCH --partition=boost_usr_prod
 #SBATCH --qos=normal
 #SBATCH --nodes=1
@@ -8,8 +8,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --account=IscrC_DATIV-ML
-#SBATCH --output=Inv_decoder_%j.out
-#SBATCH --error=Inv_decoder_%j.err
+#SBATCH --output=Inv_decoder_cont_dev_concat%j.out
+#SBATCH --error=Inv_decoder_cont_dev_concat%j.err
 
 
 
@@ -21,16 +21,18 @@ module load cuda/12.2
 module load python/3.11.7
 
 SCRATCH=/leonardo_scratch/large/userexternal/gvitanza/InverseSR
+HOME=/leonardo/home/userexternal/gvitanza/
 
-source ${SCRATCH}/.venv/bin/activate
+source ${HOME}/.venv/bin/activate
 
 # run script
 echo -e '\n\n\n'
 echo "$(date +"%T"):  start running model!"
 
-VAE="${SCRATCH}/data/trained_models_astro/vae_decoder_train_100ep_z3_local_1e-4_newloss/VAE_full"
-DDPM="${SCRATCH}/data/trained_models_astro/ddpm_concat_100_2_z7_local/ddpm_final_model"
-BRGM_DDIM="${SCRATCH}/data/outputs/BRGM_ddim_z3_lambda1000_concat_local/results.pth"
+VAE="${SCRATCH}/data/trained_models_astro/vae_decoder_100_z3_local_cont_dev/VAE_full"
+DDPM="${SCRATCH}/data/trained_models_astro/ddpm_concat_100_z3_local_cont_dev/ddpm_final_model"
+DECODER="${SCRATCH}/data/trained_models_astro/vae_decoder_100_z3_local_cont_dev/Decoder_only"
+BRGM_DDIM="${SCRATCH}/data/outputs/BRGM_ddim_z3_lambda1000_local_cont_dev_concat_newloss/results.pth"
 NORM_DATA='local'
 Z_CHANNELS=3
 START_STEPS=0
@@ -44,7 +46,7 @@ DATA_FORMAT="npy"
 DOWNSAMPLE_FACTOR=4
 DDIM_NUM_TIMESTEPS=50
 DDIM_ETA=0.0
-EXPERIMENT_NAME=z3_lambda1000_500_concat_local
+EXPERIMENT_NAME=z3_lambda1000_500_local_cont_dev_concat_newloss
 LOG_DIR=$SCRATCH/logs/$EXPERIMENT_NAME
 
 
@@ -54,17 +56,12 @@ export PYTORCH_ALLOC_CONF=max_split_size_mb:128
 
 python3 ${SCRATCH}/project/BRGM_decoder.py \
     --path_to_latent_ddpm $BRGM_DDIM  \
-    --image_size 128 128 128 \
+    --image_size 16 128 128 \
     --z_channels $Z_CHANNELS \
     --ddim_eta=$DDIM_ETA \
     --ddim_num_timesteps=$DDIM_NUM_TIMESTEPS \
     --update_latent_variables \
-    --update_conditioning \
     --mean_latent_vector \
-    --update_hi_size \
-    --update_line_flux_integral \
-    --update_i \
-    --update_w20 \
     --prior_every=$PRIOR_EVERY \
     --num_steps=$NUM_STEPS \
     --data_format=$DATA_FORMAT \
@@ -79,4 +76,6 @@ python3 ${SCRATCH}/project/BRGM_decoder.py \
     --norm_data=$NORM_DATA \
     --vae_path_BRGM $VAE\
     --ddpm_path_BRGM $DDPM \
+    --decoder_path_BRGM $DECODER\
+    --cond_key "concat"
 

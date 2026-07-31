@@ -14,9 +14,14 @@ def normalize_dynamic(data, norm_mode, stats=None):
     """
     if stats is None: 
         stats = {}
+
+    
     
     is_torch = isinstance(data, torch.Tensor)
-
+    if not is_torch:
+        data = torch.from_numpy(data).float()
+    else:
+        data = data.float()
     # --- CONTROLLO SICUREZZA PER TENSOR / ARRAY VUOTI ---
     numel = data.numel() if is_torch else data.size
     if numel == 0:
@@ -28,9 +33,8 @@ def normalize_dynamic(data, norm_mode, stats=None):
         x_scaled = data / (limit + 1e-8)
         data_norm = (x_scaled + 1.0) / 2.0
         
-        if is_torch:
-            return torch.clamp(data_norm, 0.0, 1.0), {'limit': limit}
-        return np.clip(data_norm, 0.0, 1.0), {'limit': limit}
+        return torch.clamp(data_norm, 0.0, 1.0), {'limit': limit}
+        
 
     elif norm_mode == 'local':
         if is_torch:
@@ -162,7 +166,7 @@ class RadioPatchDataset(Dataset):
             data_numpy = data_numpy.squeeze()
 
         # Normalizzazione Cubo
-        x_0 = normalize_dynamic(data_numpy, self.norm_mode, self.dataset_stats)
+        x_0, _ = normalize_dynamic(data_numpy, self.norm_mode, self.dataset_stats)
         
         if x_0.ndim == 3: 
             x_0 = x_0.unsqueeze(0)  # Shape finale: (1, D, H, W)

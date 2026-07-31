@@ -465,6 +465,12 @@ class UNetModel(nn.Module):
                 nn.Conv3d(ch, n_embed, 1),
             )
 
+    # Helper per l'activation checkpointing sicuro
+    def run_block(use_checkpoint, block, *args):
+        if use_checkpoint:
+            return checkpoint(block, *args, use_reentrant=False)
+        return block(*args)
+
     def forward(self, x, timesteps=None, context=None, y=None, **kwargs):
         assert (y is not None) == (
             self.num_classes is not None
@@ -483,11 +489,7 @@ class UNetModel(nn.Module):
             assert y.shape == (x.shape[0],)
             emb = emb + self.label_emb(y)
 
-        # Helper per l'activation checkpointing sicuro
-        def run_block(block, *args):
-            if self.use_checkpoint:
-                return checkpoint(block, *args, use_reentrant=False)
-            return block(*args)
+        
 
         if x.requires_grad is False:
             x.requires_grad_(True)
@@ -497,16 +499,16 @@ class UNetModel(nn.Module):
 
         # Input blocks
         for module in self.input_blocks:
-            h = run_block(module, h, emb, context)
+            h = self.run_block(module, h, emb, context)
             hs.append(h)
 
         # Middle block
-        h = run_block(self.middle_block, h, emb, context)
+        h = self.run_block(self.middle_block, h, emb, context)
 
         # Output blocks
         for module in self.output_blocks:
             h = th.cat([h, hs.pop()], dim=1)
-            h = run_block(module, h, emb, context)
+            h = self.run_block(module, h, emb, context)
 
         if self.predict_codebook_ids:
             return self.id_predictor(h)

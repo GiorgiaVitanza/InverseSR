@@ -180,45 +180,58 @@ def volume_rendering(cube, base_name, output_dir="visualizzazione_patches", use_
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
+    # Assicuriamoci che i dati siano float64/float32 e 3D
+    cube_processed = np.asarray(cube, dtype=np.float32)
+    cube_processed = np.squeeze(cube_processed)
+    
+    if cube_processed.ndim != 3:
+        raise ValueError(f"Il cubo deve essere 3D. Forma attuale: {cube_processed.shape}")
+
     # 2. Pre-processing Astronomico (Log Scale)
-    # Fondamentale per far emergere le strutture 3D deboli nel rendering
-    cube_processed = np.squeeze(cube)
     if use_log:
-        # Trasliamo per avere il minimo a 0 ed evitare log(0)
-        eps = 1e-8
-        cube_processed = np.log10(cube_processed - cube_processed.min() + eps)
+        # Traslazione sicura per evitare log10(<=0)
+        min_val = np.min(cube_processed)
+        if min_val <= 0:
+            cube_processed = cube_processed - min_val + 1e-8
+        cube_processed = np.log10(cube_processed)
 
     # 3. Normalizzazione basata sui Percentili
-    # Questo serve a definire quali valori mappare sulla colormap 'hot'
-    v_min = np.percentile(cube_processed, 5)   # Tagliamo un po' di rumore di fondo
-    v_max = np.percentile(cube_processed, 99.5) # Evitiamo che picchi isolati oscurino tutto
+    v_min = np.percentile(cube_processed, 5)
+    v_max = np.percentile(cube_processed, 99.5)
 
-    # 4. Setup della Grid PyVista
+    # 4. Setup della Grid PyVista (Metodo Sicuro)
+    # Creiamo ImageData indicando la forma esatta
     grid = pv.ImageData()
-    grid.dimensions = cube_processed.shape
+    
+    # PyVista si aspetta le dimensioni come (X, Y, Z)
+    # Se il tuo array NumPy è (Z, Y, X), invertiamo la tupla per coincidere
+    grid.dimensions = cube_processed.shape[::-1] 
+    grid.origin = (0, 0, 0)
     grid.spacing = (1, 1, 1)
     
-    # Clippiamo i dati tra v_min e v_max per un rendering pulito
+    # Clippiamo i dati tra v_min e v_max
     cube_clipped = np.clip(cube_processed, v_min, v_max)
-    grid.point_data["values"] = cube_clipped.flatten(order="F")
+    
+    # CORREZIONE BUG MEMORIA: usa ravel() standard C-order
+    grid.point_data["values"] = cube_clipped.ravel()
 
     # 5. Rendering
-    plotter = pv.Plotter(off_screen=True) # Imposta True se lavori su Leonardo senza display
+    plotter = pv.Plotter(off_screen=True)
     
-    # 'opacity' è fondamentale nel volume rendering: 
-    # 'linear' o 'sigmoid' aiutano a vedere "dentro" il cubo
+    # Se il rendering risulta buio o con buchi strani, prova shade=False
     plotter.add_volume(
         grid, 
+        scalars="values",
         cmap="hot", 
-        clim=[v_min, v_max], # Forza la scala colori sui nostri percentili
-        opacity="sigmoid",   # Rende i valori bassi più trasparenti di quelli alti
-        shade=True
+        clim=[v_min, v_max], 
+        opacity="sigmoid",   # Puoi anche provare "linear"
+        shade=False          # Disattivato per evitare ombreggiature anomale sui bordi
     )
     
     filename = f"{base_name}_volume_rendering.png"
     save_path = os.path.join(output_dir, filename)
     
-    # Sostituisci la sezione 6 con questa:
+    # Salvataggio
     plotter.show(screenshot=save_path, auto_close=False)
     plotter.close()
     

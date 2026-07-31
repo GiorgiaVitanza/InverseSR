@@ -17,18 +17,24 @@ module purge
 
 module load cuda/12.2          
 module load python/3.11.7
-
 SCRATCH=/leonardo_scratch/large/userexternal/gvitanza/InverseSR
+HOME=/leonardo/home/userexternal/gvitanza/
 
-source ${SCRATCH}/.venv/bin/activate
+source ${HOME}/.venv/bin/activate
 
 python3 ${SCRATCH}/project/test_ddpm.py\
-    --test_dir $SCRATCH/data/inputs/128x128x128_stride128/test/npy_patches\
-    --catalogue_path $SCRATCH/data/inputs/128x128x128_stride128/test/test_catalog.csv \
-    --in_channels_unet 3\
+    --test_dir $SCRATCH/data/inputs/16x128x128_stride128_cont_dev/test/npy_patches\
+    --catalogue_path $SCRATCH/data/inputs/16x128x128_stride128_cont_dev/test/test_catalog.csv \
+    --in_channels_unet 4\
     --out_channels_unet 3\
     --z_channels 3\
-    --cond_key None\
-    --vae_path  /leonardo_scratch/large/userexternal/gvitanza/InverseSR/vae_decoder_3_100epochs_local_May22_20-59-37/vae_full_ep100.pth\
-    --output_dir_ddpm /leonardo_scratch/large/userexternal/gvitanza/InverseSR/ddpm_None_3_100epochs_local_May18_11-33-46/ddpm_ep100.pth \
-    --test_fig /leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/outputs/test_ddpm_None
+    --norm_data local\
+    --norm_mode local\
+    --cond_key hybrid\
+    --vae_path  /leonardo_scratch/large/userexternal/gvitanza/InverseSR/vae_decoder_3_100epochs_local_Jul17_16-52-58/vae_full_ep100.pth\
+    --output_dir_ddpm /leonardo_scratch/large/userexternal/gvitanza/InverseSR/ddpm_hybrid_3_100epochs_local_Jul29_11-49-25/ddpm_ep100.pth \
+    --test_fig test_ddpm_cont_dev_hybrid\
+    --use_mask_channel \
+    --use_spatial_transformer \
+    --context_dim 4 \
+    --epoch 100\

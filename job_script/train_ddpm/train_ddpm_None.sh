@@ -28,15 +28,17 @@ NORM_MODE='local'
 COND='None'
 
 python3 ${SCRATCH}/project/ml_flow_train_ddpm_v3.py\
-    --data_dir "${SCRATCH}/ska_hi_dataset/hr"\
-    --catalogue_path "${SCRATCH}/ska_hi_dataset/global_catalog.csv"\
+    --data_dir "${SCRATCH}/data/inputs/16x128x128_stride128_cont_dev/train/npy_patches"\
+    --catalogue_path "${SCRATCH}/data/inputs/16x128x128_stride128_cont_dev/train/train_catalog.csv"\
     --in_channels_unet $Z_CHANNELS\
     --out_channels_unet $Z_CHANNELS\
-    --tensor_board_logger_ddpm "${SCRATCH}/logs_ddpm/ddpm_${COND}_${EPOCHS}_z${Z_CHANNELS}_${NORM_MODE}"\
-    --output_dir_ddpm "${SCRATCH}/data/trained_models_astro/ddpm_${COND}_${EPOCHS}_z${Z_CHANNELS}_${NORM_MODE}"\
+    --tensor_board_logger_ddpm "${SCRATCH}/logs_ddpm/ddpm_${COND}_${EPOCHS}_z${Z_CHANNELS}_${NORM_MODE}_cont_dev"\
+    --output_dir_ddpm "${SCRATCH}/data/trained_models_astro/ddpm_${COND}_${EPOCHS}_z${Z_CHANNELS}_${NORM_MODE}_cont_dev"\
     --epochs $EPOCHS\
     --z_channels $Z_CHANNELS\
     --norm_mode $NORM_MODE\
     --learning_rate 1e-4\
     --cond_key $COND\
-    --vae_path "${SCRATCH}/vae_decoder_3_100epochs_local_Jul08_10-50-02/vae_full_ep50.pth"
+    --vae_path "${SCRATCH}/vae_decoder_3_100epochs_local_Jul17_16-52-58/vae_full_ep100.pth"\
+    --no-use_mask_channel \
+    --no-use_spatial_transformer \
