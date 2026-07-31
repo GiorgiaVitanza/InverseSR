@@ -30,7 +30,7 @@ echo -e '\n\n\n'
 echo "$(date +"%T"):  start running model!"
 
 VAE="${SCRATCH}/data/trained_models_astro/vae_decoder_100_z3_local_cont_dev/VAE_full"
-DDPM="${SCRATCH}/data/trained_models_astro/ddpm_concat_100_z3_local_cont_dev/ddpm_final_model"
+DDPM="${SCRATCH}/data/trained_models_astro/ddpm_None_100_z3_local_cont_dev/ddpm_final_model"
 NORM_DATA='local'
 LAMBDA_PRIOR=0
 LEARNING_RATE=7e-2
@@ -40,7 +40,7 @@ PRIOR_EVERY=15
 DATA_FORMAT="npy"
 DOWNSAMPLE_FACTOR=4
 DDIM_ETA=0.0
-EXPERIMENT_NAME=z3_lambda1000_local_cont_dev_concat_500steps_50ddim
+EXPERIMENT_NAME=z3_lambda1000_local_cont_dev_None_600steps_100ddim
 Z_CHANNELS=3
 LOG_DIR=$SCRATCH/logs/$EXPERIMENT_NAME
 
@@ -53,8 +53,8 @@ python3 ${SCRATCH}/project/BRGM_ddim_cond_v2.py \
     --z_channels $Z_CHANNELS \
     --cond_key "concat"\
     --out_channels 1\
-    --ddim_num_timesteps 50\
-    --num_steps 500\
+    --ddim_num_timesteps 100\
+    --num_steps 600\
     --ddim_eta=$DDIM_ETA \
     --update_latent_variables \
     --mean_latent_vector \

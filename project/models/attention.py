@@ -82,10 +82,15 @@ class CrossAttention(nn.Module):
         h = self.heads
 
         q = self.to_q(x)
-        context = default(context, x)
-        k = self.to_k(context)
-        v = self.to_v(context)
-
+        
+        # SE context non è passato, fai fallback su x, MA usa to_q/proiezione compatibile
+        if context is None:
+            context = x
+            k = self.to_q(context) # usa le stesse dimensioni di q/x
+            v = self.to_q(context)
+        else:
+            k = self.to_k(context)
+            v = self.to_v(context)
         # --- MEMORY OPTIMIZATION START ---
         # Instead of manual einsum (which creates O(N^2) matrix), use Flash Attention
         # 1. Reshape to (Batch, Heads, SeqLen, Dim)
