@@ -8,8 +8,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --account=IscrC_DATIV-ML
-#SBATCH --output=Inv_ddim_cont_dev_%j.out
-#SBATCH --error=Inv_ddim_cont_dev_%j.err
+#SBATCH --output=Inv_ddim_cont_ldev_%j.out
+#SBATCH --error=Inv_ddim_cont_ldev_%j.err
 
 
 
@@ -31,7 +31,7 @@ echo "$(date +"%T"):  start running model!"
 
 VAE="${SCRATCH}/data/trained_models_astro/vae_decoder_100_z3_local_cont_dev/VAE_full"
 DDPM="${SCRATCH}/data/trained_models_astro/ddpm_None_100_z3_local_cont_dev/ddpm_final_model"
-NORM_DATA='local'
+NORM_DATA='global_robust'
 LAMBDA_PRIOR=0
 LEARNING_RATE=7e-2
 LAMBDA_PERC=1000
@@ -40,7 +40,8 @@ PRIOR_EVERY=15
 DATA_FORMAT="npy"
 DOWNSAMPLE_FACTOR=4
 DDIM_ETA=0.0
-EXPERIMENT_NAME=z3_lambda1000_local_cont_dev_None_600steps_100ddim
+COND_KEY="None"
+EXPERIMENT_NAME=z3_lambda${LAMBDA_PERC}_${NORM_DATA}_cont_ldev_${COND_KEY}_600steps_100ddim
 Z_CHANNELS=3
 LOG_DIR=$SCRATCH/logs/$EXPERIMENT_NAME
 
@@ -48,28 +49,29 @@ LOG_DIR=$SCRATCH/logs/$EXPERIMENT_NAME
 export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True,garbage_collection_threshold:0.8"
 
 python3 ${SCRATCH}/project/BRGM_ddim_cond_v2.py \
+    --input_data_dir "${SCRATCH}/data/inputs/16x128x128_stride128_cont_ldev/Inversion"\
     --image_size 16 128 128 \
-    --inference\
+    --inference \
     --z_channels $Z_CHANNELS \
-    --cond_key "concat"\
+    --cond_key $COND_KEY\
     --out_channels 1\
-    --ddim_num_timesteps 100\
-    --num_steps 600\
-    --ddim_eta=$DDIM_ETA \
+    --ddim_num_timesteps 70\
+    --num_steps $NUM_STEPS\
+    --ddim_eta $DDIM_ETA \
     --update_latent_variables \
     --mean_latent_vector \
-    --prior_every=$PRIOR_EVERY \
+    --prior_every $PRIOR_EVERY \
     --data_format=$DATA_FORMAT \
-    --test_mode \
-    --corruption="$CORRUPTION" \
+    --corruption=$CORRUPTION \
     --lambda_perc="$LAMBDA_PERC" \
     --learning_rate=$LEARNING_RATE \
     --experiment_name=$EXPERIMENT_NAME \
-    --downsample_factor="$DOWNSAMPLE_FACTOR" \
+    --downsample_factor $DOWNSAMPLE_FACTOR \
     --tensor_board_logger_ddim="$LOG_DIR" \
     --output_dir_BRGM_ddim="${SCRATCH}/data/outputs/BRGM_ddim_${EXPERIMENT_NAME}" \
-    --norm_data=$NORM_DATA \
+    --norm_data "global_robust" \
     --vae_path_BRGM $VAE\
     --ddpm_path_BRGM $DDPM \
+    
     
 
