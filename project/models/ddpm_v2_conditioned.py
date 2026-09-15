@@ -510,7 +510,7 @@ class DiffusionWrapper(nn.Module):
                 # CONCATENIAMO: [B, C_x, D, H, W] + [B, C_cond, D, H, W]
                 x_input = torch.cat([x, c_expanded], dim=1)
             else:
-                raise ValueError("conditioning_key is 'concat' but c_concat is None")
+                raise ValueError("conditioning_key is 'concat' or 'hybrid' but c_concat is None")
 
         # 3. Gestione CROSS-ATTENTION (Se usata da sola o insieme al concat)
         if c_crossattn is not None:
