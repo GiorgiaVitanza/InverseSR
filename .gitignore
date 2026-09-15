@@ -6,6 +6,7 @@ mlruns/
 logs_vae/
 logs_ddpm/
 logs/
+generated_jobs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
