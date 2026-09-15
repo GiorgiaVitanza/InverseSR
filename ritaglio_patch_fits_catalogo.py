@@ -119,6 +119,7 @@ def process_radio_multiformat(
     col_flux = "line_flux_integral"
 
     sky_coords = df_cat[["ra", "dec", "central_freq"]].values
+
     pixels = wcs.all_world2pix(sky_coords, 0)
 
     df_cat["x_pix"] = pixels[:, 0]
@@ -229,9 +230,9 @@ def process_radio_multiformat(
 
 
 if __name__ == "__main__":
-    FITS_PATH = "./data/inputs/sky_dev_v2.fits"
-    CATALOG_PATH = "./data/inputs/sky_dev_truthcat_v2.txt"
-    BASE_OUT_DIR = "./data/inputs/128x128x128_stride128_sky_dev"
+    FITS_PATH = "/leonardo_scratch/large/userexternal/gvitanza/sky_ldev_v2.fits"
+    CATALOG_PATH = "/leonardo_scratch/large/userexternal/gvitanza/sky_ldev_truthcat_v2.txt"
+    BASE_OUT_DIR = "./data/inputs/128x128x128_stride128_sky_ldev"
 
     # 1. Split delle sorgenti
     train_cat, test_cat = split_original_catalog(
