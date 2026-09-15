@@ -54,34 +54,6 @@ def logprint(message: str, verbose: bool) -> None:
         print(message)
 
 
-def add_hparams_to_tensorboard(
-    hparams: Namespace,
-    metrics: dict,
-    cond_vals: torch.Tensor,
-    writer: SummaryWriter,
-) -> None:
-    """Logga i parametri e le metriche finali su TensorBoard."""
-    hparam_dict = {
-        "lr": hparams.learning_rate,
-        "obj_id": hparams.object_id,
-        "lambda_perc": hparams.lambda_perc,
-        "steps": hparams.num_steps,
-    }
-    
-    metric_dict = {
-        "loss/final": metrics.get("loss", 0.0),
-        "metrics/ssim": metrics.get("ssim", 0.0),
-        "metrics/psnr": metrics.get("psnr", 0.0),
-        "metrics/mse": metrics.get("mse", 0.0),
-        "metrics/nmse": metrics.get("nmse", 0.0),
-        "inv_cond/hi_size": cond_vals[0, 0].item() if cond_vals is not None else 0.0,
-        "inv_cond/line_flux_integral": cond_vals[0, 1].item() if cond_vals is not None else 0.0,
-        "inv_cond/i": cond_vals[0, 2].item() if cond_vals is not None else 0.0,
-        "inv_cond/w20": cond_vals[0, 3].item() if cond_vals is not None else 0.0,
-    }
-    
-    writer.add_hparams(hparam_dict, metric_dict)
-
 
 def create_mask_for_backprop(hparams: Namespace, device: torch.device) -> torch.Tensor:
     mask_cond = torch.ones((1, 4), device=device)
@@ -277,7 +249,7 @@ def project(
                 print(f"Step {step:03d} | Loss: {current_loss:.6f} | Hi Size: {cond_phys[0,0]:.4f} | Line Flux: {cond_phys[0,1]:.4f} | I: {cond_phys[0,2]:.4f} | W20: {cond_phys[0,3]:.4f} | SSIM: {ssim_:.4f}")
 
             # G. ESPORTAZIONE GRAFICI PESANTI (Ogni N Step)
-            if step % 20 == 0 or step == hparams.num_steps - 1:
+            if step % 50 == 0 or step == hparams.num_steps - 1:
                 target_img_corrupted_vis = denormalize_data(target_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data, patch_stats=patch_stats)
                 synth_img_corrupted_vis = denormalize_data(step_synth_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data, patch_stats=patch_stats)
 
@@ -309,13 +281,7 @@ def project(
             latest_metrics = {"loss": current_loss, "ssim": ssim_, "psnr": psnr_, "mse": mse_, "nmse": nmse_}
             latest_cond_phys = cond_phys
 
-    # Log finale degli iperparametri
-    add_hparams_to_tensorboard(
-        hparams,
-        metrics=latest_metrics,
-        cond_vals=latest_cond_phys,
-        writer=writer,
-    )
+    
 
     writer.flush()
     writer.close()
@@ -373,7 +339,7 @@ def main(hparams: Namespace) -> None:
     forward = create_corruption_function(hparams=hparams, device=device)
 
     # 4. Esecuzione Inversione
-    final_z, final_cond, metrics = project(
+    final_z, final_cond, _ = project(
         ddim, decoder, forward, img_tensor, device, writer, hparams, patch_stats, verbose=True
     )
 
