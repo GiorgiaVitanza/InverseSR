@@ -1,37 +1,46 @@
 # Code adapted for Astrophysical Data Restoration
 # Original Reference: Pinaya et al. (2022) & Marinescu et al. (2020)
 
-import pandas as pd
+import argparse
 import csv
-from argparse import ArgumentParser, Namespace
 import os
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from skimage.transform import resize
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+from skimage.metrics import mean_squared_error as mse
+from skimage.metrics import normalized_root_mse as nmse
+from skimage.metrics import peak_signal_noise_ratio as psnr
+from skimage.metrics import structural_similarity as ssim
+from skimage.transform import resize
 import torch
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
-from skimage.metrics import mean_squared_error as mse
-from skimage.metrics import normalized_root_mse as nmse
-from skimage.metrics import structural_similarity as ssim
-from skimage.metrics import peak_signal_noise_ratio as psnr
 
 from models.BRGM.forward_models import ForwardDownsample
 from models.ddim import DDIMSampler
 from utils.add_argument import add_argument
-from utils.utils_new import (
-    setup_noise_inputs,
-    load_target_image,
-    load_pre_trained_model,
-    create_corruption_function,
-    sampling_from_ddim,
-    getVggFeatures,
-    load_vgg_perceptual
-)
-from utils.plot_new import draw_corrupted_images, draw_images, denormalize_data, compare_cubes, comparison_plots_ok, plot_orthogonal_cuts, draw_img
 from utils.const import INPUT_FOLDER_CAT
+from utils.plot_new import (
+    compare_cubes,
+    comparison_plots_ok,
+    denormalize_data,
+    draw_corrupted_images,
+    draw_images,
+    draw_img,
+    plot_orthogonal_cuts,
+)
+from utils.utils_new import (
+    create_corruption_function,
+    getVggFeatures,
+    load_pre_trained_model,
+    load_target_image,
+    load_vgg_perceptual,
+    sampling_from_ddim,
+    setup_noise_inputs,
+)
 from visualizzazione_3d import volume_rendering
 
 
@@ -52,7 +61,6 @@ def denormalize_cond(cond: torch.Tensor, catalogue: pd.DataFrame, feature_cols: 
 def logprint(message: str, verbose: bool) -> None:
     if verbose:
         print(message)
-
 
 
 def create_mask_for_backprop(hparams: Namespace, device: torch.device) -> torch.Tensor:
@@ -146,6 +154,7 @@ def project(
 
     latest_metrics = {}
     latest_cond_phys = None
+    final_synth_img = None
 
     # Pre-calcola target_phys per risparmiare tempo nelle metriche
     target_np = target[0, 0].detach().cpu().numpy()
@@ -211,6 +220,9 @@ def project(
         # Esecuzione passo di ottimizzazione
         loss_tensor = optimizer.step(closure=closure)
         current_loss = loss_tensor.item()
+
+        # Salva l'ultimo synth generato
+        final_synth_img = step_synth_img
 
         # Clamp delle variabili fisiche condizionate
         with torch.no_grad():
@@ -281,11 +293,31 @@ def project(
             latest_metrics = {"loss": current_loss, "ssim": ssim_, "psnr": psnr_, "mse": mse_, "nmse": nmse_}
             latest_cond_phys = cond_phys
 
-    
-
     writer.flush()
     writer.close()
-      
+
+    # =========================================================================
+    # SALVATAGGIO DATI RIPRISTINATI / CORROTTI / INPUT IN UNA CARTELLA DEDICATA
+    # =========================================================================
+    results_dir = save_path / "restoration_outputs"
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    # Convertiamo i tensori e applichiamo la denormalizzazione alla scala fisica
+    target_corrupted_np = target_img_corrupted[0, 0].detach().cpu().numpy()
+    target_corrupted_phys = denormalize_data(target_corrupted_np, norm_mode=hparams.norm_data, patch_stats=patch_stats)
+
+    final_synth_np = final_synth_img[0, 0].detach().cpu().numpy()
+    final_synth_phys = denormalize_data(final_synth_np, norm_mode=hparams.norm_data, patch_stats=patch_stats)
+
+    # Salvataggio volumi in formato numpy (.npy)
+    np.save(results_dir / "target_original.npy", target_phys)
+    np.save(results_dir / "target_corrupted.npy", target_corrupted_phys)
+    np.save(results_dir / "reconstructed_synth.npy", final_synth_phys)
+
+    logprint(f"[INFO] Volumi salvati con successo in: {results_dir}", verbose)
+
+    # =========================================================================
+
     os.makedirs(hparams.output_dir_BRGM_ddim, exist_ok=True)
     torch.save(
         {
