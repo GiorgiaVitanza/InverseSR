@@ -114,7 +114,7 @@ def project(
         align_corners=False
     ).detach()
 
-    # 3. IMPOSTAZIONE PARAMETRI DA OTTIMIZZARE
+    # 3. IMPOSTAZIONE PARAMETRI DA OTTIMIZZARE E OTTIMIZZATORE
     update_params = []
     if hparams.update_latent_variables:
         latent_variable.requires_grad = True
@@ -127,6 +127,14 @@ def project(
         update_params, 
         betas=(0.9, 0.999), 
         lr=hparams.learning_rate
+    )
+
+    # --- INIZIALIZZAZIONE SCHEDULER ---
+    # Decadimento Cosine Annealing che porta il LR dal valore iniziale fino a 1e-6
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, 
+        T_max=hparams.num_steps - hparams.start_steps, 
+        eta_min=1e-6
     )
 
     latent_variable_out = torch.zeros(
@@ -221,6 +229,10 @@ def project(
         loss_tensor = optimizer.step(closure=closure)
         current_loss = loss_tensor.item()
 
+        # --- STEP DELLO SCHEDULER ---
+        current_lr = scheduler.get_last_lr()[0]
+        scheduler.step()
+
         # Salva l'ultimo synth generato
         final_synth_img = step_synth_img
 
@@ -252,13 +264,14 @@ def project(
             writer.add_scalar("Loss/Total", current_loss, global_step=step)
             writer.add_scalar("Loss/Pixelwise", step_pixel_loss, global_step=step)
             writer.add_scalar("Loss/Perceptual", step_perc_loss, global_step=step)
+            writer.add_scalar("Params/LearningRate", current_lr, global_step=step)
             writer.add_scalar("Metrics/SSIM", ssim_, global_step=step)
             writer.add_scalar("Metrics/PSNR", psnr_, global_step=step)
             writer.add_scalar("Metrics/MSE", mse_, global_step=step)
             writer.add_scalar("Metrics/NMSE", nmse_, global_step=step)
 
             if verbose:
-                print(f"Step {step:03d} | Loss: {current_loss:.6f} | Hi Size: {cond_phys[0,0]:.4f} | Line Flux: {cond_phys[0,1]:.4f} | I: {cond_phys[0,2]:.4f} | W20: {cond_phys[0,3]:.4f} | SSIM: {ssim_:.4f}")
+                print(f"Step {step:03d} | LR: {current_lr:.2e} | Loss: {current_loss:.6f} | Hi Size: {cond_phys[0,0]:.4f} | Line Flux: {cond_phys[0,1]:.4f} | I: {cond_phys[0,2]:.4f} | W20: {cond_phys[0,3]:.4f} | SSIM: {ssim_:.4f}")
 
             # G. ESPORTAZIONE GRAFICI PESANTI (Ogni N Step)
             if step % 50 == 0 or step == hparams.num_steps - 1:
@@ -302,14 +315,12 @@ def project(
     results_dir = save_path / "restoration_outputs"
     results_dir.mkdir(parents=True, exist_ok=True)
 
-    # Convertiamo i tensori e applichiamo la denormalizzazione alla scala fisica
     target_corrupted_np = target_img_corrupted[0, 0].detach().cpu().numpy()
     target_corrupted_phys = denormalize_data(target_corrupted_np, norm_mode=hparams.norm_data, patch_stats=patch_stats)
 
     final_synth_np = final_synth_img[0, 0].detach().cpu().numpy()
     final_synth_phys = denormalize_data(final_synth_np, norm_mode=hparams.norm_data, patch_stats=patch_stats)
 
-    # Salvataggio volumi in formato numpy (.npy)
     np.save(results_dir / "target_original.npy", target_phys)
     np.save(results_dir / "target_corrupted.npy", target_corrupted_phys)
     np.save(results_dir / "reconstructed_synth.npy", final_synth_phys)
@@ -325,6 +336,7 @@ def project(
             "latent_variable": latent_variable,
             "cond": cond,
             "optimizer": optimizer.state_dict(),
+            "scheduler": scheduler.state_dict(),  # Salvataggio stato dello scheduler
         },
         f"{hparams.output_dir_BRGM_ddim}/checkpoint.pth",
     )
@@ -335,13 +347,10 @@ def project(
 def main(hparams: Namespace) -> None:
     device = torch.device(hparams.device)
     
-    # Inizializza TensorBoard
     writer = SummaryWriter(log_dir=hparams.tensor_board_logger_ddim)
 
-    # 1. Carica il target (es. FITS 128x128x128)
     img_tensor, patch_stats = load_target_image(hparams, device=device)
 
-    # Prepara il dato (slice centrale del volume 3D)
     img_data = img_tensor[0].cpu().numpy()
     mid_slice = img_data.shape[0] // 2
     slice_to_plot = img_data[mid_slice, :, :]
@@ -360,22 +369,18 @@ def main(hparams: Namespace) -> None:
     
     volume_rendering(img_data, "target", output_dir=str(output_path))
 
-    if img_tensor.ndim == 4:  # Se è [C, D, H, W], aggiungi dimensione batch -> [1, C, D, H, W]
+    if img_tensor.ndim == 4:
         img_tensor = img_tensor.unsqueeze(0)
         
-    # 2. Carica i modelli pre-allenati
     diffusion, decoder = load_pre_trained_model(hparams, device=device)
     ddim = DDIMSampler(diffusion)
     
-    # 3. Setup Forward Model (Degradazione)
     forward = create_corruption_function(hparams=hparams, device=device)
 
-    # 4. Esecuzione Inversione
     final_z, final_cond, _ = project(
         ddim, decoder, forward, img_tensor, device, writer, hparams, patch_stats, verbose=True
     )
 
-    # 5. Salvataggio latente e condizioni ottimizzate
     save_path = hparams.output_dir_BRGM_ddim
     torch.save({"z": final_z, "cond": final_cond}, f"{save_path}/results.pth")
     print(f"Risultati salvati in {save_path}")
