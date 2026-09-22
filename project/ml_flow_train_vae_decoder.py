@@ -54,17 +54,7 @@ def run_step(model, x, epoch=0, total_epochs=train_param.epochs):
     # 1. Reconstruction Loss (L1)
     recon_loss = F.l1_loss(x_hat, x, reduction='mean')
     
-    """ # 2. KL Divergence Loss
-    # Formula: -0.5 * sum(1 + log_var - mu^2 - exp(log_var))
-    kl_loss = -0.5 * torch.sum(1 + moments_log_var - moments_mu.pow(2) - moments_log_var.exp(), dim=[1, 2, 3, 4])
-    kl_loss = kl_loss.mean()
-    
-    # Peso della KL (Beta)
-    kl_weight = 1e-6 
-    
-    total_loss = recon_loss + (kl_weight * kl_loss) """
-
-    # Calcolo KL (media per renderla indipendente dalla dimensione del latente)
+    # 2. Calcolo KL (media per renderla indipendente dalla dimensione del latente)
     kl_loss = -0.5 * torch.mean(1 + moments_log_var - moments_mu.pow(2) - moments_log_var.exp())
     
     # KL Annealing: il peso parte da 0 e arriva a 1e-4 (o un valore scelto) a metà training
@@ -82,7 +72,6 @@ def train():
   
     log_dir = f"{TB_LOG_DIR}/run_{current_time}_lr_{train_param.learning_rate}_z{hparams.z_channels}"
     
-    
     print("Caricamento dataset...")
     dataset = RadioPatchDataset( 
        train_param.data_dir, train_param.catalogue_path, hparams.z_channels, norm_mode=train_param.norm_mode
@@ -90,15 +79,22 @@ def train():
     
     dataloader = DataLoader(dataset, batch_size=train_param.batch_size, shuffle=True, num_workers=1, pin_memory=True, persistent_workers=True)
 
-    
     os.makedirs(CHECKPOINT_DIR, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
 
     hparams_dict = vars(hparams)
 
-    print("Inizializzazione modello e ottimizzatore...")
+    print("Inizializzazione modello, ottimizzatore e scheduler...")
     model = AutoencoderKL(embed_dim=hparams.z_channels, hparams=hparams_dict).to(train_param.device)
     optimizer = torch.optim.Adam(model.parameters(), lr=train_param.learning_rate)
+
+    # --- INIZIALIZZAZIONE SCHEDULER ---
+    # Decadimento del LR tramite Cosine Annealing fino a 1e-6 a fine addestramento
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, 
+        T_max=train_param.epochs, 
+        eta_min=1e-6
+    )
 
     # Inizializzazione Loggers
     writer = SummaryWriter(log_dir=log_dir)
@@ -106,7 +102,6 @@ def train():
     with mlflow.start_run(run_name=f"VAE_Hybrid_Training_{current_time}"):
         mlflow.log_params(hparams_dict)
         mlflow.log_params(vars(train_param))
-        
 
         for epoch in range(train_param.epochs):
             model.train()
@@ -125,35 +120,44 @@ def train():
                 epoch_kl_loss.append(kl_loss.item())
                 pbar.set_postfix({"total": f"{total_loss.item():.4f}"})
 
+            # --- STEP SCHEDULER & RECUPERO CURRENT LR ---
+            current_lr = scheduler.get_last_lr()[0]
+            scheduler.step()
+
             # --- LOGGING (TensorBoard) ---
             avg_total = np.mean(epoch_total_loss)
             writer.add_scalar("Loss/Total", avg_total, epoch)
             writer.add_scalar("Loss/Recon", np.mean(epoch_recon_loss), epoch)
             writer.add_scalar("Loss/KL", np.mean(epoch_kl_loss), epoch)
+            writer.add_scalar("Params/LearningRate", current_lr, epoch)
             
             # --- LOGGING (MLflow Metrics) ---
             mlflow.log_metric("avg_total_loss", avg_total, step=epoch)
+            mlflow.log_metric("learning_rate", current_lr, step=epoch)
 
             # --- LOG VISIVO POTENZIATO ---
             if epoch % 5 == 0:
                 model.eval()
                 with torch.no_grad():
-                    x = denormalize_data(x, train_param.norm_mode)
-                    x_hat = denormalize_data(x_hat, train_param.norm_mode)
-                    fig =comparison_plots_ok(x, x_hat, flag='train')
-                    # Log su TensorBoard e MLflow
+                    x_denorm = denormalize_data(x, train_param.norm_mode)
+                    x_hat_denorm = denormalize_data(x_hat, train_param.norm_mode)
+                    fig = comparison_plots_ok(x_denorm, x_hat_denorm, flag='train')
+                    # Log su TensorBoard
                     writer.add_figure("Visual/3D_Comparison", fig, global_step=epoch)
-                    
+                    plt.close(fig)
                     
                 model.train()
 
             # --- SALVATAGGIO CHECKPOINTS FISICI ---
             if (epoch + 1) % 10 == 0 or (epoch + 1) == train_param.epochs:
                 vae_path = os.path.join(CHECKPOINT_DIR, f"vae_full_ep{epoch+1}.pth")
-                torch.save({'epoch': epoch, 
-                            'model_state_dict': model.state_dict(), 
-                            'hparams': hparams_dict
-                            }, vae_path)
+                torch.save({
+                    'epoch': epoch, 
+                    'model_state_dict': model.state_dict(), 
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
+                    'hparams': hparams_dict
+                }, vae_path)
 
         # --- SALVATAGGIO FINALE MODELLO (IMPACCHETTAMENTO MLFLOW) ---
         print("Registrazione modelli su MLflow...")
