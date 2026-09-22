@@ -55,8 +55,6 @@ def train():
     # 1. Configurazione UNet
     unet_cfg, _ = get_config()
     
-    # Se concateni la maschera di posizione al latente z, la UNet deve accettare (z_channels + 1)
-    # Se usi solo condizionamento vettoriale, in_channels_unet = z_channels
     use_mask_channel = unet_cfg["params"]["use_mask_channel"]
     in_ch = hparams.z_channels + (1 if use_mask_channel else 0)
     
@@ -74,7 +72,7 @@ def train():
     )
     dataloader = DataLoader(dataset, batch_size=train_cfg.batch_size, shuffle=True, num_workers=1, pin_memory=True)
 
-    # 3. Modello DDPM Latente
+    # 3. Modello DDPM Latente, Ottimizzatore e Scheduler
     model = DDPM(
         unet_config=unet_cfg,
         conditioning_key=train_cfg.cond_key, 
@@ -82,6 +80,14 @@ def train():
     ).to(train_cfg.device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=train_cfg.learning_rate)
+    
+    # --- INIZIALIZZAZIONE SCHEDULER ---
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, 
+        T_max=train_cfg.epochs, 
+        eta_min=1e-6
+    )
+
     writer = SummaryWriter(log_dir=log_dir)
 
     with mlflow.start_run(run_name=f"DDPM_Training_{current_time}"):
@@ -115,7 +121,7 @@ def train():
                 if train_cfg.cond_key in ["concat", "hybrid"]:
                     latent_shape = z.shape[2:]  # (D_lat, H_lat, W_lat)
                     mask_latent = F.interpolate(spatial_mask, size=latent_shape, mode='trilinear', align_corners=False)
-                    cond_payload["c_concat"] = [mask_latent]  # Il DDPM concatenerà questo [1, 1, D, H, W] a z [1, 3, D, H, W]
+                    cond_payload["c_concat"] = [mask_latent]  # Il DDPM concatenerà questo a z
 
                 # 2. Preparazione vettori Cross-Attention (Context)
                 if train_cfg.cond_key in ["crossattn", "hybrid"] and context is not None:
@@ -124,7 +130,6 @@ def train():
 
 
                 # --- STEP 3: FORWARD & LOSS DDPM ---
-                # Il DDPM gestisce internamente la scelta di t e l'aggiunta di rumore su z_input
                 loss, loss_dict = model(z, cond_payload)
                 
                 loss.backward()
@@ -133,10 +138,17 @@ def train():
                 epoch_loss.append(loss.item())
                 pbar.set_postfix({"loss": f"{loss.item():.4f}"})
 
+            # --- STEP SCHEDULER & RECUPERO CURRENT LR ---
+            current_lr = scheduler.get_last_lr()[0]
+            scheduler.step()
+
             # Logging metriche
             avg_loss = np.mean(epoch_loss)
             writer.add_scalar("Loss/Train_DDPM", avg_loss, epoch)
+            writer.add_scalar("Params/LearningRate", current_lr, epoch)
+            
             mlflow.log_metric("avg_loss", avg_loss, step=epoch)
+            mlflow.log_metric("learning_rate", current_lr, step=epoch)
 
             # --- VALIDAZIONE / GENERAZIONE ---
             if epoch % 20 == 0:
@@ -167,13 +179,10 @@ def train():
                     x_gen_denorm = denormalize_data(x_gen, train_cfg.norm_mode)
                     
                     # 🎯 ESTRAZIONE COORDINATE DALLA MASCHERA PER IL PRIMO CAMPIONE DEL BATCH (index 0)
-                    # Supponendo che spatial_mask[0, 0] sia di shape (D, H, W) con 1 dove c'è la sorgente:
                     mask_sample = spatial_mask[0, 0].cpu().numpy()
-                    # Trova gli indici (z, y, x) dove la maschera è attiva (>0.5)
                     src_z, src_y, src_x = np.where(mask_sample > 0.5)
-                    coords = list(zip(src_x, src_y, src_z))  # Lista di tuple (x, y, z) per il primo campione
+                    coords = list(zip(src_x, src_y, src_z))
                     
-                    # Passiamo le coordinate alla funzione di plot
                     try:
                         fig = comparison_plots_ok(
                             x_real_denorm[0], 
@@ -185,10 +194,9 @@ def train():
                         plt.close(fig)
                     except ValueError as e:
                         print(f"[Warning] Impossibile generare il plot all'epoca {epoch}: {e}")
-                        plt.close('all')  # Assicura che la memoria delle figure aperte venga pulita
+                        plt.close('all')
 
                 model.train()
-                            
 
             # --- CHECKPOINT PERIODICO ---
             if (epoch + 1) % 20 == 0 or (epoch + 1) == train_cfg.epochs:
@@ -197,6 +205,7 @@ def train():
                     'epoch': epoch,
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
                 }, ckpt_path)
 
         # --- SALVATAGGIO FINALE ---
