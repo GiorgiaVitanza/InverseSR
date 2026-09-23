@@ -136,12 +136,12 @@ def train():
             mlflow.log_metric("learning_rate", current_lr, step=epoch)
 
             # --- LOG VISIVO POTENZIATO ---
-            if epoch % 5 == 0:
+            if epoch % 20 == 0:
                 model.eval()
                 with torch.no_grad():
                     x_denorm = denormalize_data(x, train_param.norm_mode)
                     x_hat_denorm = denormalize_data(x_hat, train_param.norm_mode)
-                    fig = comparison_plots_ok(x_denorm, x_hat_denorm, flag='train')
+                    fig = comparison_plots_ok(x_denorm, x_hat_denorm, flag='test')
                     # Log su TensorBoard
                     writer.add_figure("Visual/3D_Comparison", fig, global_step=epoch)
                     plt.close(fig)
@@ -149,7 +149,7 @@ def train():
                 model.train()
 
             # --- SALVATAGGIO CHECKPOINTS FISICI ---
-            if (epoch + 1) % 10 == 0 or (epoch + 1) == train_param.epochs:
+            if (epoch + 1) % 40 == 0 or (epoch + 1) == train_param.epochs:
                 vae_path = os.path.join(CHECKPOINT_DIR, f"vae_full_ep{epoch+1}.pth")
                 torch.save({
                     'epoch': epoch, 
