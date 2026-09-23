@@ -70,17 +70,24 @@ def quick_test_metrics(model, vae, dataloader, train_param, hparams, unet_cfg):
             # --- 3. COSTRUZIONE COND_PAYLOAD ---
             cond_payload = {}
             
-            # 1. Preparazione canale di concatenazione (Maschera)
+            # Mode A: Concat (es. Maschera)
             if train_param.cond_key in ["concat", "hybrid"]:
-                latent_shape = z.shape[2:]  # (D_lat, H_lat, W_lat)
-                mask_latent = F.interpolate(spatial_mask, size=latent_shape, mode='trilinear', align_corners=False)
-                cond_payload["c_concat"] = [mask_latent]  # Il DDPM concatenerà questo [1, 1, D, H, W] a z [1, 3, D, H, W]
+                if spatial_mask is not None:
+                    latent_shape = z.shape[2:]  # (D_lat, H_lat, W_lat)
+                    mask_latent = F.interpolate(spatial_mask, size=latent_shape, mode='trilinear', align_corners=False)
+                    cond_payload["c_concat"] = [mask_latent]
 
-            # 2. Preparazione vettori Cross-Attention (Context)
-            if train_param.cond_key in ["crossattn", "hybrid"] and context is not None:
-                context_attn = context.unsqueeze(1) if context.ndim == 2 else context
-                cond_payload["c_crossattn"] = [context_attn]
+            # Mode B: Cross-Attention (es. Metadati / Context)
+            if train_param.cond_key in ["crossattn", "hybrid"]:
+                if context is not None:
+                    context_attn = context.unsqueeze(1) if context.ndim == 2 else context
+                    cond_payload["c_crossattn"] = [context_attn]
 
+            # Gestione Unconditional o fallback
+            if train_param.cond_key in [None, "None", "none"] or not cond_payload:
+                conditioning = None
+            else:
+                conditioning = cond_payload
             
 
             # --- 4. SAMPLING CON DDIM ---
@@ -106,21 +113,16 @@ def quick_test_metrics(model, vae, dataloader, train_param, hparams, unet_cfg):
 
             # --- 5. DECODING VAE E METRICHE ---
             z_gen_unscaled = z_gen / SCALE_FACTOR_VAE
-            x_gen = vae.decode(z_gen_unscaled)
+            x_gen = vae.decode(z_gen_unscaled) # x_gen è normalizzato [0, 1]
+
+            # Denormalizzazione corretta per calcolare MSE/PSNR in unità fisiche
+            x_start_denorm = denormalize_data(x_start, train_param.norm_mode)
+            x_gen_denorm = denormalize_data(x_gen, train_param.norm_mode)
             
-
-
-            x_start_norm = denormalize_data(x_start, hparams)
-            x_gen_norm = denormalize_data(x_gen, hparams)
-
-
+            # --- SALVATAGGIO PLOTS COMPARATIVI ---
             if batch_idx % 10 == 0 or batch_idx == len(dataloader) - 1:
-                # 1. Recupera i nomi dal batch (se disponibili nel dizionario del dataset)
-                # Esempio: batch["patch_name_x0"] e batch["patch_name_context"]
                 name_real = batch.get("name_x0", [f"Patch_x0_{batch_idx}"])[0]
-                name_cond = batch.get("name_context", [f"Patch_context_{batch_idx}"])[0]
                 
-
                 if train_param.cond_key in [None, "None", "none"]:
                     title_r = f"Real Target: {name_real}"
                     title_g = f"Unconditioned Sample (Epoch {train_param.epochs})"
@@ -129,42 +131,43 @@ def quick_test_metrics(model, vae, dataloader, train_param, hparams, unet_cfg):
                     title_r = f"Real Target: {name_real}"
                     title_g = f"Generated from: {name_cond}"
                 
-                # 2. Chiama la funzione aggiornata con i nomi
+                # Genera il grafico usando le immagini denormalizzate
                 fig = comparison_plots_ok(
-                    x_start_norm, 
-                    x_gen_norm, 
+                    x_start_denorm, 
+                    x_gen_denorm, 
                     title_real=title_r, 
                     title_gen=title_g, 
                     flag='test'
                 )
                 
-                fig.savefig(f"{train_param.test_fig}/{train_param.norm_mode}_{batch_idx}.png")
+                save_path = os.path.join(train_param.test_fig, f"{train_param.norm_mode}_batch_{batch_idx}.png")
+                fig.savefig(save_path)
                 plt.close(fig)
-                print(f"Salvata figura di confronto per batch {batch_idx}")
-            # 4. Ciclo su OGNI elemento del batch corrente
+                print(f"Salvata figura di confronto in: {save_path}")
+            # Ciclo sui campioni del batch per le metriche
             for i in range(current_batch_size):
-                # Portiamo in CPU/Numpy l'i-esimo elemento
-                img_true = x_start_norm[i, 0].cpu().numpy()
-                img_gen = x_gen_norm[i, 0].cpu().numpy()
-                img_gen = np.clip(img_gen, 0, 1)
+                # 1. Dati normalizzati per SSIM (assicuriamo conversioni sicure a numpy)
+                real_norm = x_start[i, 0].cpu().numpy() if hasattr(x_start, 'cpu') else x_start[i, 0]
+                gen_norm = x_gen[i, 0].cpu().numpy() if hasattr(x_gen, 'cpu') else x_gen[i, 0]
+                gen_norm = np.clip(gen_norm, 0, 1)
+
+                # 2. Dati denormalizzati per PSNR / MSE
+                real_phys = x_start_denorm[i, 0].cpu().numpy() if hasattr(x_start_denorm, 'cpu') else x_start_denorm[i, 0]
+                gen_phys = x_gen_denorm[i, 0].cpu().numpy() if hasattr(x_gen_denorm, 'cpu') else x_gen_denorm[i, 0]
+
+                # 3. Estrazione slice centrale 2D per il calcolo
+                mid = real_norm.shape[0] // 2
                 
-                # --- NOTA SULLE METRICHE 3D ---
-                # Se i tuoi dati sono 3D (visto che usi z_channels, D, H, W), calcolare le metriche 
-                # solo sulla slice centrale potrebbe essere riduttivo. 
-                # Opzione A: Mantieni la slice centrale (veloce)
-                mid = img_true.shape[0] // 2
-                true_slice = img_true[mid]
-                gen_slice = img_gen[mid]
+                # MSE e PSNR su dati fisici
+                mses.append(mse(real_phys[mid], gen_phys[mid]))
                 
-                mses.append(mse(true_slice, gen_slice))
-                ssims.append(ssim(true_slice, gen_slice, data_range=1.0))
-                psnrs.append(psnr(true_slice, gen_slice, data_range=1.0))
-                
-                # Opzione B (Consigliata se hai tempo): Calcola SSIM/PSNR sull'intero volume 3D
-                # Per farlo, skimage.metrics supporta volumi 3D se specifichi data_range.
-                # mses.append(mse(img_true, img_gen))
-                # ssims.append(ssim(img_true, img_gen, data_range=1.0))
-                # psnrs.append(psnr(img_true, img_gen, data_range=1.0))
+                p_range = float(real_phys[mid].max() - real_phys[mid].min())
+                if p_range == 0 or np.isnan(p_range): 
+                    p_range = 1.0
+                psnrs.append(psnr(real_phys[mid], gen_phys[mid], data_range=p_range))
+
+                # SSIM sui dati normalizzati [0, 1]
+                ssims.append(ssim(real_norm[mid], gen_norm[mid], data_range=1.0))
 
         # 5. Aggregazione finale di tutti gli elementi di tutti i batch
         metrics = {
