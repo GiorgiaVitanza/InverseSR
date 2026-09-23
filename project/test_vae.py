@@ -15,49 +15,61 @@ from utils.config_aekl_v3 import get_hparams
 from utils.plot_new import denormalize_data, comparison_plots_ok
 
 # Import per metriche di qualità immagine
-try:
-    from torchmetrics.functional.image import peak_signal_noise_ratio, structural_similarity_index_measure
-    HAS_TORCHMETRICS = True
-except ImportError:
-    from skimage.metrics import peak_signal_noise_ratio as skimage_psnr
-    from skimage.metrics import structural_similarity as skimage_ssim
-    HAS_TORCHMETRICS = False
 
+from skimage.metrics import peak_signal_noise_ratio as skimage_psnr
+from skimage.metrics import structural_similarity as skimage_ssim
 
-def compute_metrics(x_real, x_rec):
-    """
-    Calcola PSNR e SSIM per cubi 3D (B, C, D, H, W).
-    I dati devono essere già denormalizzati.
-    """
-    psnr_vals = []
-    ssim_vals = []
+def compute_metrics(img_real, img_hat):
+    # 1. Converti in numpy se sono ancora tensori PyTorch
+    if hasattr(img_real, 'detach'):
+        img_real = img_real.detach().cpu().numpy()
+    if hasattr(img_hat, 'detach'):
+        img_hat = img_hat.detach().cpu().numpy()
+        
+    arr_real = np.squeeze(img_real)
+    arr_rec = np.squeeze(img_hat)
+    
+    # 2. Calcola il range dei dati
+    data_range = float(arr_real.max() - arr_real.min())
+    if data_range == 0:
+        data_range = 1.0
 
-    batch_size = x_real.shape[0]
+    # 3. Determina la dimensione minima tra i lati dell'immagine/cubo
+    min_side = min(arr_real.shape)
+    
+    # Se il lato più piccolo è minore di 7, adatta la dimensione della finestra (win_size)
+    # win_size deve essere un numero dispari <= min_side
+    if min_side < 7:
+        win_size = min_side if min_side % 2 != 0 else min_side - 1
+    else:
+        win_size = 7
 
-    for b in range(batch_size):
-        img_real = x_real[b:b+1]  # (1, C, D, H, W)
-        img_rec = x_rec[b:b+1]    # (1, C, D, H, W)
+    # 4. Calcolo PSNR
+    psnr_val = skimage_psnr(arr_real, arr_rec, data_range=data_range)
 
-        # Calcolo PSNR
-        data_range = float(img_real.max() - img_real.min())
-        if data_range == 0:
-            data_range = 1.0
-
-        if HAS_TORCHMETRICS:
-            psnr_val = peak_signal_noise_ratio(img_rec, img_real, data_range=data_range).item()
-            # SSIM 3D richiede dati in forma (B, C, D, H, W)
-            ssim_val = structural_similarity_index_measure(img_rec, img_real, data_range=data_range).item()
+    # 5. Calcolo SSIM (Gestione speciale in caso di win_size troppo piccolo)
+    if win_size < 3:
+        # Se una dimensione è troppo piccola (es. 1 o 2 pixel), la SSIM spaziale standard non è applicabile
+        ssim_val = 0.0
+    else:
+        # Se l'array ha 3 dimensioni (es. Cubo 3D: D, H, W)
+        if arr_real.ndim == 3:
+            ssim_val = skimage_ssim(
+                arr_real, 
+                arr_rec, 
+                data_range=data_range, 
+                win_size=win_size,
+                channel_axis=0  # Tratta la prima dimensione come canale o esegui SSIM 3D
+            )
         else:
-            # Fallback con scikit-image per array numpy (D, H, W)
-            arr_real = img_real.squeeze().cpu().numpy()
-            arr_rec = img_rec.squeeze().cpu().numpy()
-            psnr_val = skimage_psnr(arr_real, arr_rec, data_range=data_range)
-            ssim_val = skimage_ssim(arr_real, arr_rec, data_range=data_range)
+            ssim_val = skimage_ssim(
+                arr_real, 
+                arr_rec, 
+                data_range=data_range, 
+                win_size=win_size
+            )
 
-        psnr_vals.append(psnr_val)
-        ssim_vals.append(ssim_val)
-
-    return np.mean(psnr_vals), np.mean(ssim_vals)
+    return psnr_val, ssim_val
 
 
 def test(hparams, train_param):
@@ -93,7 +105,7 @@ def test(hparams, train_param):
             model.load_state_dict(checkpoint['model_state_dict'])
         else:
             model.load_state_dict(checkpoint)
-    print("Modello inizializzato e pesi caricati con successo.")
+    print(f"Modello inizializzato e pesi caricati con successo da {checkpoint_path}.")
     
     model.eval()
 
