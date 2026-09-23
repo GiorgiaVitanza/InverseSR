@@ -166,16 +166,17 @@ def apply_3d_spatial_augmentation(x_0, spatial_mask, prob=0.7):
 
 
 class RadioPatchDataset(Dataset):
+
     def __init__(
-        self, 
-        data_dir, 
-        catalogue_path, 
-        in_channels=1, 
-        norm_mode='global_sym', 
+        self,
+        data_dir,
+        catalogue_path=None,  # <-- reso opzionale con default None
+        in_channels=1,
+        norm_mode="global_sym",
         num_samples_stats=100,
         mask_sigma=1.5,
-        augment=True,      # <-- FLAG PER ATTIVARE/DISATTIVARE AUGMENTATION
-        aug_prob=0.5       # <-- PROBABILITÀ DI TRASFORMAZIONE
+        augment=True,
+        aug_prob=0.5,
     ):
         super().__init__()
         self.data_dir = data_dir
@@ -184,62 +185,83 @@ class RadioPatchDataset(Dataset):
         self.mask_sigma = mask_sigma
         self.augment = augment
         self.aug_prob = aug_prob
-        
+
         # 1. SCANSIONE DIRETTORI
         all_paths = sorted(glob(os.path.join(data_dir, "*.npy")))
         self.patch_files = [os.path.basename(p) for p in all_paths]
-        
-        if len(self.patch_files) == 0:
-            raise FileNotFoundError(f"Nessun file .npy trovato nella directory: {data_dir}")
 
-        # 2. CARICAMENTO E PULIZIA CATALOGO
+        if len(self.patch_files) == 0:
+            raise FileNotFoundError(
+                f"Nessun file .npy trovato nella directory: {data_dir}"
+            )
+
+        # 2. CARICAMENTO E PULIZIA CATALOGO (Gestione opzionale)
         self.catalog_dict = {}
-        self.feature_cols = ['hi_size', 'line_flux_integral', 'i', 'w20']
+        self.feature_cols = ["hi_size", "line_flux_integral", "i", "w20"]
         self.stats_catalog = {}
 
         if catalogue_path and os.path.exists(catalogue_path):
             df_catalog = pd.read_csv(catalogue_path)
-            df_catalog.columns = [c.lower().strip() for c in df_catalog.columns]
-            
-            if 'patch_id' in df_catalog.columns:
-                df_catalog = df_catalog.drop_duplicates(subset=['patch_id'], keep='first')
-                
+            df_catalog.columns = [
+                c.lower().strip() for c in df_catalog.columns
+            ]
+
+            if "patch_id" in df_catalog.columns:
+                df_catalog = df_catalog.drop_duplicates(
+                    subset=["patch_id"], keep="first"
+                )
+
                 self.stats_catalog = {
-                    col: (df_catalog[col].min(), df_catalog[col].max()) 
-                    for col in self.feature_cols if col in df_catalog.columns
+                    col: (df_catalog[col].min(), df_catalog[col].max())
+                    for col in self.feature_cols
+                    if col in df_catalog.columns
                 }
-                
-                self.catalog_dict = df_catalog.set_index('patch_id').to_dict(orient='index')
+
+                self.catalog_dict = df_catalog.set_index("patch_id").to_dict(
+                    orient="index"
+                )
             else:
-                print("Warning: Colonna 'patch_id' non trovata nel CSV. Il catalogo verrà ignorato.")
+                print(
+                    "Warning: Colonna 'patch_id' non trovata nel CSV. Il catalogo verrà ignorato."
+                )
+        else:
+            print("Info: Nessun catalogo fornito o file non trovato. Si procede senza catalogo.")
 
         # 3. Calcolo dinamico statistiche
-        self.dataset_stats = self._compute_dataset_statistics(num_samples_stats)
+        self.dataset_stats = self._compute_dataset_statistics(
+            num_samples_stats
+        )
 
     def _compute_dataset_statistics(self, num_samples):
-        print(f"Calcolo dinamico delle statistiche su {min(num_samples, len(self.patch_files))} file...")
-        sampled_files = np.random.choice(
-            self.patch_files, size=min(num_samples, len(self.patch_files)), replace=False
+        print(
+            f"Calcolo dinamico delle statistiche su {min(num_samples, len(self.patch_files))} file..."
         )
-        
+        sampled_files = np.random.choice(
+            self.patch_files,
+            size=min(num_samples, len(self.patch_files)),
+            replace=False,
+        )
+
         all_values = []
         max_absolute = 0.0
-        
+
         for filename in sampled_files:
             path = os.path.join(self.data_dir, filename)
             data = np.load(path).astype(np.float32)
             max_absolute = max(max_absolute, np.max(np.abs(data)))
             all_values.append(data.ravel())
-        
+
         all_values = np.concatenate(all_values)
-        
+
         stats = {
-            'limit': float(max_absolute),
-            'mean': float(np.mean(all_values)),
-            'std': float(np.std(all_values))
+            "limit": float(max_absolute),
+            "mean": float(np.mean(all_values)),
+            "std": float(np.std(all_values)),
         }
-        
-        print(f"Statistiche calcolate -> LIMIT: {stats['limit']:.4e}, MEAN: {stats['mean']:.4e}, STD: {stats['std']:.4e}")
+
+        print(
+            f"Statistiche calcolate -> LIMIT: {stats['limit']:.4e}, MEAN: {stats['mean']:.4e}, STD: {stats['std']:.4e}"
+        )
         return stats
 
     def __len__(self):
@@ -248,7 +270,7 @@ class RadioPatchDataset(Dataset):
     def __getitem__(self, idx):
         filename = self.patch_files[idx]
         path = os.path.join(self.data_dir, filename)
-        
+
         # Caricamento del file .npy
         data_numpy = np.load(path).astype(np.float32)
 
@@ -258,9 +280,11 @@ class RadioPatchDataset(Dataset):
             data_numpy = data_numpy.squeeze()
 
         # Normalizzazione
-        x_0, _ = normalize_dynamic(data_numpy, self.norm_mode, self.dataset_stats)
-        
-        if x_0.ndim == 3: 
+        x_0, _ = normalize_dynamic(
+            data_numpy, self.norm_mode, self.dataset_stats
+        )
+
+        if x_0.ndim == 3:
             x_0 = x_0.unsqueeze(0)  # Shape: (1, D, H, W)
 
         if self.in_channels == 3 and x_0.shape[0] == 1:
@@ -268,15 +292,26 @@ class RadioPatchDataset(Dataset):
 
         D, H, W = x_0.shape[-3], x_0.shape[-2], x_0.shape[-1]
 
-        # Recupero metadati
-        row = self.catalog_dict.get(filename, {})
-
         # --- MASCHERA SPAZIALE 3D ---
         spatial_mask = torch.zeros((1, D, H, W), dtype=torch.float32)
-        if all(k in row for k in ('rel_x', 'rel_y', 'rel_z')):
-            rel_x, rel_y, rel_z = float(row['rel_x']), float(row['rel_y']), float(row['rel_z'])
-            mask_np = create_3d_gaussian_mask((D, H, W), x_c=rel_x, y_c=rel_y, z_c=rel_z, sigma=self.mask_sigma)
-            spatial_mask = torch.from_numpy(mask_np).unsqueeze(0)
+
+        # Se il catalogo esiste ed è stato caricato per questo patch
+        if self.catalog_dict and filename in self.catalog_dict:
+            row = self.catalog_dict[filename]
+            if all(k in row for k in ("rel_x", "rel_y", "rel_z")):
+                rel_x, rel_y, rel_z = (
+                    float(row["rel_x"]),
+                    float(row["rel_y"]),
+                    float(row["rel_z"]),
+                )
+                mask_np = create_3d_gaussian_mask(
+                    (D, H, W),
+                    x_c=rel_x,
+                    y_c=rel_y,
+                    z_c=rel_z,
+                    sigma=self.mask_sigma,
+                )
+                spatial_mask = torch.from_numpy(mask_np).unsqueeze(0)
 
         # --- DATA AUGMENTATION ON THE FLY (Coordinata) ---
         if self.augment:
@@ -286,14 +321,19 @@ class RadioPatchDataset(Dataset):
 
         # --- CONTEXT VECTOR ---
         params = []
-        for col in self.feature_cols:
-            if col in row and col in self.stats_catalog:
-                c_min, c_max = self.stats_catalog[col]
-                norm_val = (row[col] - c_min) / (c_max - c_min + 1e-8)
-                params.append(np.clip(norm_val, 0, 1))
-            else:
-                params.append(0.5)
-        
+        if self.catalog_dict and filename in self.catalog_dict:
+            row = self.catalog_dict[filename]
+            for col in self.feature_cols:
+                if col in row and col in self.stats_catalog:
+                    c_min, c_max = self.stats_catalog[col]
+                    norm_val = (row[col] - c_min) / (c_max - c_min + 1e-8)
+                    params.append(np.clip(norm_val, 0, 1))
+                else:
+                    params.append(0.5)
+        else:
+            # Fallback a valori neutri (0.5) se il catalogo non è presente
+            params = [0.5] * len(self.feature_cols)
+
         context_vector = torch.tensor(params, dtype=torch.float32)
 
         return {
