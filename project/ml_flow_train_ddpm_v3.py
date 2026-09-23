@@ -5,6 +5,7 @@ from models.ddim import DDIMSampler
 from models.ddpm_v2_conditioned import DDPM
 import mlflow
 import numpy as np
+import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 import torch
 import torch.nn.functional as F
@@ -15,6 +16,7 @@ from utils.config_train import train_config
 from utils.config_unet_v3 import get_config
 from utils.dataset_v3 import RadioPatchDataset
 from utils.plot_new import comparison_plots_ok, denormalize_data
+
 
 # --- CONFIGURAZIONE PERCORSI E DIRECTORY ---
 train_cfg, _ = train_config()
