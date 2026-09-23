@@ -513,10 +513,13 @@ class DiffusionWrapper(nn.Module):
                 raise ValueError("conditioning_key is 'concat' or 'hybrid' but c_concat is None")
 
         # 3. Gestione CROSS-ATTENTION (Se usata da sola o insieme al concat)
-        if c_crossattn is not None:
-            context = torch.cat(c_crossattn, dim=1) if isinstance(c_crossattn, list) else c_crossattn
-            if context.dim() == 2:
-                context = context.unsqueeze(1) # Diventa [B, 1, C] per la cross-attention
+        if isinstance(c_crossattn, list):
+            # Rimuove eventuali None dalla lista
+            valid_crossattn = [c for c in c_crossattn if c is not None]
+            context = torch.cat(valid_crossattn, dim=1) if len(valid_crossattn) > 0 else None
+        else:
+            context = c_crossattn
+        
 
         # 4. UNICA CHIAMATA ALLA UNET (passiamo **kwargs per inoltrare ad esempio spatial_mask)
         out = self.diffusion_model(x_input, t, context=context, **kwargs)
