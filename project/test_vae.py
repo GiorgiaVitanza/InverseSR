@@ -165,8 +165,7 @@ def test(hparams, train_param):
             if i % 10 == 0 or i == len(test_loader) - 1:
                 fig = comparison_plots_ok(
                     x_denorm, 
-                    x_hat_denorm,
-                    flag='test'
+                    x_hat_denorm
                 )
                 fig.savefig(f"{train_param.test_fig}/test_vae_recon_batch_{i}_{train_param.norm_mode}.png")
                 plt.close(fig)  # Liberiamo la memoria della figura

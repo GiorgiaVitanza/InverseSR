@@ -92,8 +92,7 @@ def comparison_plots_ok(
     title_real="Originale", 
     title_gen="Ricostruito", 
     title_lr="Bassa Risoluzione", 
-    sources_coords=None, 
-    flag='test'
+    sources_coords=None
 ):
     # 1. Sanitizzazione input
     x_real = safe_clean(x_real)
