@@ -14,63 +14,82 @@ from utils.config_train import train_config
 from utils.config_aekl_v3 import get_hparams
 from utils.plot_new import denormalize_data, comparison_plots_ok
 
-# Import per metriche di qualità immagine
-
+import numpy as np
 from skimage.metrics import peak_signal_noise_ratio as skimage_psnr
 from skimage.metrics import structural_similarity as skimage_ssim
 
 def compute_metrics(img_real, img_hat):
-    # 1. Converti in numpy se sono ancora tensori PyTorch
+    # 1. Conversione a NumPy
     if hasattr(img_real, 'detach'):
         img_real = img_real.detach().cpu().numpy()
     if hasattr(img_hat, 'detach'):
         img_hat = img_hat.detach().cpu().numpy()
+
+    # Assicuriamo la forma 5D: (Batch, Channels, Depth, Height, Width)
+    if img_real.ndim == 4:
+        img_real = np.expand_dims(img_real, axis=0)
+        img_hat = np.expand_dims(img_hat, axis=0)
+
+    batch_size = img_real.shape[0]
+    psnr_list = []
+    ssim_list = []
+
+    # 2. Iteriamo su OGNI ELEMENTO DEL BATCH
+    for b in range(batch_size):
+        sample_real = img_real[b] # Shape: (C, D, H, W) oppure (D, H, W)
+        sample_rec = img_hat[b]
+
+        # Rimuoviamo eventuali canali/dimensioni singole per il singolo campione
+        sample_real = np.squeeze(sample_real).astype(np.float32)
+        sample_rec = np.squeeze(sample_rec).astype(np.float32)
+
+        data_range = float(sample_real.max() - sample_real.min())
         
-    arr_real = np.squeeze(img_real)
-    arr_rec = np.squeeze(img_hat)
-    
-    # 2. Calcola il range dei dati
-    data_range = float(arr_real.max() - arr_real.min())
-    if data_range == 0:
-        data_range = 1.0
+        # Se la patch è interamente vuota/costante, usiamo 1.0 per evitare divisioni per zero
+        if data_range == 0 or np.isnan(data_range):
+            data_range = 1.0
 
-    # 3. Determina la dimensione minima tra i lati dell'immagine/cubo
-    min_side = min(arr_real.shape)
-    
-    # Se il lato più piccolo è minore di 7, adatta la dimensione della finestra (win_size)
-    # win_size deve essere un numero dispari <= min_side
-    if min_side < 7:
-        win_size = min_side if min_side % 2 != 0 else min_side - 1
-    else:
-        win_size = 7
+        # Calcolo PSNR del singolo campione
+        psnr_val = skimage_psnr(sample_real, sample_rec, data_range=data_range)
+        psnr_list.append(psnr_val)
 
-    # 4. Calcolo PSNR
-    psnr_val = skimage_psnr(arr_real, arr_rec, data_range=data_range)
+        # Calcolo SSIM per il singolo campione
+        # Se 4D o 3D (C, D, H, W) o (D, H, W), calcoliamo la media fetta per fetta lungo le dimensioni spaziali (H, W)
+        if sample_real.ndim >= 3:
+            # Le dimensioni spaziali (H, W) sono SEMPRE le ultime due (-2, -1)
+            depth_slices = sample_real.reshape(-1, sample_real.shape[-2], sample_real.shape[-1])
+            rec_slices = sample_rec.reshape(-1, sample_rec.shape[-2], sample_rec.shape[-1])
 
-    # 5. Calcolo SSIM (Gestione speciale in caso di win_size troppo piccolo)
-    if win_size < 3:
-        # Se una dimensione è troppo piccola (es. 1 o 2 pixel), la SSIM spaziale standard non è applicabile
-        ssim_val = 0.0
-    else:
-        # Se l'array ha 3 dimensioni (es. Cubo 3D: D, H, W)
-        if arr_real.ndim == 3:
-            ssim_val = skimage_ssim(
-                arr_real, 
-                arr_rec, 
-                data_range=data_range, 
-                win_size=win_size,
-                channel_axis=0  # Tratta la prima dimensione come canale o esegui SSIM 3D
-            )
-        else:
-            ssim_val = skimage_ssim(
-                arr_real, 
-                arr_rec, 
-                data_range=data_range, 
-                win_size=win_size
-            )
+            slice_ssims = []
+            for d in range(depth_slices.shape[0]):
+                s_real = depth_slices[d]
+                s_rec = rec_slices[d]
 
-    return psnr_val, ssim_val
+                s_range = float(s_real.max() - s_real.min())
+                if s_range == 0:
+                    s_range = 1.0
 
+                min_dim = min(s_real.shape)
+                if min_dim >= 3:
+                    win_size = 7 if min_dim >= 7 else (min_dim if min_dim % 2 != 0 else min_dim - 1)
+                    s_val = skimage_ssim(s_real, s_rec, data_range=s_range, win_size=win_size)
+                    if not np.isnan(s_val):
+                        slice_ssims.append(s_val)
+
+            ssim_val = float(np.mean(slice_ssims)) if len(slice_ssims) > 0 else 0.0
+            ssim_list.append(ssim_val)
+
+        elif sample_real.ndim == 2:
+            min_dim = min(sample_real.shape)
+            win_size = 7 if min_dim >= 7 else (min_dim if min_dim % 2 != 0 else min_dim - 1)
+            ssim_val = skimage_ssim(sample_real, sample_rec, data_range=data_range, win_size=win_size)
+            ssim_list.append(ssim_val)
+
+    # Restituisce la media di PSNR e SSIM calcolata su tutto il batch
+    mean_psnr = float(np.mean(psnr_list))
+    mean_ssim = float(np.mean(ssim_list))
+
+    return mean_psnr, mean_ssim
 
 def test(hparams, train_param):
     device = train_param.device
@@ -105,7 +124,7 @@ def test(hparams, train_param):
             model.load_state_dict(checkpoint['model_state_dict'])
         else:
             model.load_state_dict(checkpoint)
-    print(f"Modello inizializzato e pesi caricati con successo da {checkpoint_path}.")
+    print(f"Pesi caricati con successo da {checkpoint_path}.")
     
     model.eval()
 
@@ -127,12 +146,18 @@ def test(hparams, train_param):
             loss = F.mse_loss(x_hat, x)
             test_recon_loss.append(loss.item())
 
+            
+
+            # 1. Calcola la SSIM sui dati NORMALIZZATI (stabilità numerica perfetta tra 0 e 1)
+            _, batch_ssim = compute_metrics(x, x_hat)
+
+
             # Denormalizzazione per metriche visive e fisiche
             x_denorm = denormalize_data(x, train_param.norm_mode)
             x_hat_denorm = denormalize_data(x_hat, train_param.norm_mode)
-
+            batch_psnr, _ = compute_metrics(x_denorm, x_hat_denorm)
             # Calcolo PSNR e SSIM sui dati denormalizzati
-            batch_psnr, batch_ssim = compute_metrics(x_denorm, x_hat_denorm)
+            batch_psnr, _ = compute_metrics(x_denorm, x_hat_denorm)
             test_psnr_list.append(batch_psnr)
             test_ssim_list.append(batch_ssim)
 
@@ -152,7 +177,7 @@ def test(hparams, train_param):
     print(f"\n=================== Risultati Test VAE ===================")
     print(f" Average MSE (normalized) : {np.mean(test_recon_loss):.6f}")
     print(f" Average PSNR (denorm)    : {np.mean(test_psnr_list):.2f} dB")
-    print(f" Average SSIM (denorm)    : {np.mean(test_ssim_list):.4f}")
+    print(f" Average SSIM (norm)    : {np.mean(test_ssim_list):.4f}")
     print(f"==========================================================\n")
 
 
