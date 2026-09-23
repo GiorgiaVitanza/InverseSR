@@ -115,6 +115,56 @@ def create_3d_gaussian_mask(shape, x_c, y_c, z_c, sigma=1.5):
 
 
 
+def apply_3d_spatial_augmentation(x_0, spatial_mask, prob=0.7):
+    """
+    Seleziona ed applica UNA SOLA trasformazione casuale (oppure nessuna) 
+    in modo identico sia al dato radio (x_0) che alla maschera spaziale (spatial_mask).
+    
+    Format atteso TENSOR: (C, D, H, W)
+    - dims [-2, -1] -> assi spaziali (H, W)
+    - dim -3        -> asse spettrale/profondità (D)
+    """
+    # Se il numero casuale supera la probabilità, restituisce il dato originale (Nessuna augmentation)
+    if torch.rand(1).item() > prob:
+        return x_0, spatial_mask
+
+    # Lista delle possibili trasformazioni (esclusive tra loro)
+    # 1: Flip W | 2: Flip H | 3: Flip D | 4: Rot90 | 5: Rot180 | 6: Rot270
+    aug_type = torch.randint(1, 7, (1,)).item()
+
+    if aug_type == 1:
+        # Flip Orizzontale (W)
+        x_0 = torch.flip(x_0, dims=[-1])
+        spatial_mask = torch.flip(spatial_mask, dims=[-1])
+
+    elif aug_type == 2:
+        # Flip Verticale (H)
+        x_0 = torch.flip(x_0, dims=[-2])
+        spatial_mask = torch.flip(spatial_mask, dims=[-2])
+
+    elif aug_type == 3:
+        # Flip Spettrale/Profondità (D)
+        x_0 = torch.flip(x_0, dims=[-3])
+        spatial_mask = torch.flip(spatial_mask, dims=[-3])
+
+    elif aug_type == 4:
+        # Rotazione 90° sul piano spaziale (H, W)
+        x_0 = torch.rot90(x_0, k=1, dims=[-2, -1])
+        spatial_mask = torch.rot90(spatial_mask, k=1, dims=[-2, -1])
+
+    elif aug_type == 5:
+        # Rotazione 180° sul piano spaziale (H, W)
+        x_0 = torch.rot90(x_0, k=2, dims=[-2, -1])
+        spatial_mask = torch.rot90(spatial_mask, k=2, dims=[-2, -1])
+
+    elif aug_type == 6:
+        # Rotazione 270° sul piano spaziale (H, W)
+        x_0 = torch.rot90(x_0, k=3, dims=[-2, -1])
+        spatial_mask = torch.rot90(spatial_mask, k=3, dims=[-2, -1])
+
+    return x_0, spatial_mask
+
+
 class RadioPatchDataset(Dataset):
     def __init__(
         self, 
@@ -123,23 +173,26 @@ class RadioPatchDataset(Dataset):
         in_channels=1, 
         norm_mode='global_sym', 
         num_samples_stats=100,
-        mask_sigma=1.5
+        mask_sigma=1.5,
+        augment=True,      # <-- FLAG PER ATTIVARE/DISATTIVARE AUGMENTATION
+        aug_prob=0.5       # <-- PROBABILITÀ DI TRASFORMAZIONE
     ):
         super().__init__()
         self.data_dir = data_dir
         self.in_channels = in_channels
         self.norm_mode = norm_mode
         self.mask_sigma = mask_sigma
+        self.augment = augment
+        self.aug_prob = aug_prob
         
-        # 1. SCANSIONE DIRETTORI: Troviamo TUTTI i file .npy una sola volta
-        # Salviamo solo il nome del file (es. "patch_001.npy") per la ricerca nel catalogo
+        # 1. SCANSIONE DIRETTORI
         all_paths = sorted(glob(os.path.join(data_dir, "*.npy")))
         self.patch_files = [os.path.basename(p) for p in all_paths]
         
         if len(self.patch_files) == 0:
             raise FileNotFoundError(f"Nessun file .npy trovato nella directory: {data_dir}")
 
-        # 2. CARICAMENTO E PULIZIA CATALOGO (Lettura singola)
+        # 2. CARICAMENTO E PULIZIA CATALOGO
         self.catalog_dict = {}
         self.feature_cols = ['hi_size', 'line_flux_integral', 'i', 'w20']
         self.stats_catalog = {}
@@ -149,21 +202,18 @@ class RadioPatchDataset(Dataset):
             df_catalog.columns = [c.lower().strip() for c in df_catalog.columns]
             
             if 'patch_id' in df_catalog.columns:
-                # Deduplichiamo per sicurezza se ci sono ID duplicati nel CSV
                 df_catalog = df_catalog.drop_duplicates(subset=['patch_id'], keep='first')
                 
-                # Calcolo min/max per la normalizzazione dei parametri
                 self.stats_catalog = {
                     col: (df_catalog[col].min(), df_catalog[col].max()) 
                     for col in self.feature_cols if col in df_catalog.columns
                 }
                 
-                # Convertiamo in dizionario O(1) per ricerche istantanee
                 self.catalog_dict = df_catalog.set_index('patch_id').to_dict(orient='index')
             else:
                 print("Warning: Colonna 'patch_id' non trovata nel CSV. Il catalogo verrà ignorato.")
 
-        # 3. Calcolo dinamico delle statistiche basato sui file reali
+        # 3. Calcolo dinamico statistiche
         self.dataset_stats = self._compute_dataset_statistics(num_samples_stats)
 
     def _compute_dataset_statistics(self, num_samples):
@@ -193,7 +243,6 @@ class RadioPatchDataset(Dataset):
         return stats
 
     def __len__(self):
-        # La lunghezza del dataset è guidata ESCLUSIVAMENTE dal numero di file .npy
         return len(self.patch_files)
 
     def __getitem__(self, idx):
@@ -219,7 +268,7 @@ class RadioPatchDataset(Dataset):
 
         D, H, W = x_0.shape[-3], x_0.shape[-2], x_0.shape[-1]
 
-        # Recupero metadati dal catalogo tramite lookup in O(1)
+        # Recupero metadati
         row = self.catalog_dict.get(filename, {})
 
         # --- MASCHERA SPAZIALE 3D ---
@@ -228,6 +277,12 @@ class RadioPatchDataset(Dataset):
             rel_x, rel_y, rel_z = float(row['rel_x']), float(row['rel_y']), float(row['rel_z'])
             mask_np = create_3d_gaussian_mask((D, H, W), x_c=rel_x, y_c=rel_y, z_c=rel_z, sigma=self.mask_sigma)
             spatial_mask = torch.from_numpy(mask_np).unsqueeze(0)
+
+        # --- DATA AUGMENTATION ON THE FLY (Coordinata) ---
+        if self.augment:
+            x_0, spatial_mask = apply_3d_spatial_augmentation(
+                x_0, spatial_mask, prob=self.aug_prob
+            )
 
         # --- CONTEXT VECTOR ---
         params = []
