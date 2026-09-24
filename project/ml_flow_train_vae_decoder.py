@@ -18,7 +18,7 @@ from models.aekl_no_attention import AutoencoderKL, OnlyDecoder
 from utils.config_aekl_v3 import get_hparams 
 from utils.config_train import train_config
 from utils.plot_new import comparison_plots_ok, denormalize_data
-import utils.cosmology as cosmology
+
 
 
 # --- CONFIGURAZIONE AMBIENTE LEONARDO ---
@@ -74,11 +74,27 @@ def train():
     
     print("Caricamento dataset...")
     dataset = RadioPatchDataset( 
-       train_param.data_dir, train_param.catalogue_path, hparams.z_channels, norm_mode=train_param.norm_mode
+       os.path.join(train_param.data_dir, "train/npy_patches"),
+       in_channels=hparams.z_channels, 
+       norm_mode=train_param.norm_mode
     )
     
     dataloader = DataLoader(dataset, batch_size=train_param.batch_size, shuffle=True, num_workers=1, pin_memory=True, persistent_workers=True)
 
+    val_dataset = RadioPatchDataset(
+    data_dir=os.path.join(train_param.data_dir, "val/npy_patches"),
+    in_channels=hparams.in_channels,
+    norm_mode=train_param.norm_mode,
+)
+
+    
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size=train_param.batch_size,
+        shuffle=False,  
+        num_workers=1,
+        pin_memory=True,
+    )
     os.makedirs(CHECKPOINT_DIR, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
 
@@ -98,7 +114,8 @@ def train():
 
     # Inizializzazione Loggers
     writer = SummaryWriter(log_dir=log_dir)
-
+  
+    
     with mlflow.start_run(run_name=f"VAE_Hybrid_Training_{current_time}"):
         mlflow.log_params(hparams_dict)
         mlflow.log_params(vars(train_param))
@@ -135,18 +152,32 @@ def train():
             mlflow.log_metric("avg_total_loss", avg_total, step=epoch)
             mlflow.log_metric("learning_rate", current_lr, step=epoch)
 
-            # --- LOG VISIVO POTENZIATO ---
+            # --- LOG VISIVO SU VALIDATION SET ---
             if epoch % 20 == 0:
                 model.eval()
                 with torch.no_grad():
-                    x_denorm = denormalize_data(x, train_param.norm_mode)
-                    x_hat_denorm = denormalize_data(x_hat, train_param.norm_mode)
-                    fig = comparison_plots_ok(x_denorm, x_hat_denorm, flag='test')
-                    # Log su TensorBoard
-                    writer.add_figure("Visual/3D_Comparison", fig, global_step=epoch)
+                    # 1. Prendi UN singolo batch dal Validation Dataloader
+                    val_batch = next(iter(val_dataloader))
+
+                    # Estrai la x e spostala sul device
+                    x_val = val_batch["x_0"].to(train_param.device)
+
+                    # 2. Forward pass completa in modalità eval
+                    # (Passa x_val nel VAE: encoder -> reparameterization -> decoder)
+                    posterior = model.encoder(x_val)
+                    z_val = model.quant_conv_mu(posterior)
+                    x_hat_val = model.decode(z_val)
+
+                    # 3. Denormalizzazione
+                    x_denorm = denormalize_data(x_val, train_param.norm_mode)
+                    x_hat_denorm = denormalize_data(x_hat_val, train_param.norm_mode)
+
+                    # 4. Generazione Plot e Log
+                    fig = comparison_plots_ok(x_denorm, x_hat_denorm)
+                    writer.add_figure("Visual/3D_Validation_Comparison", fig, global_step=epoch)
                     plt.close(fig)
-                    
-                model.train()
+
+                model.train()  
 
             # --- SALVATAGGIO CHECKPOINTS FISICI ---
             if (epoch + 1) % 40 == 0 or (epoch + 1) == train_param.epochs:
