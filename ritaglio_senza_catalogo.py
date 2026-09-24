@@ -87,6 +87,7 @@ def process_radio_blind_split(
     stride=128,
     splits=(0.7, 0.15, 0.15),  # Ratio per (Train, Val, Test)
     seed=42,
+    data_name="",
     output_format="npy",
     skip_empty=False,
     empty_threshold=1e-6
@@ -146,9 +147,14 @@ def process_radio_blind_split(
     
     # Secondo split: dividi Val e Test proporzionalmente
     relative_val_ratio = val_ratio / (val_ratio + test_ratio)
-    val_data, test_data = train_test_split(
-        val_test_data, train_size=relative_val_ratio, random_state=seed, shuffle=True
-    )
+    # Controlla quanti elementi ci sono prima dello split
+    if len(val_test_data) == 1:
+        val_data = val_test_data
+        test_data = []
+    else:
+        val_data, test_data = train_test_split(
+            val_test_data, train_size=relative_val_ratio, random_state=seed, shuffle=True
+        )
 
     split_datasets = {
         "train": train_data,
@@ -174,7 +180,7 @@ def process_radio_blind_split(
 
             # Salvataggio .npy
             if output_format in ["npy", "both"]:
-                np.save(os.path.join(npy_dir, f"{base_name}.npy"), p_data[np.newaxis, ...])
+                np.save(os.path.join(npy_dir, f"{base_name}_{data_name}.npy"), p_data[np.newaxis, ...])
 
             # Salvataggio .fits
             if output_format in ["fits", "both"]:
@@ -197,17 +203,18 @@ def process_radio_blind_split(
 
 
 if __name__ == "__main__":
-    FITS_PATH = "/leonardo_scratch/large/userexternal/gvitanza/MeerKATFornaxSurvey/ATCAcube.fits"
-    BASE_OUT_DIR = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/128x128x128_Meerkat_1"
+    FITS_PATH = "/leonardo_scratch/large/userexternal/gvitanza/MeerKATFornaxSurvey/t06_1kms_NGC1436_image_mos.fits"
+    BASE_OUT_DIR = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/MeerkatNGC1436"
 
     # 1. Generazione e Split dei Patch
     process_radio_blind_split(
         fits_path=FITS_PATH,
         output_dir=BASE_OUT_DIR,
-        patch_size=(128, 128, 128),
+        patch_size=(16, 128, 128),
         stride=128,
-        splits=(0.7, 0.15, 0.15),  # 70% Train, 15% Validation, 15% Test
+        splits=(0.8, 0.1, 0.1),  # 70% Train, 15% Validation, 15% Test
         seed=42,
+        data_name="meerkatNGC1436",
         output_format="npy",
         skip_empty=False
     )
