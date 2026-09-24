@@ -41,6 +41,9 @@ def quick_test_metrics(model, vae, dataloader, train_param, hparams, unet_cfg):
     use_mask_channel = unet_cfg["params"]["use_mask_channel"]  # Assicurati sia booleano dal tuo argparser
     
     with torch.no_grad():
+        print(f"Totale campioni nel dataset: {len(dataset)}")
+        print(f"Batch size: {train_param.batch_size}")
+        print(f"Totale batch (lunghezza dataloader): {len(dataloader)}")
         for batch_idx, batch in enumerate(dataloader):
             x_start = batch["x_0"].to(device)
             spatial_mask = batch.get("spatial_mask", None)
@@ -136,8 +139,7 @@ def quick_test_metrics(model, vae, dataloader, train_param, hparams, unet_cfg):
                     x_start_denorm, 
                     x_gen_denorm, 
                     title_real=title_r, 
-                    title_gen=title_g, 
-                    flag='test'
+                    title_gen=title_g
                 )
                 
                 save_path = os.path.join(train_param.test_fig, f"{train_param.norm_mode}_batch_{batch_idx}.png")
@@ -199,7 +201,10 @@ if __name__ == "__main__":
     unet_cfg["params"].pop("out_channels_unet", None)  # Rimuoviamo i parametri specifici del config per evitare confusione
     unet_cfg["params"].pop("in_channels_unet", None)
     
-    dataset = RadioPatchDataset(data_dir=train_param.test_dir, catalogue_path=train_param.catalogue_path, in_channels=hparams.in_channels, norm_mode=train_param.norm_mode)
+    dataset = RadioPatchDataset(
+        data_dir=train_param.test_dir, 
+        in_channels=hparams.in_channels, 
+        norm_mode=train_param.norm_mode)
     dataloader = DataLoader(dataset, batch_size=train_param.batch_size, shuffle=True, num_workers=1, pin_memory=True, persistent_workers=True)
 
     # Inizializza VAE e DDPM 
@@ -207,7 +212,7 @@ if __name__ == "__main__":
     vae_path = train_param.vae_path
     
     if os.path.exists(vae_path):
-        vae_checkpoint = torch.load(vae_path, map_location=train_param.device, weights_only=True)
+        vae_checkpoint = torch.load(vae_path, map_location=train_param.device, weights_only=False)
         
         if isinstance(vae_checkpoint, dict) and "model_state_dict" in vae_checkpoint:
             state_dict = vae_checkpoint["model_state_dict"]
@@ -227,7 +232,7 @@ if __name__ == "__main__":
     ).to(train_param.device)
     ddpm_path = train_param.output_dir_ddpm
     if os.path.exists(ddpm_path):
-        ddpm_checkpoint = torch.load(ddpm_path, map_location=train_param.device, weights_only=True)
+        ddpm_checkpoint = torch.load(ddpm_path, map_location=train_param.device, weights_only=False)
         # Controlla se i pesi sono dentro 'model_state_dict' (come dice l'errore)
         if isinstance(ddpm_checkpoint, dict) and "model_state_dict" in ddpm_checkpoint:
             state_dict = ddpm_checkpoint["model_state_dict"]
