@@ -1,7 +1,7 @@
 # Code adapted for Astrophysical Data Restoration
 # Original Reference: Pinaya et al. (2022) & Marinescu et al. (2020)
 
-import argparse
+from utils.metrics_benchmark import run_astrophysical_benchmarks
 import csv
 import os
 from argparse import ArgumentParser, Namespace
@@ -308,7 +308,8 @@ def project(
 
     writer.flush()
     writer.close()
-
+    
+    
     # =========================================================================
     # SALVATAGGIO DATI RIPRISTINATI / CORROTTI / INPUT IN UNA CARTELLA DEDICATA
     # =========================================================================
@@ -328,7 +329,40 @@ def project(
     logprint(f"[INFO] Volumi salvati con successo in: {results_dir}", verbose)
 
     # =========================================================================
+    # ESECUZIONE BENCHMARK AVANZATO
+    # =========================================================================
+    logprint("[INFO] Calcolo benchmark avanzati (Fisica, Spettro 3D, VRAM, Compressione)...", verbose)
+    
+    benchmark_results = run_astrophysical_benchmarks(
+        target_phys=target_phys,
+        synth_phys=final_synth_phys,
+        target_corrupted_phys=target_corrupted_phys,
+        latent_tensor=latent_variable, # Passa le latenti per il calcolo della compressione
+        device=hparams.device
+    )
 
+    # Stampa i risultati nel terminale
+    if verbose:
+        print("\n" + "="*50)
+        print("         RISULTATI BENCHMARK 3D-SR / BRGM         ")
+        print("="*50)
+        for key, val in benchmark_results.items():
+            if "MB" in key or "%" in key or "Ratio" in key:
+                print(f" {key:<35}: {val:.2f}")
+            else:
+                print(f" {key:<35}: {val:.6f}")
+        print("="*50 + "\n")
+
+    # Registra i risultati avanzati su TensorBoard
+    for metric_name, val in benchmark_results.items():
+        writer.add_scalar(f"Benchmark/{metric_name}", val, global_step=hparams.num_steps)
+
+    # Salva il report completo JSON/CSV nella cartella di output
+    import json
+    with open(results_dir / "benchmark_report.json", "w") as f:
+        json.dump(benchmark_results, f, indent=4)
+
+        
     os.makedirs(hparams.output_dir_BRGM_ddim, exist_ok=True)
     torch.save(
         {
