@@ -115,55 +115,6 @@ def create_3d_gaussian_mask(shape, x_c, y_c, z_c, sigma=1.5):
 
 
 
-def apply_3d_spatial_augmentation(x_0, spatial_mask, prob=0.7):
-    """
-    Seleziona ed applica UNA SOLA trasformazione casuale (oppure nessuna) 
-    in modo identico sia al dato radio (x_0) che alla maschera spaziale (spatial_mask).
-    
-    Format atteso TENSOR: (C, D, H, W)
-    - dims [-2, -1] -> assi spaziali (H, W)
-    - dim -3        -> asse spettrale/profondità (D)
-    """
-    # Se il numero casuale supera la probabilità, restituisce il dato originale (Nessuna augmentation)
-    if torch.rand(1).item() > prob:
-        return x_0, spatial_mask
-
-    # Lista delle possibili trasformazioni (esclusive tra loro)
-    # 1: Flip W | 2: Flip H | 3: Flip D | 4: Rot90 | 5: Rot180 | 6: Rot270
-    aug_type = torch.randint(1, 7, (1,)).item()
-
-    if aug_type == 1:
-        # Flip Orizzontale (W)
-        x_0 = torch.flip(x_0, dims=[-1])
-        spatial_mask = torch.flip(spatial_mask, dims=[-1])
-
-    elif aug_type == 2:
-        # Flip Verticale (H)
-        x_0 = torch.flip(x_0, dims=[-2])
-        spatial_mask = torch.flip(spatial_mask, dims=[-2])
-
-    elif aug_type == 3:
-        # Flip Spettrale/Profondità (D)
-        x_0 = torch.flip(x_0, dims=[-3])
-        spatial_mask = torch.flip(spatial_mask, dims=[-3])
-
-    elif aug_type == 4:
-        # Rotazione 90° sul piano spaziale (H, W)
-        x_0 = torch.rot90(x_0, k=1, dims=[-2, -1])
-        spatial_mask = torch.rot90(spatial_mask, k=1, dims=[-2, -1])
-
-    elif aug_type == 5:
-        # Rotazione 180° sul piano spaziale (H, W)
-        x_0 = torch.rot90(x_0, k=2, dims=[-2, -1])
-        spatial_mask = torch.rot90(spatial_mask, k=2, dims=[-2, -1])
-
-    elif aug_type == 6:
-        # Rotazione 270° sul piano spaziale (H, W)
-        x_0 = torch.rot90(x_0, k=3, dims=[-2, -1])
-        spatial_mask = torch.rot90(spatial_mask, k=3, dims=[-2, -1])
-
-    return x_0, spatial_mask
-
 
 class RadioPatchDataset(Dataset):
 
@@ -175,16 +126,13 @@ class RadioPatchDataset(Dataset):
         norm_mode="global_sym",
         num_samples_stats=100,
         mask_sigma=1.5,
-        augment=True,
-        aug_prob=0.5,
     ):
         super().__init__()
         self.data_dir = data_dir
         self.in_channels = in_channels
         self.norm_mode = norm_mode
         self.mask_sigma = mask_sigma
-        self.augment = augment
-        self.aug_prob = aug_prob
+       
 
         # 1. SCANSIONE DIRETTORI
         all_paths = sorted(glob(os.path.join(data_dir, "*.npy")))
@@ -313,11 +261,7 @@ class RadioPatchDataset(Dataset):
                 )
                 spatial_mask = torch.from_numpy(mask_np).unsqueeze(0)
 
-        # --- DATA AUGMENTATION ON THE FLY (Coordinata) ---
-        if self.augment:
-            x_0, spatial_mask = apply_3d_spatial_augmentation(
-                x_0, spatial_mask, prob=self.aug_prob
-            )
+        
 
         # --- CONTEXT VECTOR ---
         params = []
