@@ -74,7 +74,7 @@ def train():
     
     print("Caricamento dataset...")
     dataset = RadioPatchDataset( 
-       os.path.join(train_param.data_dir, "train/npy_patches"),
+       os.path.join(train_param.data_dir, "train_augmented/npy_patches"),
        in_channels=hparams.z_channels, 
        norm_mode=train_param.norm_mode
     )
@@ -82,7 +82,7 @@ def train():
     dataloader = DataLoader(dataset, batch_size=train_param.batch_size, shuffle=True, num_workers=1, pin_memory=True, persistent_workers=True)
 
     val_dataset = RadioPatchDataset(
-    data_dir=os.path.join(train_param.data_dir, "val/npy_patches"),
+    data_dir=os.path.join(train_param.data_dir, "val_augmented"),
     in_channels=hparams.in_channels,
     norm_mode=train_param.norm_mode,
 )
