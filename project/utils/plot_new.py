@@ -125,7 +125,7 @@ def comparison_plots_ok(
         all_volumes.extend([mip_lr_xy.ravel(), mip_lr_xz.ravel(), mip_lr_yz.ravel()])
 
     all_real = np.concatenate(all_volumes)
-    vmin, vmax = get_safe_bounds(all_real, lower_percentile=1.0, upper_percentile=99.8)
+    vmin, vmax = get_safe_bounds(all_real, lower_percentile=1, upper_percentile=99)
 
     # Setup della griglia (3 righe se x_lr è fornito, altrimenti 2 righe)
     n_rows = 3 if has_lr else 2
@@ -138,15 +138,15 @@ def comparison_plots_ok(
 
     # RIGA 1: REALE
     im = axes[0, 0].imshow(mip_real_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
-    axes[0, 0].set_title("MIP XY (Vista dall'alto)")
+    axes[0, 0].set_title("XY (Vista dall'alto)")
     axes[0, 0].set_ylabel("Originale (Y)")
 
     axes[0, 1].imshow(mip_real_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-    axes[0, 1].set_title("MIP XZ (Vista frontale)")
+    axes[0, 1].set_title("XZ (Vista frontale)")
     axes[0, 1].set_ylabel("Z")
 
     axes[0, 2].imshow(mip_real_yz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-    axes[0, 2].set_title("MIP YZ (Vista laterale)")
+    axes[0, 2].set_title("YZ (Vista laterale)")
     axes[0, 2].set_ylabel("Z")
 
     # RIGA MID: LOW RESOLUTION (Se presente)
@@ -154,29 +154,29 @@ def comparison_plots_ok(
     if has_lr:
         gen_row_idx = 2
         axes[1, 0].imshow(mip_lr_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
-        axes[1, 0].set_title("MIP XY (Vista dall'alto)")
+        axes[1, 0].set_title("XY (Vista dall'alto)")
         axes[1, 0].set_ylabel(f"{title_lr} (Y)")
 
         axes[1, 1].imshow(mip_lr_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-        axes[1, 1].set_title("MIP XZ (Vista frontale)")
+        axes[1, 1].set_title("XZ (Vista frontale)")
         axes[1, 1].set_ylabel("Z")
 
         axes[1, 2].imshow(mip_lr_yz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-        axes[1, 2].set_title("MIP YZ (Vista laterale)")
+        axes[1, 2].set_title("YZ (Vista laterale)")
         axes[1, 2].set_ylabel("Z")
 
     # RIGA FINALE: GENERATO
     axes[gen_row_idx, 0].imshow(mip_gen_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
-    axes[gen_row_idx, 0].set_title("MIP XY (Vista dall'alto)")
+    axes[gen_row_idx, 0].set_title("XY (Vista dall'alto)")
     axes[gen_row_idx, 0].set_ylabel("Generato (Y)")
     axes[gen_row_idx, 0].set_xlabel("X")
 
     axes[gen_row_idx, 1].imshow(mip_gen_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-    axes[gen_row_idx, 1].set_title("MIP XZ (Vista frontale)")
+    axes[gen_row_idx, 1].set_title("XZ (Vista frontale)")
     axes[gen_row_idx, 1].set_xlabel("X")
 
     axes[gen_row_idx, 2].imshow(mip_gen_yz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-    axes[gen_row_idx, 2].set_title("MIP YZ (Vista laterale)")
+    axes[gen_row_idx, 2].set_title("YZ (Vista laterale)")
     axes[gen_row_idx, 2].set_xlabel("Y")
 
     # Overlay coordinate sorgenti (se fornite)

@@ -12,6 +12,12 @@ def add_argument(parser: ArgumentParser):
             help="Dir per i dati di input dell'inversione",
         )
     parser.add_argument(
+                "--lr_path",
+                # Modificato: Path generico per astro
+                default=r"./data/inputs/16x128x128_cont_ldev_OK/test_LR/patch_000000.npy",
+                help="Path per patch LR",
+            )
+    parser.add_argument(
         "--tensor_board_logger_decoder",
         # Modificato: Path generico per astro
         default=r"./logs/BRGM_decoder",

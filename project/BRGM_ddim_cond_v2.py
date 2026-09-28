@@ -40,9 +40,41 @@ from utils.utils_new import (
     load_vgg_perceptual,
     sampling_from_ddim,
     setup_noise_inputs,
+    normalize_dynamic,
 )
-from visualizzazione_3d import volume_rendering
 
+
+def load_lr_patch_from_path(
+    lr_path: str,
+    device: torch.device,
+    norm_mode: str = "minmax",
+    global_stats: dict = None,
+) -> torch.Tensor:
+    if lr_path.endswith(".npy"):
+        data = np.load(lr_path).astype(np.float32)
+        lr_tensor = torch.from_numpy(data)
+    elif lr_path.endswith((".pt", ".pth")):
+        lr_tensor = torch.load(lr_path, map_location=device)
+    else:
+        raise ValueError(f"Formato file non supportato: {lr_path}")
+
+    # Assicurati che le dimensioni siano (1, C, D, H, W)
+    if lr_tensor.ndim == 3:
+        lr_tensor = lr_tensor.unsqueeze(0).unsqueeze(0)
+    elif lr_tensor.ndim == 4:
+        lr_tensor = lr_tensor.unsqueeze(0)
+
+    lr_tensor = lr_tensor.to(device)
+
+    # APPLICA LA STESSA NORMALIZZAZIONE DEL TARGET
+    if global_stats is not None:
+        clamp_min = -1.0 if norm_mode == "zscore" else 0.0
+        lr_tensor, _ = normalize_dynamic(
+            lr_tensor, norm_mode=norm_mode, stats=global_stats
+        )
+        lr_tensor = torch.clamp(lr_tensor, clamp_min, 1.0)
+
+    return lr_tensor
 
 def denormalize_cond(cond: torch.Tensor, catalogue: pd.DataFrame, feature_cols: list) -> torch.Tensor:
     """
@@ -77,6 +109,7 @@ def project(
     decoder: torch.nn.Module,
     forward: ForwardDownsample,
     target: torch.Tensor,
+    target_img_corrupted: torch.Tensor,
     device: torch.device,
     writer: SummaryWriter,
     hparams: Namespace,
@@ -151,7 +184,7 @@ def project(
     mask_cond = create_mask_for_backprop(hparams, device)
 
     # 4. PREPARAZIONE TARGET CORROTTO E VGG
-    target_img_corrupted = forward(target)
+    
     vgg16, target_features = load_vgg_perceptual(hparams, target_img_corrupted, device)
     
     if target_features is not None:
@@ -286,22 +319,14 @@ def project(
                 
                 fig = comparison_plots_ok(target_phys, synth_phys, x_lr=target_img_corrupted_vis)
                 fig.savefig(save_path / f"comparison_ok_{hparams.norm_data}_{step_str}.png")
-                plt.close(fig)
+                
 
                 plot_orthogonal_cuts(synth_phys, title=f"orthogonal_cuts_synth_{hparams.norm_data}", save_path=save_path / f"orthogonal_cuts_synth_{step_str}.png")
 
-                if hparams.corruption != "None":
-                    imgs = draw_corrupted_images(
-                        synth_img_np, target_np,
-                        step_synth_img_corrupted[0, 0].detach().cpu().numpy(),
-                        target_img_corrupted[0, 0].detach().cpu().numpy(),
-                        ssim_=ssim_,
-                    )
-                else:
-                    imgs = draw_images(synth_img_np, target_np, ssim_=ssim_)
                 
-                writer.add_figure("Reconstruction", imgs, global_step=step)
-                plt.close(imgs)
+                
+                writer.add_figure("Reconstruction", fig, global_step=step)
+                plt.close(fig)
 
             latest_metrics = {"loss": current_loss, "ssim": ssim_, "psnr": psnr_, "mse": mse_, "nmse": nmse_}
             latest_cond_phys = cond_phys
@@ -377,42 +402,42 @@ def project(
 
     return latent_variable_out, cond_out, {"loss": latest_metrics.get("loss", 0.0), "ssim": latest_metrics.get("ssim", 0.0)}
 
-
 def main(hparams: Namespace) -> None:
     device = torch.device(hparams.device)
     
-    writer = SummaryWriter(log_dir=hparams.tensor_board_logger_ddim)
-
+    # 1. Caricamento del Target HR (solo per calcolare le metriche finali)
     img_tensor, patch_stats = load_target_image(hparams, device=device)
-
-    img_data = img_tensor[0].cpu().numpy()
-    mid_slice = img_data.shape[0] // 2
-    slice_to_plot = img_data[mid_slice, :, :]
-    
-    plt.figure(figsize=(8, 8))
-    plt.imshow(slice_to_plot, cmap='hot', origin="lower") 
-    plt.colorbar(label='Intensità')
-    plt.title(f"Target image nel main normalizzato {hparams.norm_data} (Slice centrale)")
-
-    os.makedirs(hparams.output_dir_BRGM_ddim, exist_ok=True)
-    output_path = Path(hparams.output_dir_BRGM_ddim) 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    file_immagine_output = output_path / "target_mid_slice.png"
-    plt.savefig(file_immagine_output)
-    plt.close() 
-    
-    volume_rendering(img_data, "target", output_dir=str(output_path))
-
     if img_tensor.ndim == 4:
         img_tensor = img_tensor.unsqueeze(0)
-        
+
+    # 2. CARICAMENTO DIRETTO DELLA PATCH LR DAL PATH
+    # Puoi aggiungere 'lr_path' tra gli argomenti di argparse
+    lr_file_path = getattr(hparams, "lr_path", "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/16x128x128_cont_ldev_OK/test_LR/patch_000000.npy")
+    
+    if os.path.exists(lr_file_path):
+        target_lr = load_lr_patch_from_path(lr_file_path, device=device, norm_mode=hparams.norm_data, global_stats=patch_stats)
+        print(f"[INFO] Patch LR caricata con successo da: {lr_file_path}")
+    else:
+        raise FileNotFoundError(f"Impossibile trovare il file LR al percorso: {lr_file_path}")
+
+    # 3. Carica il modello pre-addestrato
     diffusion, decoder = load_pre_trained_model(hparams, device=device)
     ddim = DDIMSampler(diffusion)
-    
     forward = create_corruption_function(hparams=hparams, device=device)
-
+    # 4. Esegui la ricostruzione passando target_hr e target_lr esplicito
+    writer = SummaryWriter(log_dir=hparams.tensor_board_logger_ddim)
+    
     final_z, final_cond, _ = project(
-        ddim, decoder, forward, img_tensor, device, writer, hparams, patch_stats, verbose=True
+        ddim=ddim,
+        decoder=decoder,
+        forward=forward,
+        target=img_tensor,          # HR per benchmark/metriche
+        target_img_corrupted=target_lr, # LR esplicito caricato da disco
+        device=device,
+        writer=writer,
+        hparams=hparams,
+        patch_stats=patch_stats,
+        verbose=True
     )
 
     save_path = hparams.output_dir_BRGM_ddim
