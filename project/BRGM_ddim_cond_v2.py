@@ -329,7 +329,7 @@ def project(
                 plt.close(fig)
 
             latest_metrics = {"loss": current_loss, "ssim": ssim_, "psnr": psnr_, "mse": mse_, "nmse": nmse_}
-            latest_cond_phys = cond_phys
+            
 
     writer.flush()
     writer.close()
@@ -406,7 +406,7 @@ def main(hparams: Namespace) -> None:
     device = torch.device(hparams.device)
     
     # 1. Caricamento del Target HR (solo per calcolare le metriche finali)
-    img_tensor, patch_stats = load_target_image(hparams, device=device)
+    img_tensor, patch_stats = load_target_image(hparams, device=device, target_path="/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/16x128x128_cont_ldev_OK/test/npy_patches/patch_000000.npy")
     if img_tensor.ndim == 4:
         img_tensor = img_tensor.unsqueeze(0)
 

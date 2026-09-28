@@ -10,7 +10,6 @@ import torch
 from monai.transforms import apply_transform
 import pandas as pd
 
-
 # Assicurati che questi import puntino ai tuoi moduli corretti
 from models.ddim import DDIMSampler
 from models.aekl_no_attention import OnlyDecoder
@@ -133,36 +132,53 @@ def seed_everything(seed: int) -> None:
     torch.backends.cudnn.deterministic = True
 
 
-def load_target_image(hparams: Namespace, device: torch.device):
+
+
+def load_target_image(hparams: Namespace, device: torch.device, target_path: str = None):
     """
     Carica l'immagine target e applica la normalizzazione globale specificata in hparams.norm_data.
-    Restituisce: (img_tensor, global_stats)
+    
+    Parametri:
+        hparams: Iperparametri della simulazione/modello.
+        device: Device PyTorch (cpu o cuda).
+        target_path (str, optional): Percorso esplicito al file target da caricare. Se specificato,
+                                     ha priorità rispetto ai percorsi definiti in hparams.
+    
+    Restituisce: 
+        (img_tensor, global_stats)
     """
-    input_path = Path(hparams.input_data_dir) if hasattr(hparams, 'input_data_dir') else None
-
     # 1. IDENTIFICAZIONE FILE
-    if input_path and input_path.is_file():
-        img_path = input_path
-    elif hparams.data_format == "npy" and getattr(hparams, 'inference', False):
-        potential_files = list(INPUT_FOLDER_PATCHES.glob("*.npy"))
-        print("Inference mode: loading npy patches")
-    elif hparams.data_format == "npy" and getattr(hparams, 'test_mode', False):
-        potential_files = list(INPUT_FOLDER_TEST.glob("*.npy"))
-    elif hparams.data_format == "fits":
-        folder = input_path if (input_path and input_path.is_dir()) else INPUT_FOLDER_PATCHES
-        potential_files = list(folder.glob(f"*{hparams.object_id}*.fits")) or list(folder.glob("*.fits"))
+    if target_path is not None:
+        # Se è stato passato un percorso esplicito, usiamo direttamente quello
+        img_path = Path(target_path)
+        if not img_path.exists():
+            raise FileNotFoundError(f"Il file target specificato non esiste: {img_path}")
     else:
-        raise ValueError(f"Formato {hparams.data_format} non supportato.")
+        # Altrimenti usiamo la logica di fallback basata sugli hparams
+        input_path = Path(hparams.input_data_dir) if hasattr(hparams, 'input_data_dir') else None
 
-    if 'img_path' not in locals():
-        if not potential_files:
-            raise FileNotFoundError(f"Nessun file trovato per {hparams.object_id}")
-        img_path = potential_files[0]
+        if input_path and input_path.is_file():
+            img_path = input_path
+        elif hparams.data_format == "npy" and getattr(hparams, 'inference', False):
+            potential_files = list(INPUT_FOLDER_PATCHES.glob("*.npy"))
+            print("Inference mode: loading npy patches")
+        elif hparams.data_format == "npy" and getattr(hparams, 'test_mode', False):
+            potential_files = list(INPUT_FOLDER_TEST.glob("*.npy"))
+        elif hparams.data_format == "fits":
+            folder = input_path if (input_path and input_path.is_dir()) else INPUT_FOLDER_PATCHES
+            potential_files = list(folder.glob(f"*{hparams.object_id}*.fits")) or list(folder.glob("*.fits"))
+        else:
+            raise ValueError(f"Formato {hparams.data_format} non supportato.")
+
+        if 'img_path' not in locals():
+            if not potential_files:
+                raise FileNotFoundError(f"Nessun file trovato per {hparams.object_id}")
+            img_path = potential_files[0]
 
     print(f"Caricamento immagine target da: {img_path}")
     
     # 2. CARICAMENTO DATI RAW
-    if img_path.suffix.lower() == ".fits" or hparams.data_format == "fits":
+    if img_path.suffix.lower() == ".fits" or getattr(hparams, 'data_format', None) == "fits":
         img_tensor = transform_img(img_path, device=device)
     else:
         data = np.load(img_path).astype(np.float32)
@@ -186,20 +202,16 @@ def load_target_image(hparams: Namespace, device: torch.device):
 
     if img_tensor.shape[0] >= 5:
         target_slice = img_tensor[2:5]
-        # Passiamo explicitamente global_stats come terzo parametro
         norm_data, _ = normalize_dynamic(target_slice, norm_mode=norm_mode, stats=global_stats)
         norm_data = torch.clamp(norm_data, clamp_min, 1.0)
         img_tensor[2:5] = norm_data
     else:
-        # Passiamo explicitamente global_stats come terzo parametro
         img_tensor, _ = normalize_dynamic(img_tensor, norm_mode=norm_mode, stats=global_stats)
         img_tensor = torch.clamp(img_tensor, clamp_min, 1.0)
 
     print(f"Carico il target normalizzato con '{norm_mode}' nel range [{clamp_min}, 1.0]")
 
-    # Restituiamo il tensor e il dizionario globale completo per la denormalizzazione
     return img_tensor, global_stats
-
         
     
 
