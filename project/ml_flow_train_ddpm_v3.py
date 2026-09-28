@@ -70,11 +70,10 @@ def train():
 
     # 2. Dataset e DataLoader (TRAIN & VALIDATION)
     train_dataset = RadioPatchDataset(
-        data_dir=os.path.join(train_cfg.data_dir, "train/npy_patches"),
+        data_dir=os.path.join(train_cfg.data_dir, "train_augmented/npy_patches"),
         catalogue_path=train_cfg.catalogue_path,
         in_channels=hparams.in_channels,
         norm_mode=train_cfg.norm_mode,
-        augment=True,
     )
     train_dataloader = DataLoader(
         train_dataset,
@@ -85,10 +84,9 @@ def train():
     )
 
     val_dataset = RadioPatchDataset(
-        data_dir=os.path.join(train_cfg.data_dir, "val/npy_patches"),
+        data_dir=os.path.join(train_cfg.data_dir, "val_augmented"),
         in_channels=hparams.in_channels,
         norm_mode=train_cfg.norm_mode,
-        augment=False,  # Nessuna data augmentation in validazione!
     )
     val_dataloader = DataLoader(
         val_dataset,
