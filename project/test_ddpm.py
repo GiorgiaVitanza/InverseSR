@@ -20,7 +20,7 @@ from models.ddim import DDIMSampler
 from utils.plot_new import denormalize_data, comparison_plots_ok
 from utils.const import IMAGE_SHAPE
 
-SCALE_FACTOR_VAE = 0.18215
+SCALE_FACTOR_VAE = 1
 
 
 def quick_test_metrics(model, vae, dataloader, train_param, hparams, unet_cfg):
