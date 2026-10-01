@@ -143,6 +143,13 @@ def add_argument(parser: ArgumentParser):
         default=0.01,
         type=float,
     )
+
+    parser.add_argument(
+            "--lambda_prior",
+            default=0.01,
+            type=float,
+        )
+    
     parser.add_argument(
         "--slicing_dim", # Modificato: da perc_dim (axial/coronal)
         default="spatial",

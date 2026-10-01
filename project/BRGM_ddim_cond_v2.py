@@ -103,7 +103,6 @@ def create_mask_for_backprop(hparams: Namespace, device: torch.device) -> torch.
     mask_cond[:, 3] = 0 if not hparams.update_w20 else 1
     return mask_cond
 
-
 def project(
     ddim: DDIMSampler,
     decoder: torch.nn.Module,
@@ -201,7 +200,8 @@ def project(
     target_np = target[0, 0].detach().cpu().numpy()
     target_phys = denormalize_data(target_np, norm_mode=hparams.norm_data, patch_stats=patch_stats)
 
-    # 5. OTTIMIZZAZIONE LOOP
+    
+# 5. OTTIMIZZAZIONE LOOP
     for step in range(hparams.start_steps, hparams.num_steps):
         
         # Variabili di supporto per estrarre i tensor dalla closure
@@ -210,6 +210,7 @@ def project(
         step_pixel_loss = None
         step_perc_loss = None
         
+        # DEFINIZIONE DELLA CLOSURE (Deve stare PRIMA di chiamare optimizer.step)
         def closure():
             nonlocal step_synth_img, step_synth_img_corrupted, step_pixel_loss, step_perc_loss
             optimizer.zero_grad()
@@ -238,6 +239,13 @@ def project(
             pixel_loss = ((synth_img_corrupted - target_img_corrupted).abs() * weights).mean()
             loss = pixel_loss
 
+            # --- Aggiunta della Prior Loss ---
+            prior_loss = torch.tensor(0.0, device=device)
+            if hasattr(hparams, "lambda_prior") and hparams.lambda_prior > 0:
+                # Regularizzazione L2 sul latente z per mantenerlo vicino alla Gaussiana
+                prior_loss = torch.mean(latent_variable ** 2)
+                loss += hparams.lambda_prior * prior_loss
+
             perc_loss = torch.tensor(0.0, device=device)
             if hparams.lambda_perc > 0 and vgg16 is not None:
                 synth_features = getVggFeatures(hparams, synth_img_corrupted, vgg16)
@@ -258,9 +266,16 @@ def project(
             
             return loss
 
-        # Esecuzione passo di ottimizzazione
-        loss_tensor = optimizer.step(closure=closure)
-        current_loss = loss_tensor.item()
+        # ESECUZIONE PASSO DI OTTIMIZZAZIONE IN BASE A prior_every
+        if step % hparams.prior_every == 0:
+            loss_tensor = optimizer.step(closure=closure)
+            current_loss = loss_tensor.item()
+        else:
+            # Se lo step viene saltato, eseguiamo una forward pass rapida senza gradiente 
+            # per mantenere coerenti le metriche e le immagini salvate
+            with torch.no_grad():
+                closure()
+                current_loss = (step_pixel_loss or 0.0) + (step_perc_loss or 0.0)
 
         # --- STEP DELLO SCHEDULER ---
         current_lr = scheduler.get_last_lr()[0]
