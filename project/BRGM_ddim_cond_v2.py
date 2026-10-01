@@ -3,6 +3,7 @@
 
 from utils.metrics_benchmark import run_astrophysical_benchmarks
 import csv
+import json
 import os
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
@@ -43,6 +44,8 @@ from utils.utils_new import (
     normalize_dynamic,
 )
 
+from utils.power_spectrum_new import compute_power_spectrum_and_cross, save_power_spectrum_plots
+
 
 def load_lr_patch_from_path(
     lr_path: str,
@@ -56,9 +59,9 @@ def load_lr_patch_from_path(
     elif lr_path.endswith((".pt", ".pth")):
         lr_tensor = torch.load(lr_path, map_location=device)
     else:
-        raise ValueError(f"Formato file non supportato: {lr_path}")
+        raise ValueError(f"Unsupported file format: {lr_path}")
 
-    # Assicurati che le dimensioni siano (1, C, D, H, W)
+    # Ensure shape is (1, C, D, H, W)
     if lr_tensor.ndim == 3:
         lr_tensor = lr_tensor.unsqueeze(0).unsqueeze(0)
     elif lr_tensor.ndim == 4:
@@ -66,7 +69,7 @@ def load_lr_patch_from_path(
 
     lr_tensor = lr_tensor.to(device)
 
-    # APPLICA LA STESSA NORMALIZZAZIONE DEL TARGET
+    # Apply the same normalization as target
     if global_stats is not None:
         clamp_min = -1.0 if norm_mode == "zscore" else 0.0
         lr_tensor, _ = normalize_dynamic(
@@ -76,10 +79,9 @@ def load_lr_patch_from_path(
 
     return lr_tensor
 
+
 def denormalize_cond(cond: torch.Tensor, catalogue: pd.DataFrame, feature_cols: list) -> torch.Tensor:
-    """
-    Denormalizza i parametri basandosi sui valori reali del catalogo.
-    """
+    """Denormalizes parameters based on physical values from the catalogue."""
     mins = [catalogue[col].min() for col in feature_cols]
     maxs = [catalogue[col].max() for col in feature_cols]
     
@@ -103,6 +105,7 @@ def create_mask_for_backprop(hparams: Namespace, device: torch.device) -> torch.
     mask_cond[:, 3] = 0 if not hparams.update_w20 else 1
     return mask_cond
 
+
 def project(
     ddim: DDIMSampler,
     decoder: torch.nn.Module,
@@ -115,7 +118,7 @@ def project(
     patch_stats: dict = None,
     verbose: bool = False,
 ):
-    # 1. SETUP INIZIALE CATALOGO
+    # 1. CATALOGUE INITIAL SETUP
     cat_path = Path(INPUT_FOLDER_CAT)
     cat = {}
 
@@ -132,10 +135,10 @@ def project(
     feature_cols = ['hi_size', 'line_flux_integral', 'i', 'w20']
     cat_df = pd.DataFrame.from_dict(cat, orient='index')
     
-    # Inizializzazione cond e latent_variable
+    # Initialize cond and latent_variable
     cond, latent_variable = setup_noise_inputs(cat, device=device, hparams=hparams)
     
-    # 2. PREPARAZIONE SPATIAL MASK PER IL CONCAT CONDITIONING
+    # 2. SPATIAL MASK PREPARATION FOR CONCAT CONDITIONING
     spatial_mask = (target[:, :1] > 0).float() if target.shape[1] > 1 else (target > 0).float()
     _, _, D_lat, H_lat, W_lat = latent_variable.shape
 
@@ -146,7 +149,7 @@ def project(
         align_corners=False
     ).detach()
 
-    # 3. IMPOSTAZIONE PARAMETRI DA OTTIMIZZARE E OTTIMIZZATORE
+    # 3. OPTIMIZATION PARAMETERS & OPTIMIZER SETUP
     update_params = []
     if hparams.update_latent_variables:
         latent_variable.requires_grad = True
@@ -161,8 +164,7 @@ def project(
         lr=hparams.learning_rate
     )
 
-    # --- INIZIALIZZAZIONE SCHEDULER ---
-    # Decadimento Cosine Annealing che porta il LR dal valore iniziale fino a 1e-6
+    # --- SCHEDULER INITIALIZATION ---
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, 
         T_max=hparams.num_steps - hparams.start_steps, 
@@ -182,8 +184,7 @@ def project(
 
     mask_cond = create_mask_for_backprop(hparams, device)
 
-    # 4. PREPARAZIONE TARGET CORROTTO E VGG
-    
+    # 4. CORRUPTED TARGET & VGG PREPARATION
     vgg16, target_features = load_vgg_perceptual(hparams, target_img_corrupted, device)
     
     if target_features is not None:
@@ -193,24 +194,20 @@ def project(
     save_path.mkdir(parents=True, exist_ok=True)
 
     latest_metrics = {}
-    latest_cond_phys = None
     final_synth_img = None
 
-    # Pre-calcola target_phys per risparmiare tempo nelle metriche
+    # Pre-compute target_phys to save time during metrics calculation
     target_np = target[0, 0].detach().cpu().numpy()
     target_phys = denormalize_data(target_np, norm_mode=hparams.norm_data, patch_stats=patch_stats)
 
-    
-# 5. OTTIMIZZAZIONE LOOP
+    # 5. OPTIMIZATION LOOP
     for step in range(hparams.start_steps, hparams.num_steps):
         
-        # Variabili di supporto per estrarre i tensor dalla closure
         step_synth_img = None
         step_synth_img_corrupted = None
         step_pixel_loss = None
         step_perc_loss = None
         
-        # DEFINIZIONE DELLA CLOSURE (Deve stare PRIMA di chiamare optimizer.step)
         def closure():
             nonlocal step_synth_img, step_synth_img_corrupted, step_pixel_loss, step_perc_loss
             optimizer.zero_grad()
@@ -224,7 +221,7 @@ def project(
                 context_attn = cond.unsqueeze(1) if cond.ndim == 2 else cond
                 cond_payload["c_crossattn"] = [context_attn]
 
-            # B. GENERAZIONE
+            # B. GENERATION
             synth_img = sampling_from_ddim(
                 ddim=ddim,
                 decoder=decoder,
@@ -233,16 +230,15 @@ def project(
                 hparams=hparams,
             )
 
-            # C. CORRUZIONE E LOSS PESATA
+            # C. CORRUPTION AND WEIGHTED LOSS
             synth_img_corrupted = forward(synth_img)
             weights = torch.abs(target_img_corrupted) + 1.0
             pixel_loss = ((synth_img_corrupted - target_img_corrupted).abs() * weights).mean()
             loss = pixel_loss
 
-            # --- Aggiunta della Prior Loss ---
+            # --- Prior Loss ---
             prior_loss = torch.tensor(0.0, device=device)
             if hasattr(hparams, "lambda_prior") and hparams.lambda_prior > 0:
-                # Regularizzazione L2 sul latente z per mantenerlo vicino alla Gaussiana
                 prior_loss = torch.mean(latent_variable ** 2)
                 loss += hparams.lambda_prior * prior_loss
 
@@ -258,7 +254,6 @@ def project(
             if hparams.update_conditioning and cond.grad is not None:
                 cond.grad *= mask_cond
 
-            # Salva riferimenti per l'analisi fuori dalla closure
             step_synth_img = synth_img
             step_synth_img_corrupted = synth_img_corrupted
             step_pixel_loss = pixel_loss.item()
@@ -266,31 +261,27 @@ def project(
             
             return loss
 
-        # ESECUZIONE PASSO DI OTTIMIZZAZIONE IN BASE A prior_every
+        # EXECUTE OPTIMIZATION STEP BASED ON prior_every
         if step % hparams.prior_every == 0:
             loss_tensor = optimizer.step(closure=closure)
             current_loss = loss_tensor.item()
         else:
-            # Se lo step viene saltato, eseguiamo una forward pass rapida senza gradiente 
-            # per mantenere coerenti le metriche e le immagini salvate
             with torch.no_grad():
                 closure()
                 current_loss = (step_pixel_loss or 0.0) + (step_perc_loss or 0.0)
 
-        # --- STEP DELLO SCHEDULER ---
+        # --- SCHEDULER STEP ---
         current_lr = scheduler.get_last_lr()[0]
         scheduler.step()
 
-        # Salva l'ultimo synth generato
         final_synth_img = step_synth_img
 
-        # Clamp delle variabili fisiche condizionate
         with torch.no_grad():
             cond.clamp_(0, 1)
         latent_variable_out[step] = latent_variable.detach()[0]
         cond_out[step] = cond.detach()[0]
 
-        # F. CALCOLO METRICHE & UNICO LOGGING SU TENSORBOARD AD OGNI STEP
+        # F. METRICS CALCULATION & TENSORBOARD LOGGING
         with torch.no_grad():
             synth_img_np = step_synth_img[0, 0].detach().cpu().numpy()
             synth_phys = denormalize_data(synth_img_np, norm_mode=hparams.norm_data, patch_stats=patch_stats)
@@ -308,7 +299,6 @@ def project(
 
             cond_phys = denormalize_cond(cond, catalogue=cat_df, feature_cols=feature_cols)
 
-            # Unica scrittura scalari per ogni singola epoca/step su TensorBoard
             writer.add_scalar("Loss/Total", current_loss, global_step=step)
             writer.add_scalar("Loss/Pixelwise", step_pixel_loss, global_step=step)
             writer.add_scalar("Loss/Perceptual", step_perc_loss, global_step=step)
@@ -321,70 +311,60 @@ def project(
             if verbose:
                 print(f"Step {step:03d} | LR: {current_lr:.2e} | Loss: {current_loss:.6f} | Hi Size: {cond_phys[0,0]:.4f} | Line Flux: {cond_phys[0,1]:.4f} | I: {cond_phys[0,2]:.4f} | W20: {cond_phys[0,3]:.4f} | SSIM: {ssim_:.4f}")
 
-            # G. ESPORTAZIONE GRAFICI PESANTI (Ogni N Step)
+            # G. PLOT EXPORT (Every N Steps)
             if step % 50 == 0 or step == hparams.num_steps - 1:
-                target_img_corrupted_vis = denormalize_data(target_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data, patch_stats=patch_stats)
-                synth_img_corrupted_vis = denormalize_data(step_synth_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data, patch_stats=patch_stats)
-
-                step_str = f"{step}".zfill(4)
-                draw_img(target_phys, title=f"target_{hparams.norm_data}", step=step_str, output_folder=save_path)
-                draw_img(synth_img_corrupted_vis, title=f"corrupted_{hparams.norm_data}", step=step_str, output_folder=save_path)
-
-                compare_cubes(target_phys, synth_phys, title=f"target_vs_synth_{hparams.norm_data}", save_path=save_path / f"compare_target_vs_synth_{step_str}.png")
+                target_img_corrupted_phys = denormalize_data(target_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data, patch_stats=patch_stats)
+                                
+                step_str = f"{step}".zfill(4)                      
                 
-                fig = comparison_plots_ok(target_phys, synth_phys, x_lr=target_img_corrupted_vis)
-                fig.savefig(save_path / f"comparison_ok_{hparams.norm_data}_{step_str}.png")
-                
-
-                plot_orthogonal_cuts(synth_phys, title=f"orthogonal_cuts_synth_{hparams.norm_data}", save_path=save_path / f"orthogonal_cuts_synth_{step_str}.png")
-
-                
+                fig = comparison_plots_ok(target_phys, synth_phys, x_lr=target_img_corrupted_phys)
+                fig.savefig(save_path / f"comparison_ok_{hparams.norm_data}_{step_str}.png")                
                 
                 writer.add_figure("Reconstruction", fig, global_step=step)
                 plt.close(fig)
 
             latest_metrics = {"loss": current_loss, "ssim": ssim_, "psnr": psnr_, "mse": mse_, "nmse": nmse_}
-            
 
     writer.flush()
     writer.close()
     
-    
-    # =========================================================================
-    # SALVATAGGIO DATI RIPRISTINATI / CORROTTI / INPUT IN UNA CARTELLA DEDICATA
-    # =========================================================================
-    results_dir = save_path / "restoration_outputs"
-    results_dir.mkdir(parents=True, exist_ok=True)
-
-    target_corrupted_np = target_img_corrupted[0, 0].detach().cpu().numpy()
-    target_corrupted_phys = denormalize_data(target_corrupted_np, norm_mode=hparams.norm_data, patch_stats=patch_stats)
-
-    final_synth_np = final_synth_img[0, 0].detach().cpu().numpy()
-    final_synth_phys = denormalize_data(final_synth_np, norm_mode=hparams.norm_data, patch_stats=patch_stats)
-
-    np.save(results_dir / "target_original.npy", target_phys)
-    np.save(results_dir / "target_corrupted.npy", target_corrupted_phys)
-    np.save(results_dir / "reconstructed_synth.npy", final_synth_phys)
-
-    logprint(f"[INFO] Volumi salvati con successo in: {results_dir}", verbose)
+    synth_img_corrupted_phys = denormalize_data(step_synth_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data, patch_stats=patch_stats)
+    draw_img(target_phys, title=f"target_{hparams.norm_data}", step=step_str, output_folder=save_path)
+    compare_cubes(target_phys, synth_phys, title=f"target_vs_synth_{hparams.norm_data}", save_path=save_path / f"compare_target_vs_synth_{step_str}.png")
+    draw_img(synth_img_corrupted_phys, title=f"corrupted_{hparams.norm_data}", step=step_str, output_folder=save_path)
+    plot_orthogonal_cuts(synth_phys, title=f"orthogonal_cuts_synth_{hparams.norm_data}", save_path=save_path / f"orthogonal_cuts_synth_{step_str}.png")
+  
 
     # =========================================================================
-    # ESECUZIONE BENCHMARK AVANZATO
+    # POWER SPECTRUM CALCULATION & PLOTTING
     # =========================================================================
-    logprint("[INFO] Calcolo benchmark avanzati (Fisica, Spettro 3D, VRAM, Compressione)...", verbose)
+    logprint("[INFO] Computing 3D Power Spectrum and Cross-Spectrum...", verbose)
+    k_vals, pk_sr_norm, pk_ref_norm, r_k, t_k = compute_power_spectrum_and_cross(
+        synth_phys,
+        target_phys        
+    )
+
+    save_power_spectrum_plots(
+            k_vals, pk_sr_norm, pk_ref_norm, r_k, t_k, save_path
+        )
+    logprint(f"[INFO] Power spectrum plot saved to: {save_path}", verbose)
+
+    # =========================================================================
+    # ADVANCED BENCHMARK EXECUTION
+    # =========================================================================
+    logprint("[INFO] Computing advanced benchmarks (Physics, 3D Spectrum, VRAM, Compression)...", verbose)
     
     benchmark_results = run_astrophysical_benchmarks(
         target_phys=target_phys,
-        synth_phys=final_synth_phys,
-        target_corrupted_phys=target_corrupted_phys,
-        latent_tensor=latent_variable, # Passa le latenti per il calcolo della compressione
+        synth_phys=synth_phys,
+        target_corrupted_phys=target_img_corrupted_phys,
+        latent_tensor=latent_variable,
         device=hparams.device
     )
 
-    # Stampa i risultati nel terminale
     if verbose:
         print("\n" + "="*50)
-        print("         RISULTATI BENCHMARK 3D-SR / BRGM         ")
+        print("         3D-SR / BRGM BENCHMARK RESULTS         ")
         print("="*50)
         for key, val in benchmark_results.items():
             if "MB" in key or "%" in key or "Ratio" in key:
@@ -393,16 +373,12 @@ def project(
                 print(f" {key:<35}: {val:.6f}")
         print("="*50 + "\n")
 
-    # Registra i risultati avanzati su TensorBoard
     for metric_name, val in benchmark_results.items():
         writer.add_scalar(f"Benchmark/{metric_name}", val, global_step=hparams.num_steps)
 
-    # Salva il report completo JSON/CSV nella cartella di output
-    import json
-    with open(results_dir / "benchmark_report.json", "w") as f:
+    with open(save_path / "benchmark_report.json", "w") as f:
         json.dump(benchmark_results, f, indent=4)
 
-        
     os.makedirs(hparams.output_dir_BRGM_ddim, exist_ok=True)
     torch.save(
         {
@@ -410,44 +386,41 @@ def project(
             "latent_variable": latent_variable,
             "cond": cond,
             "optimizer": optimizer.state_dict(),
-            "scheduler": scheduler.state_dict(),  # Salvataggio stato dello scheduler
+            "scheduler": scheduler.state_dict(),
         },
         f"{hparams.output_dir_BRGM_ddim}/checkpoint.pth",
     )
 
     return latent_variable_out, cond_out, {"loss": latest_metrics.get("loss", 0.0), "ssim": latest_metrics.get("ssim", 0.0)}
 
+
 def main(hparams: Namespace) -> None:
     device = torch.device(hparams.device)
     
-    # 1. Caricamento del Target HR (solo per calcolare le metriche finali)
     img_tensor, patch_stats = load_target_image(hparams, device=device, target_path="/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/16x128x128_cont_ldev_OK/test/npy_patches/patch_000000.npy")
     if img_tensor.ndim == 4:
         img_tensor = img_tensor.unsqueeze(0)
 
-    # 2. CARICAMENTO DIRETTO DELLA PATCH LR DAL PATH
-    # Puoi aggiungere 'lr_path' tra gli argomenti di argparse
     lr_file_path = getattr(hparams, "lr_path", "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/16x128x128_cont_ldev_OK/test_LR/patch_000000.npy")
     
     if os.path.exists(lr_file_path):
         target_lr = load_lr_patch_from_path(lr_file_path, device=device, norm_mode=hparams.norm_data, global_stats=patch_stats)
-        print(f"[INFO] Patch LR caricata con successo da: {lr_file_path}")
+        print(f"[INFO] LR patch loaded successfully from: {lr_file_path}")
     else:
-        raise FileNotFoundError(f"Impossibile trovare il file LR al percorso: {lr_file_path}")
+        raise FileNotFoundError(f"Unable to find LR file at path: {lr_file_path}")
 
-    # 3. Carica il modello pre-addestrato
     diffusion, decoder = load_pre_trained_model(hparams, device=device)
     ddim = DDIMSampler(diffusion)
     forward = create_corruption_function(hparams=hparams, device=device)
-    # 4. Esegui la ricostruzione passando target_hr e target_lr esplicito
+    
     writer = SummaryWriter(log_dir=hparams.tensor_board_logger_ddim)
     
     final_z, final_cond, _ = project(
         ddim=ddim,
         decoder=decoder,
         forward=forward,
-        target=img_tensor,          # HR per benchmark/metriche
-        target_img_corrupted=target_lr, # LR esplicito caricato da disco
+        target=img_tensor,
+        target_img_corrupted=target_lr,
         device=device,
         writer=writer,
         hparams=hparams,
@@ -457,11 +430,11 @@ def main(hparams: Namespace) -> None:
 
     save_path = hparams.output_dir_BRGM_ddim
     torch.save({"z": final_z, "cond": final_cond}, f"{save_path}/results.pth")
-    print(f"Risultati salvati in {save_path}")
+    print(f"Results saved in {save_path}")
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser(description="Inversione Diffusion Model per Dati Astrofisici")
+    parser = ArgumentParser(description="Diffusion Model Inversion for Astrophysical Data")
     add_argument(parser)
     args = parser.parse_args()
     main(args)
