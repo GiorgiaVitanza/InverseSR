@@ -150,24 +150,3 @@ def save_power_spectrum_plots(k_vals, pk_sr, pk_ref, r_k, t_k, out_dir):
     print(f" ├── PNG: {png_path}")
     print(f" └── PDF: {pdf_path}")
 
-
-if __name__ == "__main__":
-    BASE_PATH = "./data/outputs/BRGM_ddim_z3_lambda0_global_arcsinh_cont_ldev_None_500steps_70ddim_scheduler_augmentoff_LRpath_NOPERC/restoration_outputs"
-
-    synth_path = os.path.join(BASE_PATH, "reconstructed_synth.npy")
-    target_path = os.path.join(BASE_PATH, "target_original.npy")
-
-    synth_cube = np.load(synth_path)
-    target_cube = np.load(target_path)
-
-    # Calcolo di tutte le metriche
-    k_vals, pk_sr_norm, pk_ref_norm, r_k, t_k = (
-        compute_power_spectrum_and_cross(
-            synth_cube, target_cube, lx=128.0, ly=128.0, lz=16.0
-        )
-    )
-
-    # Salva i grafici su disco
-    save_power_spectrum_plots(
-        k_vals, pk_sr_norm, pk_ref_norm, r_k, t_k, BASE_PATH
-    )
