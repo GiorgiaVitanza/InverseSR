@@ -334,9 +334,34 @@ def train():
 
         local_model_path = os.path.join(RUN_DIR, "ddpm_final_model")
         mlflow.pytorch.save_model(model, path=local_model_path)
+        
+        # Esempio di dati raccolti durante l'addestramento
+        epochs = range(1, len(epoch_loss) + 1)
 
-    writer.close()
-    print(f"Training concluso. Checkpoint in {CHECKPOINT_DIR}")
+        fig = plt.figure(figsize=(10, 6))
+
+        # Tracciamento della Loss di Training e Validation
+        plt.plot(epochs, epoch_loss, label='Training Loss', color='#1f77b4', linewidth=2)
+        plt.plot(epochs, val_losses, label='Validation Loss', color='#d62728', linewidth=2)
+
+        # Evidenzia il punto di stop ottimale
+        best_epoch = val_losses.index(min(val_losses)) + 1
+        plt.axvline(x=best_epoch, color='gray', linestyle='--', label=f'Optimal Epoch ({best_epoch})')
+
+        plt.title('Diagnosi Overfitting: Loss vs Epoch', fontsize=14)
+        plt.xlabel('Training epochs', fontsize=12)
+        plt.ylabel('Loss', fontsize=12)
+        plt.legend(fontsize=11)
+        plt.grid(True, linestyle=':', alpha=0.6)
+
+        # 3. Salva la figura su TensorBoard (Tag corretto: Loss invece di Accuratezza)
+        writer.add_figure("Plots/Loss", fig, global_step=len(epoch_loss))
+
+        # 4. Chiudi il grafico in memoria per evitare memory leak
+        plt.close(fig)
+
+        writer.close()
+        print(f"Training concluso. Checkpoint in {CHECKPOINT_DIR}")
 
 
 if __name__ == "__main__":
