@@ -152,24 +152,27 @@ def project(
     # 3. OPTIMIZATION PARAMETERS & OPTIMIZER SETUP
     update_params = []
     if hparams.update_latent_variables:
-        latent_variable.requires_grad = True
+        latent_variable = latent_variable.detach().requires_grad_(True)
         update_params.append(latent_variable)
     if hparams.update_conditioning:
-        cond.requires_grad = True
+        cond = cond.detach().requires_grad_(True)
         update_params.append(cond)
 
-    optimizer = torch.optim.Adam(
-        update_params, 
-        betas=(0.9, 0.999), 
-        lr=hparams.learning_rate
-    )
+    optimizer = None
+    scheduler = None
+    if len(update_params) > 0:
+        optimizer = torch.optim.Adam(
+            update_params, 
+            betas=(0.9, 0.999), 
+            lr=hparams.learning_rate
+        )
 
-    # --- SCHEDULER INITIALIZATION ---
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, 
-        T_max=hparams.num_steps - hparams.start_steps, 
-        eta_min=1e-6
-    )
+        # --- SCHEDULER INITIALIZATION ---
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, 
+            T_max=hparams.num_steps - hparams.start_steps, 
+            eta_min=1e-6
+        )
 
     latent_variable_out = torch.zeros(
         [hparams.num_steps] + list(latent_variable.shape[1:]),
@@ -200,6 +203,8 @@ def project(
     target_np = target[0, 0].detach().cpu().numpy()
     target_phys = denormalize_data(target_np, norm_mode=hparams.norm_data, patch_stats=patch_stats)
 
+    step_str = f"{hparams.num_steps - 1}".zfill(4)
+
     # 5. OPTIMIZATION LOOP
     for step in range(hparams.start_steps, hparams.num_steps):
         
@@ -210,7 +215,8 @@ def project(
         
         def closure():
             nonlocal step_synth_img, step_synth_img_corrupted, step_pixel_loss, step_perc_loss
-            optimizer.zero_grad()
+            if optimizer is not None:
+                optimizer.zero_grad()
 
             # A. CONDITIONING PAYLOAD
             cond_payload = {}
@@ -248,11 +254,11 @@ def project(
                 perc_loss = (target_features - synth_features).abs().mean()
                 loss += hparams.lambda_perc * perc_loss
 
-            # D. BACKPROPAGATION
-            loss.backward()
-            
-            if hparams.update_conditioning and cond.grad is not None:
-                cond.grad *= mask_cond
+            # D. BACKPROPAGATION (Solo se ci sono parametri da aggiornare)
+            if len(update_params) > 0 and loss.requires_grad:
+                loss.backward()
+                if hparams.update_conditioning and cond.grad is not None:
+                    cond.grad *= mask_cond
 
             step_synth_img = synth_img
             step_synth_img_corrupted = synth_img_corrupted
@@ -262,7 +268,7 @@ def project(
             return loss
 
         # EXECUTE OPTIMIZATION STEP BASED ON prior_every
-        if step % hparams.prior_every == 0:
+        if optimizer is not None and step % hparams.prior_every == 0:
             loss_tensor = optimizer.step(closure=closure)
             current_loss = loss_tensor.item()
         else:
@@ -271,8 +277,9 @@ def project(
                 current_loss = (step_pixel_loss or 0.0) + (step_perc_loss or 0.0)
 
         # --- SCHEDULER STEP ---
-        current_lr = scheduler.get_last_lr()[0]
-        scheduler.step()
+        current_lr = scheduler.get_last_lr()[0] if scheduler is not None else hparams.learning_rate
+        if scheduler is not None:
+            scheduler.step()
 
         final_synth_img = step_synth_img
 
@@ -354,10 +361,12 @@ def project(
     # =========================================================================
     logprint("[INFO] Computing advanced benchmarks (Physics, 3D Spectrum, VRAM, Compression)...", verbose)
     
+    target_corrupted_phys_final = denormalize_data(target_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data, patch_stats=patch_stats)
+
     benchmark_results = run_astrophysical_benchmarks(
         target_phys=target_phys,
         synth_phys=synth_phys,
-        target_corrupted_phys=target_img_corrupted_phys,
+        target_corrupted_phys=target_corrupted_phys_final,
         latent_tensor=latent_variable,
         device=hparams.device
     )
@@ -380,16 +389,18 @@ def project(
         json.dump(benchmark_results, f, indent=4)
 
     os.makedirs(hparams.output_dir_BRGM_ddim, exist_ok=True)
-    torch.save(
-        {
-            "epoch": hparams.num_steps,
-            "latent_variable": latent_variable,
-            "cond": cond,
-            "optimizer": optimizer.state_dict(),
-            "scheduler": scheduler.state_dict(),
-        },
-        f"{hparams.output_dir_BRGM_ddim}/checkpoint.pth",
-    )
+    
+    checkpoint_dict = {
+        "epoch": hparams.num_steps,
+        "latent_variable": latent_variable,
+        "cond": cond,
+    }
+    if optimizer is not None:
+        checkpoint_dict["optimizer"] = optimizer.state_dict()
+    if scheduler is not None:
+        checkpoint_dict["scheduler"] = scheduler.state_dict()
+
+    torch.save(checkpoint_dict, f"{hparams.output_dir_BRGM_ddim}/checkpoint.pth")
 
     return latent_variable_out, cond_out, {"loss": latest_metrics.get("loss", 0.0), "ssim": latest_metrics.get("ssim", 0.0)}
 
