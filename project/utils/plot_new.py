@@ -10,7 +10,7 @@ DEFAULT_CMAP = "hot"
 BG_COLOR = "black"
 
 def safe_clean(arr: np.ndarray) -> np.ndarray:
-    """Rimuove NaN/Inf e garantisce un array NumPy float valido per Matplotlib."""
+    """Removes NaN/Inf and ensures a valid NumPy float array for Matplotlib."""
     if hasattr(arr, 'detach'):
         arr = arr.detach().cpu().numpy()
     elif hasattr(arr, 'cpu'):
@@ -25,7 +25,7 @@ def get_safe_bounds(
     upper_percentile: float = 99.5, 
     default_range: float = 1e-5
 ) -> tuple[float, float]:
-    """Calcola vmin e vmax in modo sicuro usando i percentili su uno o più array."""
+    """Calculates vmin and vmax safely using percentiles across one or more arrays."""
     valid_arrays = [a for a in arrays if a.size > 0]
     if not valid_arrays:
         return 0.0, default_range
@@ -42,8 +42,8 @@ def get_safe_bounds(
 
 def denormalize_data(x, norm_mode: str, patch_stats: dict = None):
     """
-    Denormalizza x riportandolo alla scala fisica (Jy/beam).
-    Supporta tutte le modalità: global_sym, global_robust, global_arcsinh, local, zscore.
+    Denormalizes x back to physical scale (Jy/beam).
+    Supports all modes: global_sym, global_robust, global_arcsinh, local, zscore.
     """
     if patch_stats is None:
         patch_stats = {}
@@ -64,10 +64,10 @@ def denormalize_data(x, norm_mode: str, patch_stats: dict = None):
         p_min_arcsinh = patch_stats.get('p_min_arcsinh', float(np.arcsinh(p_min)))
         p_max_arcsinh = patch_stats.get('p_max_arcsinh', float(np.arcsinh(p_max)))
 
-        # 1. Inversa dello Scaling Min-Max Arcsinh -> [p_min_arcsinh, p_max_arcsinh]
+        # 1. Inverse Min-Max Arcsinh Scaling -> [p_min_arcsinh, p_max_arcsinh]
         x_arcsinh = x * (p_max_arcsinh - p_min_arcsinh + 1e-8) + p_min_arcsinh
         
-        # 2. Inversa dell'Arcsinh (np.sinh / torch.sinh)
+        # 2. Inverse Arcsinh (np.sinh / torch.sinh)
         if hasattr(x_arcsinh, 'sinh'):
             return np.sinh(x_arcsinh.cpu().numpy()) if hasattr(x_arcsinh, 'cpu') else np.sinh(x_arcsinh)
         return np.sinh(x_arcsinh)
@@ -89,31 +89,31 @@ def comparison_plots_ok(
     x_real, 
     x_gen, 
     x_lr=None, 
-    title_real="Originale", 
-    title_gen="Ricostruito", 
-    title_lr="Bassa Risoluzione", 
+    title_real="Original", 
+    title_gen="Reconstructed", 
+    title_lr="Low Resolution", 
     sources_coords=None
 ):
-    # 1. Sanitizzazione input
+    # 1. Input sanitization
     x_real = safe_clean(x_real)
     x_gen = safe_clean(x_gen)
     if x_lr is not None:
         x_lr = safe_clean(x_lr)
 
-    # Riduzione dimensioni per x_real e x_gen
+    # Dimension reduction for x_real and x_gen
     if x_real.ndim == 5: x_real = x_real[0]
     if x_gen.ndim == 5:  x_gen  = x_gen[0]
     if x_real.ndim == 4: x_real = x_real[0] if x_real.shape[0] in [1, 3] else x_real.squeeze()
     if x_gen.ndim == 4:  x_gen  = x_gen[0] if x_gen.shape[0] in [1, 3] else x_gen.squeeze()
 
-    # Proiezioni MIP per Reale e Generato
+    # MIP Projections for Real and Generated
     mip_real_xy, mip_real_xz, mip_real_yz = np.max(x_real, axis=0), np.max(x_real, axis=1), np.max(x_real, axis=2)
     mip_gen_xy,  mip_gen_xz,  mip_gen_yz  = np.max(x_gen, axis=0),  np.max(x_gen, axis=1),  np.max(x_gen, axis=2)
 
-    # Concatenazione dati per i limiti visivi
+    # Concatenate data for visual limits
     all_volumes = [mip_real_xy.ravel(), mip_real_xz.ravel(), mip_real_yz.ravel()]
 
-    # Gestione Proiezioni MIP per Low Resolution (se presente)
+    # Handle MIP Projections for Low Resolution (if provided)
     has_lr = x_lr is not None
     if has_lr:
         if x_lr.ndim == 5: x_lr = x_lr[0]
@@ -127,59 +127,59 @@ def comparison_plots_ok(
     all_real = np.concatenate(all_volumes)
     vmin, vmax = get_safe_bounds(all_real, lower_percentile=1, upper_percentile=99)
 
-    # Setup della griglia (3 righe se x_lr è fornito, altrimenti 2 righe)
+    # Grid setup (3 rows if x_lr is provided, otherwise 2 rows)
     n_rows = 3 if has_lr else 2
     fig, axes = plt.subplots(n_rows, 3, figsize=(15, 4 * n_rows), gridspec_kw={'height_ratios': [1] * n_rows})
     
-    main_title = f"Reale: {title_real}  |  Generato: {title_gen}"
+    main_title = f"Real: {title_real}  |  Generated: {title_gen}"
     if has_lr:
-        main_title = f"Reale: {title_real}  |  LR: {title_lr}  |  Generato: {title_gen}"
+        main_title = f"Real: {title_real}  |  LR: {title_lr}  |  Generated: {title_gen}"
     fig.suptitle(main_title, fontsize=13, fontweight='bold', y=0.99)
 
-    # RIGA 1: REALE
+    # ROW 1: REAL
     im = axes[0, 0].imshow(mip_real_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
-    axes[0, 0].set_title("XY (Vista dall'alto)")
-    axes[0, 0].set_ylabel("Originale (Y)")
+    axes[0, 0].set_title("XY (Top View)")
+    axes[0, 0].set_ylabel("Original (Y)")
 
     axes[0, 1].imshow(mip_real_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-    axes[0, 1].set_title("XZ (Vista frontale)")
+    axes[0, 1].set_title("XZ (Front View)")
     axes[0, 1].set_ylabel("Z")
 
     axes[0, 2].imshow(mip_real_yz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-    axes[0, 2].set_title("YZ (Vista laterale)")
+    axes[0, 2].set_title("YZ (Side View)")
     axes[0, 2].set_ylabel("Z")
 
-    # RIGA MID: LOW RESOLUTION (Se presente)
+    # ROW MID: LOW RESOLUTION (If present)
     gen_row_idx = 1
     if has_lr:
         gen_row_idx = 2
         axes[1, 0].imshow(mip_lr_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
-        axes[1, 0].set_title("XY (Vista dall'alto)")
+        axes[1, 0].set_title("XY (Top View)")
         axes[1, 0].set_ylabel(f"{title_lr} (Y)")
 
         axes[1, 1].imshow(mip_lr_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-        axes[1, 1].set_title("XZ (Vista frontale)")
+        axes[1, 1].set_title("XZ (Front View)")
         axes[1, 1].set_ylabel("Z")
 
         axes[1, 2].imshow(mip_lr_yz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-        axes[1, 2].set_title("YZ (Vista laterale)")
+        axes[1, 2].set_title("YZ (Side View)")
         axes[1, 2].set_ylabel("Z")
 
-    # RIGA FINALE: GENERATO
+    # FINAL ROW: GENERATED
     axes[gen_row_idx, 0].imshow(mip_gen_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
-    axes[gen_row_idx, 0].set_title("XY (Vista dall'alto)")
-    axes[gen_row_idx, 0].set_ylabel("Generato (Y)")
+    axes[gen_row_idx, 0].set_title("XY (Top View)")
+    axes[gen_row_idx, 0].set_ylabel("Generated (Y)")
     axes[gen_row_idx, 0].set_xlabel("X")
 
     axes[gen_row_idx, 1].imshow(mip_gen_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-    axes[gen_row_idx, 1].set_title("XZ (Vista frontale)")
+    axes[gen_row_idx, 1].set_title("XZ (Front View)")
     axes[gen_row_idx, 1].set_xlabel("X")
 
     axes[gen_row_idx, 2].imshow(mip_gen_yz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-    axes[gen_row_idx, 2].set_title("YZ (Vista laterale)")
+    axes[gen_row_idx, 2].set_title("YZ (Side View)")
     axes[gen_row_idx, 2].set_xlabel("Y")
 
-    # Overlay coordinate sorgenti (se fornite)
+    # Source coordinates overlay (if provided)
     if sources_coords is not None and len(sources_coords) > 0:
         xs = [pt[0] for pt in sources_coords]
         ys = [pt[1] for pt in sources_coords]
@@ -201,7 +201,7 @@ def draw_img_in_three_dim(img, title: str, output_folder: Path) -> None:
         img = img[0]
     
     if img.ndim != 3:
-        print(f"Errore: Il volume ha shape {img.shape}, ma deve essere 3D.")
+        print(f"Error: Volume shape is {img.shape}, but must be 3D.")
         return
 
     si, sj, sk = img.shape
@@ -401,10 +401,14 @@ def compare_cubes(
     
     im1 = axes[0].imshow(img_orig, cmap=DEFAULT_CMAP, origin='lower', vmin=vmin, vmax=vmax)
     axes[0].set_title("Ground Truth (Integrated - Mom 0)")
+    axes[0].set_xlabel("Pixels")
+    axes[0].set_ylabel("Pixels")
     plt.colorbar(im1, ax=axes[0], fraction=0.046, pad=0.04)
     
     im2 = axes[1].imshow(img_recon, cmap=DEFAULT_CMAP, origin='lower', vmin=vmin, vmax=vmax)
     axes[1].set_title("Generated / Reconstructed")
+    axes[1].set_xlabel("Pixels")
+    axes[1].set_ylabel("Pixels")
     plt.colorbar(im2, ax=axes[1], fraction=0.046, pad=0.04)
     
     diff = img_orig - img_recon
@@ -412,6 +416,8 @@ def compare_cubes(
         
     im3 = axes[2].imshow(diff, cmap="seismic", origin='lower', vmin=-v_max_diff, vmax=v_max_diff)
     axes[2].set_title("Residuals (Orig - Recon)")
+    axes[2].set_xlabel("Pixels")
+    axes[2].set_ylabel("Pixels")
     plt.colorbar(im3, ax=axes[2], fraction=0.046, pad=0.04)
 
     fig.suptitle(title, fontsize=14, fontweight='bold')
