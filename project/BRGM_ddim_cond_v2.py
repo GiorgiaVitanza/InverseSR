@@ -117,6 +117,7 @@ def project(
     hparams: Namespace,
     patch_stats: dict = None,
     verbose: bool = False,
+    file_names: str = "patch_000000.npy",
 ):
     # 1. CATALOGUE INITIAL SETUP
     cat_path = Path(INPUT_FOLDER_CAT)
@@ -281,7 +282,7 @@ def project(
         if scheduler is not None:
             scheduler.step()
 
-        final_synth_img = step_synth_img
+     
 
         with torch.no_grad():
             cond.clamp_(0, 1)
@@ -324,7 +325,7 @@ def project(
                                 
                 step_str = f"{step}".zfill(4)                      
                 
-                fig = comparison_plots_ok(target_phys, synth_phys, x_lr=target_img_corrupted_phys)
+                fig = comparison_plots_ok(target_phys, synth_phys, x_lr=target_img_corrupted_phys, title_real=file_names[0], title_lr=file_names[1])
                 fig.savefig(save_path / f"comparison_ok_{hparams.norm_data}_{step_str}.png")                
                 
                 writer.add_figure("Reconstruction", fig, global_step=step)
@@ -407,12 +408,14 @@ def project(
 
 def main(hparams: Namespace) -> None:
     device = torch.device(hparams.device)
-    
-    img_tensor, patch_stats = load_target_image(hparams, device=device, target_path="/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/16x128x128_cont_ldev_OK/test/npy_patches/patch_000000.npy")
+    HOME_DIR = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/16x128x128_cont_ldev_OK"
+    target_file = "/test/npy_patches/patch_000000.npy"
+    LR_file = "/test_LR/patch_000000.npy"
+    img_tensor, patch_stats = load_target_image(hparams, device=device, target_path=f"{HOME_DIR}{target_file}")
     if img_tensor.ndim == 4:
         img_tensor = img_tensor.unsqueeze(0)
 
-    lr_file_path = getattr(hparams, "lr_path", "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/16x128x128_cont_ldev_OK/test_LR/patch_000000.npy")
+    lr_file_path = getattr(hparams, "lr_path", f"{HOME_DIR}{LR_file}")
     
     if os.path.exists(lr_file_path):
         target_lr = load_lr_patch_from_path(lr_file_path, device=device, norm_mode=hparams.norm_data, global_stats=patch_stats)
@@ -425,7 +428,7 @@ def main(hparams: Namespace) -> None:
     forward = create_corruption_function(hparams=hparams, device=device)
     
     writer = SummaryWriter(log_dir=hparams.tensor_board_logger_ddim)
-    
+    file_names = [target_file, Path(lr_file_path).name]
     final_z, final_cond, _ = project(
         ddim=ddim,
         decoder=decoder,
@@ -436,7 +439,8 @@ def main(hparams: Namespace) -> None:
         writer=writer,
         hparams=hparams,
         patch_stats=patch_stats,
-        verbose=True
+        verbose=True,
+        file_names = file_names
     )
 
     save_path = hparams.output_dir_BRGM_ddim
