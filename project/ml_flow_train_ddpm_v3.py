@@ -348,7 +348,7 @@ def train():
         best_epoch = val_losses.index(min(val_losses)) + 1
         plt.axvline(x=best_epoch, color='gray', linestyle='--', label=f'Optimal Epoch ({best_epoch})')
 
-        plt.title('Diagnosi Overfitting: Loss vs Epoch', fontsize=14)
+        plt.title('Overfitting Verification: Loss vs Epoch', fontsize=14)
         plt.xlabel('Training epochs', fontsize=12)
         plt.ylabel('Loss', fontsize=12)
         plt.legend(fontsize=11)
