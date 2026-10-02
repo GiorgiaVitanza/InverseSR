@@ -71,7 +71,7 @@ def train():
     
     print("Caricamento dataset...")
     dataset = RadioPatchDataset( 
-        os.path.join(train_param.data_dir, "train_augmented/npy_patches"),
+        os.path.join(train_param.data_dir, "train"),
         in_channels=hparams.z_channels, 
         norm_mode=train_param.norm_mode
     )
@@ -86,7 +86,7 @@ def train():
     )
 
     val_dataset = RadioPatchDataset(
-        data_dir=os.path.join(train_param.data_dir, "val_augmented"),
+        data_dir=os.path.join(train_param.data_dir, "val"),
         in_channels=hparams.in_channels,
         norm_mode=train_param.norm_mode,
     )
@@ -170,10 +170,7 @@ def train():
             writer.add_scalar("Loss/KL", np.mean(epoch_kl_loss), epoch)
             writer.add_scalar("Params/LearningRate", current_lr, epoch)
             
-            # --- LOGGING (MLflow Metrics) ---
-            mlflow.log_metric("avg_train_loss", avg_train_loss, step=epoch)
-            mlflow.log_metric("avg_val_loss", avg_val_loss, step=epoch)
-            mlflow.log_metric("learning_rate", current_lr, step=epoch)
+           
 
             # --- LOG VISIVO SU VALIDATION SET (Ogni 20 Epoche) ---
             if epoch % 20 == 0:
@@ -187,7 +184,7 @@ def train():
 
                     x_denorm = denormalize_data(x_val_sample, train_param.norm_mode)
                     x_hat_denorm = denormalize_data(x_hat_val, train_param.norm_mode)
-
+                    
                     fig_comp = comparison_plots_ok(x_denorm, x_hat_denorm)
                     writer.add_figure("Visual/3D_Validation_Comparison", fig_comp, global_step=epoch)
                     plt.close(fig_comp)
@@ -214,7 +211,7 @@ def train():
         # Evidenzia l'epoca ottimale (minima validation loss)
         best_epoch = int(np.argmin(history_val_loss)) + 1
         min_val_loss = np.min(history_val_loss)
-        ax.scatter(best_epoch, min_val_loss, color='red', s=80, zorder=5, label=f'Best Epoca: {best_epoch}')
+        ax.scatter(best_epoch, min_val_loss, color='red', s=80, zorder=5, label=f'Best Epoch: {best_epoch}')
         ax.axvline(x=best_epoch, color='red', linestyle='--', alpha=0.5)
 
         ax.set_title('Training vs Validation Loss', fontsize=14, fontweight='bold')
@@ -225,11 +222,11 @@ def train():
         
         fig_loss.tight_layout()
         
-        # Salvataggio del grafico su disco, TensorBoard e MLflow
+        # Salvataggio del grafico su disco, TensorBoard 
         loss_plot_path = os.path.join(CHECKPOINT_DIR, "loss_curves.png")
         fig_loss.savefig(loss_plot_path, dpi=300)
         writer.add_figure("Visual/Loss_Curves", fig_loss, global_step=train_param.epochs)
-        mlflow.log_artifact(loss_plot_path)
+
         plt.close(fig_loss)
 
         # --- SALVATAGGIO FINALE MODELLO (IMPACCHETTAMENTO MLFLOW) ---
