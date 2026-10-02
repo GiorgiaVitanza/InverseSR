@@ -7,7 +7,6 @@ import pandas as pd
 from glob import glob
 
 
-
 def normalize_dynamic(data, norm_mode, stats=None):
     """
     Applica la normalizzazione ed evita la perdita dei min/max locali.
@@ -16,15 +15,13 @@ def normalize_dynamic(data, norm_mode, stats=None):
     if stats is None: 
         stats = {}
 
-    is_torch = isinstance(data, torch.Tensor)
-    if not is_torch:
+    if not isinstance(data, torch.Tensor):
         data = torch.from_numpy(data).float()
     else:
         data = data.float()
         
     # --- CONTROLLO SICUREZZA PER TENSOR / ARRAY VUOTI ---
-    numel = data.numel() if is_torch else data.size
-    if numel == 0:
+    if data.numel() == 0:
         return data, stats
 
     if norm_mode == 'global_sym':
@@ -34,7 +31,6 @@ def normalize_dynamic(data, norm_mode, stats=None):
         return torch.clamp(data_norm, 0.0, 1.0), {'limit': limit}
 
     elif norm_mode == 'global_robust':
-        # Percentili 0.05% e 95% passati tramite il dizionario globale stats
         p_min = stats.get('p_min', -1.0559e-05)
         p_max = stats.get('p_max', 1.8725e-05)
         
@@ -47,18 +43,15 @@ def normalize_dynamic(data, norm_mode, stats=None):
         return torch.clamp(data_norm, 0.0, 1.0), patch_stats
 
     elif norm_mode == 'global_arcsinh':
-        # Normalizzazione Arcsinh usando i percentili 0.05% e 95%
         p_min = stats.get('p_min', -1.0559e-05)
         p_max = stats.get('p_max', 1.8725e-05)
 
-        # Calcolo dinamico o recupero da stats dei limiti arcsinh
         p_min_arcsinh = stats.get('p_min_arcsinh', float(np.arcsinh(p_min)))
         p_max_arcsinh = stats.get('p_max_arcsinh', float(np.arcsinh(p_max)))
 
         if p_max_arcsinh <= p_min_arcsinh:
             p_max_arcsinh = p_min_arcsinh + 1e-8
 
-        # Trasformazione logaritmica/arcsinh e scaling [0, 1]
         data_arcsinh = torch.arcsinh(data)
         data_norm = (data_arcsinh - p_min_arcsinh) / (p_max_arcsinh - p_min_arcsinh + 1e-8)
 
@@ -72,12 +65,9 @@ def normalize_dynamic(data, norm_mode, stats=None):
         return torch.clamp(data_norm, 0.0, 1.0), patch_stats
 
     elif norm_mode == 'local':
-        if is_torch:
-            p_min = float(data.min())
-            p_max = float(torch.quantile(data.float(), 0.998))
-        else:
-            p_min = float(np.min(data))
-            p_max = float(np.percentile(data, 99.8))
+        # Essendo data ORAMAI SEMPRE un PyTorch Tensor, usiamo direttamente i metodi di PyTorch
+        p_min = float(data.min())
+        p_max = float(torch.quantile(data, 0.998))
 
         if p_max <= p_min:
             p_max = p_min + 1e-5
