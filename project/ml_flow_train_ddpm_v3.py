@@ -62,15 +62,13 @@ def train():
     in_ch = hparams.z_channels + (1 if use_mask_channel else 0)
 
     unet_cfg["params"]["in_channels"] = in_ch
-    unet_cfg["params"]["out_channels"] = (
-        hparams.z_channels
-    )  # Output ricostruisce solo z
+    unet_cfg["params"]["out_channels"] = hparams.z_channels  # Output ricostruisce solo z
     unet_cfg["params"].pop("out_channels_unet", None)
     unet_cfg["params"].pop("in_channels_unet", None)
 
     # 2. Dataset e DataLoader (TRAIN & VALIDATION)
     train_dataset = RadioPatchDataset(
-        data_dir=os.path.join(train_cfg.data_dir, "train_augmented/npy_patches"),
+        data_dir=os.path.join(train_cfg.data_dir, "train"),
         catalogue_path=train_cfg.catalogue_path,
         in_channels=hparams.in_channels,
         norm_mode=train_cfg.norm_mode,
@@ -84,7 +82,7 @@ def train():
     )
 
     val_dataset = RadioPatchDataset(
-        data_dir=os.path.join(train_cfg.data_dir, "val_augmented"),
+        data_dir=os.path.join(train_cfg.data_dir, "val"),
         in_channels=hparams.in_channels,
         norm_mode=train_cfg.norm_mode,
     )
@@ -115,6 +113,10 @@ def train():
 
     writer = SummaryWriter(log_dir=log_dir)
 
+    # Liste per tracciare lo storico delle loss per ogni epoca
+    history_train_loss = []
+    history_val_loss = []
+
     with mlflow.start_run(run_name=f"DDPM_Training_{current_time}"):
         mlflow.log_params(vars(train_cfg))
         mlflow.log_params({f"vae_{k}": v for k, v in vars(hparams).items()})
@@ -135,7 +137,7 @@ def train():
                 spatial_mask = batch["spatial_mask"].to(train_cfg.device)
                 context = batch["context"].to(train_cfg.device)
 
-                # STEP 1: Encoding Latente via VAE (senza scaling)
+                # STEP 1: Encoding Latente via VAE
                 with torch.no_grad():
                     h = vae.encoder(x_start)
                     z = vae.quant_conv_mu(h)
@@ -176,6 +178,8 @@ def train():
             scheduler.step()
 
             avg_train_loss = np.mean(epoch_loss)
+            history_train_loss.append(avg_train_loss)  # Salviamo nello storico
+
             writer.add_scalar("Loss/Train_DDPM", avg_train_loss, epoch)
             writer.add_scalar("Params/LearningRate", current_lr, epoch)
             mlflow.log_metric("avg_loss", avg_train_loss, step=epoch)
@@ -219,21 +223,18 @@ def train():
                     val_losses.append(v_loss.item())
 
             avg_val_loss = np.mean(val_losses)
+            history_val_loss.append(avg_val_loss)  # Salviamo nello storico
+
             writer.add_scalar("Loss/Val_DDPM", avg_val_loss, epoch)
             mlflow.log_metric("val_loss", avg_val_loss, step=epoch)
 
             # ==================== GENERAZIONE E PLOT ====================
             if epoch % 20 == 0:
                 with torch.no_grad():
-                    # Prendi i primi 2 campioni del primo batch di validazione
                     val_sample_batch = next(iter(val_dataloader))
                     x_vis = val_sample_batch["x_0"][:2].to(train_cfg.device)
-                    mask_vis = val_sample_batch["spatial_mask"][:2].to(
-                        train_cfg.device
-                    )
-                    context_vis = val_sample_batch["context"][:2].to(
-                        train_cfg.device
-                    )
+                    mask_vis = val_sample_batch["spatial_mask"][:2].to(train_cfg.device)
+                    context_vis = val_sample_batch["context"][:2].to(train_cfg.device)
 
                     eval_batch_size = x_vis.shape[0]
 
@@ -278,15 +279,11 @@ def train():
                         verbose=False,
                     )
 
-                    # Decodifica diretta dal VAE (senza unscaling)
                     x_gen = vae.decode(z_gen)
 
-                    x_real_denorm = denormalize_data(
-                        x_vis, train_cfg.norm_mode
-                    )
+                    x_real_denorm = denormalize_data(x_vis, train_cfg.norm_mode)
                     x_gen_denorm = denormalize_data(x_gen, train_cfg.norm_mode)
 
-                    # Estraggo coordinate del primo campione
                     mask_sample = mask_vis[0, 0].cpu().numpy()
                     src_z, src_y, src_x = np.where(mask_sample > 0.5)
                     coords = list(zip(src_x, src_y, src_z))
@@ -332,37 +329,39 @@ def train():
             registered_model_name=f"DDPM_{hparams.z_channels}ch",
         )
 
-        local_model_path = os.path.join(RUN_DIR, "ddpm_final_model")
+        local_model_path = os.path.join(CHECKPOINT_DIR, "ddpm_final_model") # <-- Corretto RUN_DIR in CHECKPOINT_DIR
         mlflow.pytorch.save_model(model, path=local_model_path)
         
-        # Esempio di dati raccolti durante l'addestramento
-        epochs = range(1, len(epoch_loss) + 1)
+        print("Generazione grafico Train vs Validation Loss...")
+        fig_loss, ax = plt.subplots(figsize=(10, 6))
+        epochs_range = range(1, train_cfg.epochs + 1)
+        
+        ax.plot(epochs_range, history_train_loss, label='Training Loss', color='tab:blue', linewidth=2)
+        ax.plot(epochs_range, history_val_loss, label='Validation Loss', color='tab:orange', linewidth=2)
+        
+        # Evidenzia l'epoca ottimale (minima validation loss)
+        best_epoch = int(np.argmin(history_val_loss)) + 1
+        min_val_loss = np.min(history_val_loss)
+        ax.scatter(best_epoch, min_val_loss, color='red', s=80, zorder=5, label=f'Best Epoch: {best_epoch}')
+        ax.axvline(x=best_epoch, color='red', linestyle='--', alpha=0.5)
 
-        fig = plt.figure(figsize=(10, 6))
+        ax.set_title('Training vs Validation Loss', fontsize=14, fontweight='bold')
+        ax.set_xlabel('Epoca', fontsize=12)
+        ax.set_ylabel('Loss', fontsize=12)
+        ax.grid(True, linestyle='--', alpha=0.6)
+        ax.legend(fontsize=11)
+        
+        fig_loss.tight_layout()
+        
+        # Salvataggio del grafico su disco e su TensorBoard
+        loss_plot_path = os.path.join(CHECKPOINT_DIR, "loss_curves.png")
+        fig_loss.savefig(loss_plot_path, dpi=300)
+        writer.add_figure("Visual/Loss_Curves", fig_loss, global_step=train_cfg.epochs)
 
-        # Tracciamento della Loss di Training e Validation
-        plt.plot(epochs, epoch_loss, label='Training Loss', color='#1f77b4', linewidth=2)
-        plt.plot(epochs, val_losses, label='Validation Loss', color='#d62728', linewidth=2)
-
-        # Evidenzia il punto di stop ottimale
-        best_epoch = val_losses.index(min(val_losses)) + 1
-        plt.axvline(x=best_epoch, color='gray', linestyle='--', label=f'Optimal Epoch ({best_epoch})')
-
-        plt.title('Overfitting Verification: Loss vs Epoch', fontsize=14)
-        plt.xlabel('Training epochs', fontsize=12)
-        plt.ylabel('Loss', fontsize=12)
-        plt.legend(fontsize=11)
-        plt.grid(True, linestyle=':', alpha=0.6)
-
-        # 3. Salva la figura su TensorBoard (Tag corretto: Loss invece di Accuratezza)
-        writer.add_figure("Plots/Loss", fig, global_step=len(epoch_loss))
-
-        # 4. Chiudi il grafico in memoria per evitare memory leak
-        plt.close(fig)
+        plt.close(fig_loss)
 
         writer.close()
         print(f"Training concluso. Checkpoint in {CHECKPOINT_DIR}")
-
 
 if __name__ == "__main__":
     train()
