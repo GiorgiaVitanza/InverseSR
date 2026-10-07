@@ -408,14 +408,14 @@ def project(
 
 def main(hparams: Namespace) -> None:
     device = torch.device(hparams.device)
-    HOME_DIR = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/16x128x128_cont_ldev_OK"
-    target_file = "/test/npy_patches/patch_000000.npy"
-    LR_file = "/test_LR/patch_000000.npy"
-    img_tensor, patch_stats = load_target_image(hparams, device=device, target_path=f"{HOME_DIR}{target_file}")
+    
+    target_file = hparams.hr_path
+    LR_file = hparams.lr_path
+    img_tensor, patch_stats = load_target_image(hparams, device=device, target_path=target_file)
     if img_tensor.ndim == 4:
         img_tensor = img_tensor.unsqueeze(0)
 
-    lr_file_path = getattr(hparams, "lr_path", f"{HOME_DIR}{LR_file}")
+    lr_file_path = getattr(hparams, "lr_path", LR_file)
     
     if os.path.exists(lr_file_path):
         target_lr = load_lr_patch_from_path(lr_file_path, device=device, norm_mode=hparams.norm_data, global_stats=patch_stats)
