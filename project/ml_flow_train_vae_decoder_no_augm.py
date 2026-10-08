@@ -71,7 +71,7 @@ def train():
     
     print("Caricamento dataset...")
     dataset = RadioPatchDataset( 
-        os.path.join(train_param.data_dir, "train_augmented"),
+        os.path.join(train_param.data_dir, "train"),
         in_channels=hparams.z_channels, 
         norm_mode=train_param.norm_mode
     )
@@ -86,7 +86,7 @@ def train():
     )
 
     val_dataset = RadioPatchDataset(
-        data_dir=os.path.join(train_param.data_dir, "val_augmented"),
+        data_dir=os.path.join(train_param.data_dir, "val"),
         in_channels=hparams.in_channels,
         norm_mode=train_param.norm_mode,
     )
@@ -148,7 +148,7 @@ def train():
 
             avg_train_loss = np.mean(epoch_total_loss)
             history_train_loss.append(avg_train_loss)
-            
+
             # ================= VALIDATION =================
             model.eval()
             val_epoch_losses = []
@@ -160,7 +160,6 @@ def train():
 
             avg_val_loss = np.mean(val_epoch_losses)
             history_val_loss.append(avg_val_loss)
-
             # --- SALVATAGGIO CHECKPOINT BEST MODEL IN REAL-TIME ---
             if avg_val_loss < best_val_loss:
                 best_val_loss = avg_val_loss
