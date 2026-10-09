@@ -6,9 +6,9 @@ import torch
 def add_argument(parser: ArgumentParser):
     # --- LOGGING & PATHS ---
     parser.add_argument(
-            "--input_data_dir",
+            "--hr_path",
             # Modificato: Path generico per astro
-            default=r"./data/inputs/16x128x128_stride128_cont_ldev/Inversion",
+            default=r"./data/inputs/Data_mix_OK/test/patch_000033.npy",
             help="Dir per i dati di input dell'inversione",
         )
     parser.add_argument(
