@@ -68,7 +68,7 @@ def train():
 
     # 2. Dataset e DataLoader (TRAIN & VALIDATION)
     train_dataset = RadioPatchDataset(
-        data_dir=os.path.join(train_cfg.data_dir, "train"),
+        data_dir=os.path.join(train_cfg.data_dir, "train_augmented"),
         catalogue_path=train_cfg.catalogue_path,
         in_channels=hparams.in_channels,
         norm_mode=train_cfg.norm_mode,
@@ -82,7 +82,7 @@ def train():
     )
 
     val_dataset = RadioPatchDataset(
-        data_dir=os.path.join(train_cfg.data_dir, "val"),
+        data_dir=os.path.join(train_cfg.data_dir, "val_augmented"),
         in_channels=hparams.in_channels,
         norm_mode=train_cfg.norm_mode,
     )
@@ -116,6 +116,10 @@ def train():
     # Liste per tracciare lo storico delle loss per ogni epoca
     history_train_loss = []
     history_val_loss = []
+
+    # Variabili per il tracciamento del miglior modello
+    best_val_loss = float("inf")
+    best_epoch = -1
 
     with mlflow.start_run(run_name=f"DDPM_Training_{current_time}"):
         mlflow.log_params(vars(train_cfg))
@@ -178,7 +182,7 @@ def train():
             scheduler.step()
 
             avg_train_loss = np.mean(epoch_loss)
-            history_train_loss.append(avg_train_loss)  # Salviamo nello storico
+            history_train_loss.append(avg_train_loss)
 
             writer.add_scalar("Loss/Train_DDPM", avg_train_loss, epoch)
             writer.add_scalar("Params/LearningRate", current_lr, epoch)
@@ -223,10 +227,28 @@ def train():
                     val_losses.append(v_loss.item())
 
             avg_val_loss = np.mean(val_losses)
-            history_val_loss.append(avg_val_loss)  # Salviamo nello storico
+            history_val_loss.append(avg_val_loss)
 
             writer.add_scalar("Loss/Val_DDPM", avg_val_loss, epoch)
             mlflow.log_metric("val_loss", avg_val_loss, step=epoch)
+
+            # --- SALVATAGGIO BEST MODEL ---
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                best_epoch = epoch + 1
+                best_ckpt_path = os.path.join(CHECKPOINT_DIR, "ddpm_best_epoch.pth")
+                
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "model_state_dict": model.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "scheduler_state_dict": scheduler.state_dict(),
+                        "best_val_loss": best_val_loss,
+                    },
+                    best_ckpt_path,
+                )
+                print(f" -> [Best Model] Salvato nuovo miglior checkpoint all'epoca {best_epoch} con Val Loss: {best_val_loss:.6f}")
 
             # ==================== GENERAZIONE E PLOT ====================
             if epoch % 20 == 0:
@@ -321,7 +343,10 @@ def train():
                     ckpt_path,
                 )
 
-        # --- SALVATAGGIO FINALE ---
+        # --- SALVATAGGIO FINALE & METRICHE ---
+        mlflow.log_metric("best_val_loss", best_val_loss)
+        mlflow.log_param("best_epoch", best_epoch)
+
         print("Registrazione modello DDPM finale...")
         mlflow.pytorch.log_model(
             pytorch_model=model,
@@ -329,7 +354,7 @@ def train():
             registered_model_name=f"DDPM_{hparams.z_channels}ch",
         )
 
-        local_model_path = os.path.join(CHECKPOINT_DIR, "ddpm_final_model") # <-- Corretto RUN_DIR in CHECKPOINT_DIR
+        local_model_path = os.path.join(CHECKPOINT_DIR, "ddpm_final_model")
         mlflow.pytorch.save_model(model, path=local_model_path)
         
         print("Generazione grafico Train vs Validation Loss...")
@@ -339,10 +364,8 @@ def train():
         ax.plot(epochs_range, history_train_loss, label='Training Loss', color='tab:blue', linewidth=2)
         ax.plot(epochs_range, history_val_loss, label='Validation Loss', color='tab:orange', linewidth=2)
         
-        # Evidenzia l'epoca ottimale (minima validation loss)
-        best_epoch = int(np.argmin(history_val_loss)) + 1
-        min_val_loss = np.min(history_val_loss)
-        ax.scatter(best_epoch, min_val_loss, color='red', s=80, zorder=5, label=f'Best Epoch: {best_epoch}')
+        # Evidenzia l'epoca ottimale
+        ax.scatter(best_epoch, best_val_loss, color='red', s=80, zorder=5, label=f'Best Epoch: {best_epoch}')
         ax.axvline(x=best_epoch, color='red', linestyle='--', alpha=0.5)
 
         ax.set_title('Training vs Validation Loss', fontsize=14, fontweight='bold')
@@ -362,6 +385,7 @@ def train():
 
         writer.close()
         print(f"Training concluso. Checkpoint in {CHECKPOINT_DIR}")
+        print(f"Miglior modello salvato all'epoca {best_epoch} con validation loss pari a {best_val_loss:.6f}")
 
 if __name__ == "__main__":
     train()
