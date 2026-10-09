@@ -9,6 +9,8 @@ logs/
 logs_vae_proceeding/
 logs_ddpm_proceeding/
 logs_ddpm_paper/
+logs_paper/
+logs_proceeding/
 logs_vae_paper/
 generated_jobs/
 
