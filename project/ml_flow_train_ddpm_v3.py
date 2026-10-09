@@ -327,8 +327,8 @@ def train():
                         plt.close("all")
                 model.train()
 
-            # --- CHECKPOINT PERIODICO ---
-            if (epoch + 1) % 20 == 0 or (epoch + 1) == train_cfg.epochs:
+            # --- ULTIMO CHECKPOINT ---
+            if (epoch + 1) == train_cfg.epochs:
                 ckpt_path = os.path.join(
                     CHECKPOINT_DIR, f"ddpm_ep{epoch+1}.pth"
                 )

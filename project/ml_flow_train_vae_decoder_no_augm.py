@@ -203,8 +203,8 @@ def train():
                     writer.add_figure("Visual/3D_Validation_Comparison", fig_comp, global_step=epoch)
                     plt.close(fig_comp)
 
-            # --- SALVATAGGIO CHECKPOINTS FISICI ---
-            if (epoch + 1) % 40 == 0 or (epoch + 1) == train_param.epochs:
+            # --- SALVATAGGIO ULTIMO CHECKPOINT ---
+            if (epoch + 1) == train_param.epochs:
                 vae_path = os.path.join(CHECKPOINT_DIR, f"vae_full_ep{epoch+1}.pth")
                 torch.save({
                     'epoch': epoch, 
