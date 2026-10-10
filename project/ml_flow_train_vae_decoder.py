@@ -190,15 +190,19 @@ def train():
             # --- LOG VISIVO SU VALIDATION SET (Ogni 20 Epoche) ---
             if epoch % 20 == 0:
                 with torch.no_grad():
+                                  
+                    
                     val_batch_sample = next(iter(val_dataloader))
                     x_val_sample = val_batch_sample["x_0"].to(train_param.device)
-
+                    patch_stats = {k: v.to(train_param.device) if isinstance(v, torch.Tensor) else v 
+                                            for k, v in val_batch_sample['stats'].items()
+                                    }
                     posterior = model.encoder(x_val_sample)
                     z_val = model.quant_conv_mu(posterior)
                     x_hat_val = model.decode(z_val)
 
-                    x_denorm = denormalize_data(x_val_sample, train_param.norm_mode)
-                    x_hat_denorm = denormalize_data(x_hat_val, train_param.norm_mode)
+                    x_denorm = denormalize_data(x_val_sample, train_param.norm_mode, patch_stats=patch_stats)
+                    x_hat_denorm = denormalize_data(x_hat_val, train_param.norm_mode, patch_stats=patch_stats)
                     
                     fig_comp = comparison_plots_ok(x_denorm, x_hat_denorm)
                     writer.add_figure("Visual/3D_Validation_Comparison", fig_comp, global_step=epoch)

@@ -1,10 +1,10 @@
 from typing import List, Optional
 from pathlib import Path
-
+import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from utils.const import FITS_LIMIT, FITS_MEAN, FITS_STD
+
 
 DEFAULT_CMAP = "hot"
 BG_COLOR = "black"
@@ -43,26 +43,27 @@ def get_safe_bounds(
 def denormalize_data(x, norm_mode: str, patch_stats: dict = None):
     """
     Denormalizes x back to physical scale (Jy/beam).
-    Supports all modes: global_sym, global_robust, global_arcsinh, local, zscore.
+    Supports all modes: global_robust, global_arcsinh, local, zscore.
     """
     if patch_stats is None:
         patch_stats = {}
 
-    if norm_mode == 'global_sym':
-        limit = patch_stats.get('limit', FITS_LIMIT)
-        return (x * 2.0 - 1.0) * limit
-
-    elif norm_mode == 'global_robust':
-        p_min = patch_stats.get('p_min', -1.0559e-05)
-        p_max = patch_stats.get('p_max', 1.8725e-05)
+    if norm_mode == 'global_robust':
+        p_min = patch_stats['p5']
+        p_max = patch_stats['p95']
         return x * (p_max - p_min + 1e-8) + p_min
+    
+    elif norm_mode == 'global_robust':
+            p_min = patch_stats['min']
+            p_max = patch_stats['max']
+            return x * (p_max - p_min + 1e-8) + p_min
 
     elif norm_mode == 'global_arcsinh':
-        p_min = patch_stats.get('p_min', -1.0559e-05)
-        p_max = patch_stats.get('p_max', 1.8725e-05)
+        p_min = patch_stats['p5']
+        p_max = patch_stats['p95']
         
-        p_min_arcsinh = patch_stats.get('p_min_arcsinh', float(np.arcsinh(p_min)))
-        p_max_arcsinh = patch_stats.get('p_max_arcsinh', float(np.arcsinh(p_max)))
+        p_min_arcsinh = patch_stats['p5_arcsinh']
+        p_max_arcsinh = patch_stats['p95_arcsinh']
 
         # 1. Inverse Min-Max Arcsinh Scaling -> [p_min_arcsinh, p_max_arcsinh]
         x_arcsinh = x * (p_max_arcsinh - p_min_arcsinh + 1e-8) + p_min_arcsinh
@@ -73,13 +74,13 @@ def denormalize_data(x, norm_mode: str, patch_stats: dict = None):
         return np.sinh(x_arcsinh)
 
     elif norm_mode == 'local':
-        p_min = patch_stats.get('p_min', -1.47e-03)
-        p_max = patch_stats.get('p_max', 1.52e-03)
+        p_min = float(x.min())
+        p_max = float(torch.quantile(x, 0.99))
         return x * (p_max - p_min + 1e-8) + p_min
 
     elif norm_mode == 'zscore':
-        mean = patch_stats.get('mean', FITS_MEAN)
-        std = patch_stats.get('std', FITS_STD)
+        mean = patch_stats['mean']
+        std = patch_stats['std']
         return x * std + mean
 
     return x

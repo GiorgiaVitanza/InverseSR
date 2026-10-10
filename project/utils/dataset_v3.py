@@ -5,6 +5,7 @@ import numpy as np
 import os
 import pandas as pd
 from glob import glob
+from utils.dataset_stats import compute_dataset_stats
 
 
 def normalize_dynamic(data, norm_mode, stats=None):
@@ -24,15 +25,9 @@ def normalize_dynamic(data, norm_mode, stats=None):
     if data.numel() == 0:
         return data, stats
 
-    if norm_mode == 'global_sym':
-        limit = stats.get('limit', 1.0)
-        x_scaled = data / (limit + 1e-8)
-        data_norm = (x_scaled + 1.0) / 2.0
-        return torch.clamp(data_norm, 0.0, 1.0), {'limit': limit}
-
-    elif norm_mode == 'global_robust':
-        p_min = stats.get('p_min', -1.0559e-05)
-        p_max = stats.get('p_max', 1.8725e-05)
+    if norm_mode == 'global_robust':
+        p_min = stats['p5']
+        p_max = stats['p95']
         
         if p_max <= p_min:
             p_max = p_min + 1e-8
@@ -41,13 +36,25 @@ def normalize_dynamic(data, norm_mode, stats=None):
         patch_stats = {'p_min': p_min, 'p_max': p_max}
 
         return torch.clamp(data_norm, 0.0, 1.0), patch_stats
+    elif norm_mode == 'global':
+            p_min = stats['min']
+            p_max = stats['max']
+            
+            if p_max <= p_min:
+                p_max = p_min + 1e-8
+    
+            data_norm = (data - p_min) / (p_max - p_min + 1e-8)
+            patch_stats = {'p_min': p_min, 'p_max': p_max}
+    
+            return torch.clamp(data_norm, 0.0, 1.0), patch_stats
+    
 
     elif norm_mode == 'global_arcsinh':
-        p_min = stats.get('p_min', -1.0559e-05)
-        p_max = stats.get('p_max', 1.8725e-05)
+        p_min = stats['p5']
+        p_max = stats['p95']
 
-        p_min_arcsinh = stats.get('p_min_arcsinh', float(np.arcsinh(p_min)))
-        p_max_arcsinh = stats.get('p_max_arcsinh', float(np.arcsinh(p_max)))
+        p_min_arcsinh = stats['p5_arcsinh']
+        p_max_arcsinh = stats['p95_arcsinh']
 
         if p_max_arcsinh <= p_min_arcsinh:
             p_max_arcsinh = p_min_arcsinh + 1e-8
@@ -65,9 +72,8 @@ def normalize_dynamic(data, norm_mode, stats=None):
         return torch.clamp(data_norm, 0.0, 1.0), patch_stats
 
     elif norm_mode == 'local':
-        # Essendo data ORAMAI SEMPRE un PyTorch Tensor, usiamo direttamente i metodi di PyTorch
         p_min = float(data.min())
-        p_max = float(torch.quantile(data, 0.998))
+        p_max = float(torch.quantile(data, 0.99))
 
         if p_max <= p_min:
             p_max = p_min + 1e-5
@@ -78,8 +84,8 @@ def normalize_dynamic(data, norm_mode, stats=None):
         return torch.clamp(data_norm, 0.0, 1.0), patch_stats
 
     elif norm_mode == 'zscore':
-        mean = stats.get('mean', 0.0)
-        std = stats.get('std', 1.0)
+        mean = stats['mean']
+        std = stats['std']
         data_norm = (data - mean) / (std + 1e-8)
         patch_stats = {'mean': mean, 'std': std}
 
@@ -124,7 +130,7 @@ class RadioPatchDataset(Dataset):
         self.mask_sigma = mask_sigma
        
 
-        # 1. SCANSIONE DIRETTORI
+        
         all_paths = sorted(glob(os.path.join(data_dir, "*.npy")))
         self.patch_files = [os.path.basename(p) for p in all_paths]
 
@@ -166,41 +172,9 @@ class RadioPatchDataset(Dataset):
             print("Info: Nessun catalogo fornito o file non trovato. Si procede senza catalogo.")
 
         # 3. Calcolo dinamico statistiche
-        self.dataset_stats = self._compute_dataset_statistics(
-            num_samples_stats
-        )
+        self.dataset_stats = compute_dataset_stats(data_dir)
+        
 
-    def _compute_dataset_statistics(self, num_samples):
-        print(
-            f"Calcolo dinamico delle statistiche su {min(num_samples, len(self.patch_files))} file..."
-        )
-        sampled_files = np.random.choice(
-            self.patch_files,
-            size=min(num_samples, len(self.patch_files)),
-            replace=False,
-        )
-
-        all_values = []
-        max_absolute = 0.0
-
-        for filename in sampled_files:
-            path = os.path.join(self.data_dir, filename)
-            data = np.load(path).astype(np.float32)
-            max_absolute = max(max_absolute, np.max(np.abs(data)))
-            all_values.append(data.ravel())
-
-        all_values = np.concatenate(all_values)
-
-        stats = {
-            "limit": float(max_absolute),
-            "mean": float(np.mean(all_values)),
-            "std": float(np.std(all_values)),
-        }
-
-        print(
-            f"Statistiche calcolate -> LIMIT: {stats['limit']:.4e}, MEAN: {stats['mean']:.4e}, STD: {stats['std']:.4e}"
-        )
-        return stats
 
     def __len__(self):
         return len(self.patch_files)
@@ -274,4 +248,5 @@ class RadioPatchDataset(Dataset):
             "x_0": x_0,
             "spatial_mask": spatial_mask,
             "context": context_vector,
+            "stats": self.dataset_stats,
         }

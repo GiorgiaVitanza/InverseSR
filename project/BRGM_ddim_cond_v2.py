@@ -28,8 +28,6 @@ from utils.plot_new import (
     compare_cubes,
     comparison_plots_ok,
     denormalize_data,
-    draw_corrupted_images,
-    draw_images,
     draw_img,
     plot_orthogonal_cuts,
 )
@@ -120,44 +118,57 @@ def project(
     file_names: str = "patch_000000.npy",
 ):
     # 1. CATALOGUE INITIAL SETUP
-    cat_path = Path(INPUT_FOLDER_CAT)
     cat = {}
-
-    with open(cat_path, "r") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            obj_id = row["patch_id"]
-            cat[obj_id] = {
-                "hi_size": float(row["hi_size"]),
-                "line_flux_integral": float(row["line_flux_integral"]),
-                "i": float(row["i"]),
-                "w20": float(row["w20"]),
-            }
-    feature_cols = ['hi_size', 'line_flux_integral', 'i', 'w20']
-    cat_df = pd.DataFrame.from_dict(cat, orient='index')
     
-    # Initialize cond and latent_variable
-    cond, latent_variable = setup_noise_inputs(cat, device=device, hparams=hparams)
+    if hparams.cond_key in ["concat", "hybrid", "crossattn"]:
+        cat_path = Path(INPUT_FOLDER_CAT)
+        
+        with open(cat_path, "r") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                obj_id = row["patch_id"]
+                cat[obj_id] = {
+                    "hi_size": float(row["hi_size"]),
+                    "line_flux_integral": float(row["line_flux_integral"]),
+                    "i": float(row["i"]),
+                    "w20": float(row["w20"]),
+                }
+        feature_cols = ['hi_size', 'line_flux_integral', 'i', 'w20']
+        cat_df = pd.DataFrame.from_dict(cat, orient='index')
     
-    # 2. SPATIAL MASK PREPARATION FOR CONCAT CONDITIONING
-    spatial_mask = (target[:, :1] > 0).float() if target.shape[1] > 1 else (target > 0).float()
-    _, _, D_lat, H_lat, W_lat = latent_variable.shape
+        # Initialize cond and latent_variable
+        cond, latent_variable = setup_noise_inputs(cat, device=device, hparams=hparams)
+        
+        # 2. SPATIAL MASK PREPARATION FOR CONCAT CONDITIONING
+        spatial_mask = (target[:, :1] > 0).float() if target.shape[1] > 1 else (target > 0).float()
+        _, _, D_lat, H_lat, W_lat = latent_variable.shape
 
-    mask_latent = F.interpolate(
-        spatial_mask, 
-        size=(D_lat, H_lat, W_lat), 
-        mode='trilinear', 
-        align_corners=False
-    ).detach()
+        mask_latent = F.interpolate(
+            spatial_mask, 
+            size=(D_lat, H_lat, W_lat), 
+            mode='trilinear', 
+            align_corners=False
+        ).detach()
+        if hparams.update_conditioning:
+                cond = cond.detach().requires_grad_(True)
+                update_params.append(cond)
+
+        cond_out = torch.zeros(
+                [hparams.num_steps] + list(cond.shape[1:]),
+                dtype=torch.float32,
+                device=device,
+            )
+    else:
+        _, latent_variable = setup_noise_inputs(cat, device=device, hparams=hparams)
+                
+
 
     # 3. OPTIMIZATION PARAMETERS & OPTIMIZER SETUP
     update_params = []
     if hparams.update_latent_variables:
         latent_variable = latent_variable.detach().requires_grad_(True)
         update_params.append(latent_variable)
-    if hparams.update_conditioning:
-        cond = cond.detach().requires_grad_(True)
-        update_params.append(cond)
+    
 
     optimizer = None
     scheduler = None
@@ -180,13 +191,9 @@ def project(
         dtype=torch.float32,
         device=device,
     )
-    cond_out = torch.zeros(
-        [hparams.num_steps] + list(cond.shape[1:]),
-        dtype=torch.float32,
-        device=device,
-    )
+    
 
-    mask_cond = create_mask_for_backprop(hparams, device)
+    
 
     # 4. CORRUPTED TARGET & VGG PREPARATION
     vgg16, target_features = load_vgg_perceptual(hparams, target_img_corrupted, device)
@@ -198,8 +205,7 @@ def project(
     save_path.mkdir(parents=True, exist_ok=True)
 
     latest_metrics = {}
-    final_synth_img = None
-
+    
     # Pre-compute target_phys to save time during metrics calculation
     target_np = target[0, 0].detach().cpu().numpy()
     target_phys = denormalize_data(target_np, norm_mode=hparams.norm_data, patch_stats=patch_stats)
@@ -259,6 +265,7 @@ def project(
             if len(update_params) > 0 and loss.requires_grad:
                 loss.backward()
                 if hparams.update_conditioning and cond.grad is not None:
+                    mask_cond = create_mask_for_backprop(hparams, device)
                     cond.grad *= mask_cond
 
             step_synth_img = synth_img
@@ -283,12 +290,13 @@ def project(
             scheduler.step()
 
      
-
-        with torch.no_grad():
-            cond.clamp_(0, 1)
+        if hparams.cond_key != "None":
+            with torch.no_grad():
+                cond.clamp_(0, 1)
+            cond_out[step] = cond.detach()[0]
+            
         latent_variable_out[step] = latent_variable.detach()[0]
-        cond_out[step] = cond.detach()[0]
-
+        
         # F. METRICS CALCULATION & TENSORBOARD LOGGING
         with torch.no_grad():
             synth_img_np = step_synth_img[0, 0].detach().cpu().numpy()
@@ -304,8 +312,14 @@ def project(
             psnr_ = psnr(target_phys, synth_phys, data_range=data_range)
             mse_ = mse(target_phys, synth_phys)
             nmse_ = nmse(target_phys, synth_phys)
-
-            cond_phys = denormalize_cond(cond, catalogue=cat_df, feature_cols=feature_cols)
+            if hparams.cond_key != "None":
+                cond_phys = denormalize_cond(cond, catalogue=cat_df, feature_cols=feature_cols)
+                if verbose:
+                    print(f"Step {step:03d} | LR: {current_lr:.2e} | Loss: {current_loss:.6f} | Hi Size: {cond_phys[0,0]:.4f} | Line Flux: {cond_phys[0,1]:.4f} | I: {cond_phys[0,2]:.4f} | W20: {cond_phys[0,3]:.4f} | SSIM: {ssim_:.4f}")
+                
+            else:
+                print(f"Step {step:03d} | LR: {current_lr:.2e} | Loss: {current_loss:.6f}")
+                cond_phys = {}
 
             writer.add_scalar("Loss/Total", current_loss, global_step=step)
             writer.add_scalar("Loss/Pixelwise", step_pixel_loss, global_step=step)
@@ -316,8 +330,7 @@ def project(
             writer.add_scalar("Metrics/MSE", mse_, global_step=step)
             writer.add_scalar("Metrics/NMSE", nmse_, global_step=step)
 
-            if verbose:
-                print(f"Step {step:03d} | LR: {current_lr:.2e} | Loss: {current_loss:.6f} | Hi Size: {cond_phys[0,0]:.4f} | Line Flux: {cond_phys[0,1]:.4f} | I: {cond_phys[0,2]:.4f} | W20: {cond_phys[0,3]:.4f} | SSIM: {ssim_:.4f}")
+            
 
             # G. PLOT EXPORT (Every N Steps)
             if step % 50 == 0 or step == hparams.num_steps - 1:
@@ -410,12 +423,11 @@ def main(hparams: Namespace) -> None:
     device = torch.device(hparams.device)
     
     target_file = hparams.hr_path
-    LR_file = hparams.lr_path
+    lr_file_path = hparams.lr_path
     img_tensor, patch_stats = load_target_image(hparams, device=device, target_path=target_file)
     if img_tensor.ndim == 4:
         img_tensor = img_tensor.unsqueeze(0)
 
-    lr_file_path = getattr(hparams, "lr_path", LR_file)
     
     if os.path.exists(lr_file_path):
         target_lr = load_lr_patch_from_path(lr_file_path, device=device, norm_mode=hparams.norm_data, global_stats=patch_stats)

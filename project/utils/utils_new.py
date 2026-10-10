@@ -28,6 +28,7 @@ from utils.const import (
     PRETRAINED_MODEL_VGG_PATH,
 )
 from utils.dataset_v3 import normalize_dynamic
+from utils.dataset_stats import compute_dataset_stats
 
 
 def generating_latent_vector(
@@ -185,16 +186,8 @@ def load_target_image(hparams: Namespace, device: torch.device, target_path: str
         img_tensor = torch.from_numpy(data).to(device)
 
     # 3. STATISTICHE GLOBALI REALI DEL DATASET
-    global_stats = getattr(hparams, 'dataset_stats', None)
-    if global_stats is None:
-        global_stats = {
-            'p_min': -1.0559e-05,
-            'p_max': 1.8725e-05,
-            'p_min_arcsinh': float(np.arcsinh(-1.0559e-05)),
-            'p_max_arcsinh': float(np.arcsinh(1.8725e-05)),
-            'mean': 1.1227e-05,
-            'std': 1.2537e-03
-        }
+    global_stats = compute_dataset_stats(target_path)
+    
 
     # 4. APPLICAZIONE NORMALIZZAZIONE MULTI-MODE
     norm_mode = hparams.norm_data 
@@ -248,31 +241,35 @@ def create_corruption_function(hparams: Namespace, device: torch.device) -> Forw
 def setup_noise_inputs(cat, device: torch.device, hparams: Namespace) -> Tuple[torch.Tensor, torch.Tensor]:
     # 1. Valori grezzi (Raw) dal catalogo
     # Nota: Assicurati che 'patch_000000.npy' sia dinamico o passato correttamente
-    obj_data = cat[hparams.object_id] 
-    cond_list = [
-        obj_data['hi_size'], 
-        obj_data['line_flux_integral'], 
-        obj_data['i'], 
-        obj_data['w20']
-    ]
-    cond_raw = torch.tensor([cond_list], device=device, dtype=torch.float32)
+    if cat != {} and hparams.cond_key != "None":
+        obj_data = cat[hparams.object_id] 
+        cond_list = [
+            obj_data['hi_size'], 
+            obj_data['line_flux_integral'], 
+            obj_data['i'], 
+            obj_data['w20']
+        ]
+        cond_raw = torch.tensor([cond_list], device=device, dtype=torch.float32)
+        
+        # 2. Calcolo DINAMICO di mins e maxs dal catalogo
     
-    # 2. Calcolo DINAMICO di mins e maxs dal catalogo
-   
-    df_cat = pd.DataFrame.from_dict(cat, orient='index')
-    feature_cols = ['hi_size', 'line_flux_integral', 'i', 'w20']
-    
-    # Calcoliamo i valori reali presenti nel file corrente
-    mins = torch.tensor(df_cat[feature_cols].min().values, device=device, dtype=torch.float32)
-    maxs = torch.tensor(df_cat[feature_cols].max().values, device=device, dtype=torch.float32)
+        df_cat = pd.DataFrame.from_dict(cat, orient='index')
+        feature_cols = ['hi_size', 'line_flux_integral', 'i', 'w20']
+        
+        # Calcoliamo i valori reali presenti nel file corrente
+        mins = torch.tensor(df_cat[feature_cols].min().values, device=device, dtype=torch.float32)
+        maxs = torch.tensor(df_cat[feature_cols].max().values, device=device, dtype=torch.float32)
 
-    # 3. Normalizzazione Min-Max (0-1)
-    # Formula: (x - min) / (max - min)
-    cond_normalized = (cond_raw - mins) / (maxs - mins + 1e-8)
+        # 3. Normalizzazione Min-Max (0-1)
+        # Formula: (x - min) / (max - min)
+        cond_normalized = (cond_raw - mins) / (maxs - mins + 1e-8)
 
-    # 4. Abilitiamo il gradiente
-    # Tip: Clamping durante l'ottimizzazione aiuterà a non uscire dal range [0, 1]
-    cond_normalized.requires_grad_(True)
+        # 4. Abilitiamo il gradiente
+        # Tip: Clamping durante l'ottimizzazione aiuterà a non uscire dal range [0, 1]
+        cond_normalized.requires_grad_(True)
+    else:
+        print("Not conditioned model, working on latent only.")
+        cond_normalized = {}
 
     # --- Gestione Latente ---
     f = hparams.downsample_factor if hparams.corruption == "downsample" else 1
