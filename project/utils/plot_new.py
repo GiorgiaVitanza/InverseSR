@@ -53,7 +53,7 @@ def denormalize_data(x, norm_mode: str, patch_stats: dict = None):
         p_max = patch_stats['p95']
         return x * (p_max - p_min + 1e-8) + p_min
     
-    elif norm_mode == 'global_robust':
+    elif norm_mode == 'global':
             p_min = patch_stats['min']
             p_max = patch_stats['max']
             return x * (p_max - p_min + 1e-8) + p_min

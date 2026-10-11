@@ -255,6 +255,9 @@ def train():
                 with torch.no_grad():
                     val_sample_batch = next(iter(val_dataloader))
                     x_vis = val_sample_batch["x_0"][:2].to(train_cfg.device)
+                    patch_stats = {k: v[:2].to(train_cfg.device) if isinstance(v, torch.Tensor) else v 
+                                                                for k, v in val_sample_batch['stats'].items()
+                                                        }
                     mask_vis = val_sample_batch["spatial_mask"][:2].to(train_cfg.device)
                     context_vis = val_sample_batch["context"][:2].to(train_cfg.device)
 
@@ -303,8 +306,8 @@ def train():
 
                     x_gen = vae.decode(z_gen)
 
-                    x_real_denorm = denormalize_data(x_vis, train_cfg.norm_mode)
-                    x_gen_denorm = denormalize_data(x_gen, train_cfg.norm_mode)
+                    x_real_denorm = denormalize_data(x_vis, train_cfg.norm_mode, patch_stats=patch_stats)
+                    x_gen_denorm = denormalize_data(x_gen, train_cfg.norm_mode, patch_stats=patch_stats)
 
                     mask_sample = mask_vis[0, 0].cpu().numpy()
                     src_z, src_y, src_x = np.where(mask_sample > 0.5)
