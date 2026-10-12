@@ -254,14 +254,19 @@ def train():
             if epoch % 20 == 0:
                 with torch.no_grad():
                     val_sample_batch = next(iter(val_dataloader))
+                    
+                    # 1. Applica il taglio [:2] in modo coerente su TUTTI gli elementi del batch
                     x_vis = val_sample_batch["x_0"][:2].to(train_cfg.device)
-                    patch_stats = {k: v[:2].to(train_cfg.device) if isinstance(v, torch.Tensor) else v 
-                                                                for k, v in val_sample_batch['stats'].items()
-                                                        }
                     mask_vis = val_sample_batch["spatial_mask"][:2].to(train_cfg.device)
                     context_vis = val_sample_batch["context"][:2].to(train_cfg.device)
+                    
+                    # Taglia [:2] anche i tensori dentro patch_stats
+                    patch_stats = {
+                        k: v[:2].to(train_cfg.device) if isinstance(v, torch.Tensor) else v 
+                        for k, v in val_sample_batch['stats'].items()
+                    }
 
-                    eval_batch_size = x_vis.shape[0]
+                    eval_batch_size = x_vis.shape[0]  # Ora è 2 per tutti!
 
                     h_vis = vae.encoder(x_vis)
                     z_vis = vae.quant_conv_mu(h_vis)
@@ -278,21 +283,14 @@ def train():
                         )
                         vis_cond_payload["c_concat"] = [mask_latent_vis]
 
-                    if (
-                        train_cfg.cond_key in ["crossattn", "hybrid"]
-                        and context_vis is not None
-                    ):
+                    if train_cfg.cond_key in ["crossattn", "hybrid"] and context_vis is not None:
                         context_attn_vis = (
-                            context_vis.unsqueeze(1)
-                            if context_vis.ndim == 2
-                            else context_vis
+                            context_vis.unsqueeze(1) if context_vis.ndim == 2 else context_vis
                         )
                         vis_cond_payload["c_crossattn"] = [context_attn_vis]
 
                     sampler = DDIMSampler(model)
-                    img_noise = torch.randn(
-                        (eval_batch_size, *shape), device=train_cfg.device
-                    )
+                    img_noise = torch.randn((eval_batch_size, *shape), device=train_cfg.device)
 
                     z_gen, _ = sampler.sample(
                         S=50,
@@ -306,6 +304,7 @@ def train():
 
                     x_gen = vae.decode(z_gen)
 
+                    # Denormalizzazione (assicurandoti che denormalize_data aggiunga le N dimensioni singleton con unsqueeze)
                     x_real_denorm = denormalize_data(x_vis, train_cfg.norm_mode, patch_stats=patch_stats)
                     x_gen_denorm = denormalize_data(x_gen, train_cfg.norm_mode, patch_stats=patch_stats)
 
