@@ -47,35 +47,53 @@ def denormalize_data(x, norm_mode: str, patch_stats: dict = None):
     """
     if patch_stats is None:
         patch_stats = {}
-
+    def prep_stat(key):
+        if key not in patch_stats or patch_stats[key] is None:
+            return None
+        val = patch_stats[key]
+        
+        if isinstance(val, torch.Tensor):
+            val = val.to(device=x.device, dtype=x.dtype)
+            
+            # Se la dimensione del batch di val è maggiore di x, taglia il batch
+            if val.ndim > 0 and val.shape[0] > x.shape[0]:
+                val = val[:x.shape[0]]
+                
+            # Aggiunge dimensioni singleton in coda ([2] -> [2, 1, 1, 1, 1])
+            # affinché il rank di val sia identico a quello di x per un broadcasting corretto
+            while val.ndim < x.ndim:
+                val = val.unsqueeze(-1)
+                
+        return val
     if norm_mode == 'global_robust':
-        p_min = patch_stats['p5']
-        p_max = patch_stats['p95']
+        p_min = prep_stat('p5')
+        p_max = prep_stat('p95')
         return x * (p_max - p_min + 1e-8) + p_min
-    
+
     elif norm_mode == 'global':
-            p_min = patch_stats['min']
-            p_max = patch_stats['max']
-            return x * (p_max - p_min + 1e-8) + p_min
+        p_min = prep_stat('min')
+        p_max = prep_stat('max')
+        return x * (p_max - p_min + 1e-8) + p_min
 
     elif norm_mode == 'global_arcsinh':
-        p_min = patch_stats['p5']
-        p_max = patch_stats['p95']
-        
-        p_min_arcsinh = patch_stats['p5_arcsinh']
-        p_max_arcsinh = patch_stats['p95_arcsinh']
+        p_min_arcsinh = prep_stat('p5_arcsinh')
+        p_max_arcsinh = prep_stat('p95_arcsinh')
 
         # 1. Inverse Min-Max Arcsinh Scaling -> [p_min_arcsinh, p_max_arcsinh]
         x_arcsinh = x * (p_max_arcsinh - p_min_arcsinh + 1e-8) + p_min_arcsinh
         
-        # 2. Inverse Arcsinh (np.sinh / torch.sinh)
-        if hasattr(x_arcsinh, 'sinh'):
-            return np.sinh(x_arcsinh.cpu().numpy()) if hasattr(x_arcsinh, 'cpu') else np.sinh(x_arcsinh)
+        # 2. Inverse Arcsinh (sinh)
+        if isinstance(x_arcsinh, torch.Tensor):
+            return torch.sinh(x_arcsinh)
         return np.sinh(x_arcsinh)
-
+    
     elif norm_mode == 'local':
         p_min = float(x.min())
-        p_max = float(torch.quantile(x, 0.99))
+        if isinstance(x, np.ndarray):
+            p_max = float(np.quantile(x, 0.99))
+        else:
+            p_max = float(torch.quantile(x, 0.99))
+        
         return x * (p_max - p_min + 1e-8) + p_min
 
     elif norm_mode == 'zscore':
