@@ -136,6 +136,9 @@ def test(hparams, train_param):
     with torch.no_grad():
         for i, batch in enumerate(tqdm(test_loader, desc="Testing VAE")):
             x = batch["x_0"].to(device)
+            patch_stats = {k: v.to(train_param.device) if isinstance(v, torch.Tensor) else v 
+                                                for k, v in batch['stats'].items()
+                                                                                        }
             
             # Forward pass
             h = model.encoder(x)
@@ -153,8 +156,8 @@ def test(hparams, train_param):
 
 
             # Denormalizzazione per metriche visive e fisiche
-            x_denorm = denormalize_data(x, train_param.norm_mode)
-            x_hat_denorm = denormalize_data(x_hat, train_param.norm_mode)
+            x_denorm = denormalize_data(x, train_param.norm_mode, patch_stats=patch_stats)
+            x_hat_denorm = denormalize_data(x_hat, train_param.norm_mode, patch_stats=patch_stats)
             batch_psnr, _ = compute_metrics(x_denorm, x_hat_denorm)
             # Calcolo PSNR e SSIM sui dati denormalizzati
             batch_psnr, _ = compute_metrics(x_denorm, x_hat_denorm)
