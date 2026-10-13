@@ -13,7 +13,7 @@ logs_paper/
 logs_proceeding/
 logs_vae_paper/
 generated_jobs/
-
+generated_jobs_paper/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
