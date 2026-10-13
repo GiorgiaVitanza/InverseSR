@@ -46,6 +46,9 @@ def quick_test_metrics(model, vae, dataloader, train_param, hparams, unet_cfg):
         print(f"Totale batch (lunghezza dataloader): {len(dataloader)}")
         for batch_idx, batch in enumerate(dataloader):
             x_start = batch["x_0"].to(device)
+            patch_stats = {k: v.to(train_param.device) if isinstance(v, torch.Tensor) else v 
+                                                            for k, v in batch['stats'].items()
+                                                                                                    }
             spatial_mask = batch.get("spatial_mask", None)
             if spatial_mask is not None:
                 spatial_mask = spatial_mask.to(device)
@@ -119,8 +122,8 @@ def quick_test_metrics(model, vae, dataloader, train_param, hparams, unet_cfg):
             x_gen = vae.decode(z_gen_unscaled) # x_gen è normalizzato [0, 1]
 
             # Denormalizzazione corretta per calcolare MSE/PSNR in unità fisiche
-            x_start_denorm = denormalize_data(x_start, train_param.norm_mode)
-            x_gen_denorm = denormalize_data(x_gen, train_param.norm_mode)
+            x_start_denorm = denormalize_data(x_start, train_param.norm_mode, patch_stats=patch_stats)
+            x_gen_denorm = denormalize_data(x_gen, train_param.norm_mode, patch_stats=patch_stats)
             
             # --- SALVATAGGIO PLOTS COMPARATIVI ---
             if batch_idx % 10 == 0 or batch_idx == len(dataloader) - 1:
