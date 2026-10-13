@@ -245,6 +245,8 @@ def train():
                         "optimizer_state_dict": optimizer.state_dict(),
                         "scheduler_state_dict": scheduler.state_dict(),
                         "best_val_loss": best_val_loss,
+                        "hparams": hparams,
+                        "unet_cfg": unet_cfg,
                     },
                     best_ckpt_path,
                 )
@@ -341,6 +343,8 @@ def train():
                         "optimizer_state_dict": optimizer.state_dict(),
                         "scheduler_state_dict": scheduler.state_dict(),
                         "val_loss": avg_val_loss,
+                        "hparams": hparams,
+                        "unet_cfg": unet_cfg,
                     },
                     ckpt_path,
                 )
