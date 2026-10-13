@@ -208,8 +208,8 @@ def project(
 
     # 4. EARLY STOPPER INITIALIZATION
     early_stopper = LatentEarlyStopping(
-        patience=getattr(hparams, "patience", 20),
-        min_delta=getattr(hparams, "min_delta", 1e-4),
+        patience=hparams.patience,
+        min_delta=hparams.min_delta,
         save_to_disk=False  # Mantiene i latenti migliori in RAM per massima velocità
     )
 

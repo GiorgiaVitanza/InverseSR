@@ -6,6 +6,18 @@ import torch
 def add_argument(parser: ArgumentParser):
     # --- LOGGING & PATHS ---
     parser.add_argument(
+                "--patience",
+               
+                default=20,
+                help="Patience for Early stop optimization",
+            )
+    parser.add_argument(
+                    "--min_delta",
+                    
+                    default=1e-4,
+                    help = "Threshold for early stop optimization",
+                )
+    parser.add_argument(
             "--hr_path",
             # Modificato: Path generico per astro
             default=r"./data/inputs/Data_mix_OK/test/patch_000033.npy",
