@@ -366,7 +366,8 @@ def train():
                 artifact_path="ddpm_best",
                 registered_model_name=f"DDPM_Best_{hparams.z_channels}ch",
             )
-            
+            local_best_model_path = os.path.join(RUN_DIR, "ddpm_best_model")
+            mlflow.pytorch.save_model(model, path=local_best_model_path)
             if os.path.exists(best_ckpt_path):
                 mlflow.log_artifact(best_ckpt_path, artifact_path="checkpoints")
 
@@ -378,7 +379,7 @@ def train():
             registered_model_name=f"DDPM_Final_{hparams.z_channels}ch",
         )
 
-        local_model_path = os.path.join(CHECKPOINT_DIR, "ddpm_final_model")
+        local_model_path = os.path.join(RUN_DIR, "ddpm_final_model")
         mlflow.pytorch.save_model(model, path=local_model_path)
         
         # 3. Generazione e log del grafico Loss Curves
