@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+import copy  # Importato per clonare lo state_dict del miglior modello
 from models.aekl_no_attention import AutoencoderKL
 from models.ddim import DDIMSampler
 from models.ddpm_v2_conditioned import DDPM
@@ -120,6 +121,7 @@ def train():
     # Variabili per il tracciamento del miglior modello
     best_val_loss = float("inf")
     best_epoch = -1
+    best_model_weights = None  # Salva in RAM lo state_dict del miglior modello
 
     with mlflow.start_run(run_name=f"DDPM_Training_{current_time}"):
         mlflow.log_params(vars(train_cfg))
@@ -238,6 +240,9 @@ def train():
                 best_epoch = epoch + 1
                 best_ckpt_path = os.path.join(CHECKPOINT_DIR, "ddpm_best_epoch.pth")
                 
+                # Mantiene in memoria lo stato dei pesi migliori per MLFlow
+                best_model_weights = copy.deepcopy(model.state_dict())
+
                 torch.save(
                     {
                         "epoch": epoch,
@@ -255,9 +260,10 @@ def train():
                 with torch.no_grad():
                     val_sample_batch = next(iter(val_dataloader))
                     x_vis = val_sample_batch["x_0"][:2].to(train_cfg.device)
-                    patch_stats = {k: v[:2].to(train_cfg.device) if isinstance(v, torch.Tensor) else v 
-                                    for k, v in val_sample_batch['stats'].items()
-                                                                            }
+                    patch_stats = {
+                        k: v[:2].to(train_cfg.device) if isinstance(v, torch.Tensor) else v 
+                        for k, v in val_sample_batch['stats'].items()
+                    }
                     mask_vis = val_sample_batch["spatial_mask"][:2].to(train_cfg.device)
                     context_vis = val_sample_batch["context"][:2].to(train_cfg.device)
 
@@ -346,20 +352,36 @@ def train():
                     ckpt_path,
                 )
 
-        # --- SALVATAGGIO FINALE & METRICHE ---
+        # --- SALVATAGGIO FINALE & METRICHE SU MLFLOW ---
         mlflow.log_metric("best_val_loss", best_val_loss)
         mlflow.log_param("best_epoch", best_epoch)
 
-        print("Registrazione modello DDPM finale...")
+        # 1. Registrazione del BEST MODEL su MLFlow
+        if best_model_weights is not None:
+            print(f"Registrazione su MLFlow del BEST MODEL dall'epoca {best_epoch}...")
+            model.load_state_dict(best_model_weights)
+            
+            mlflow.pytorch.log_model(
+                pytorch_model=model,
+                artifact_path="ddpm_best",
+                registered_model_name=f"DDPM_Best_{hparams.z_channels}ch",
+            )
+            
+            if os.path.exists(best_ckpt_path):
+                mlflow.log_artifact(best_ckpt_path, artifact_path="checkpoints")
+
+        # 2. Registrazione del MODELLO FINALE (ultima epoca) su MLFlow
+        print("Registrazione modello DDPM finale (ultima epoca)...")
         mlflow.pytorch.log_model(
             pytorch_model=model,
-            artifact_path="ddpm",
-            registered_model_name=f"DDPM_{hparams.z_channels}ch",
+            artifact_path="ddpm_final",
+            registered_model_name=f"DDPM_Final_{hparams.z_channels}ch",
         )
 
         local_model_path = os.path.join(CHECKPOINT_DIR, "ddpm_final_model")
         mlflow.pytorch.save_model(model, path=local_model_path)
         
+        # 3. Generazione e log del grafico Loss Curves
         print("Generazione grafico Train vs Validation Loss...")
         fig_loss, ax = plt.subplots(figsize=(10, 6))
         epochs_range = range(1, train_cfg.epochs + 1)
@@ -367,7 +389,6 @@ def train():
         ax.plot(epochs_range, history_train_loss, label='Training Loss', color='tab:blue', linewidth=2)
         ax.plot(epochs_range, history_val_loss, label='Validation Loss', color='tab:orange', linewidth=2)
         
-        # Evidenzia l'epoca ottimale
         ax.scatter(best_epoch, best_val_loss, color='red', s=80, zorder=5, label=f'Best Epoch: {best_epoch}')
         ax.axvline(x=best_epoch, color='red', linestyle='--', alpha=0.5)
 
@@ -379,10 +400,10 @@ def train():
         
         fig_loss.tight_layout()
         
-        # Salvataggio del grafico su disco e su TensorBoard
         loss_plot_path = os.path.join(CHECKPOINT_DIR, "loss_curves.png")
         fig_loss.savefig(loss_plot_path, dpi=300)
         writer.add_figure("Visual/Loss_Curves", fig_loss, global_step=train_cfg.epochs)
+        mlflow.log_artifact(loss_plot_path, artifact_path="plots")
 
         plt.close(fig_loss)
 
