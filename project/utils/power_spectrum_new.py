@@ -113,8 +113,8 @@ def save_power_spectrum_plots(k_vals, pk_sr, pk_ref, r_k, t_k, out_dir):
         label=r"$r(k) = P_{ST} / \sqrt{P_S P_T}$",
         linewidth=2,
     )
-    ax2.axhline(0.90, color="green", linestyle=":", label="Soglia r(k) = 0.90")
-    ax2.set_ylabel(r"$r(k)$ (Correlazione)")
+    ax2.axhline(0.90, color="green", linestyle=":", label="Threshold r(k) = 0.90")
+    ax2.set_ylabel(r"$r(k)$ (Correlation)")
     ax2.set_ylim(-0.1, 1.1)
     ax2.grid(True, which="both", ls="--", alpha=0.5)
     ax2.legend(loc="lower left")
@@ -128,7 +128,7 @@ def save_power_spectrum_plots(k_vals, pk_sr, pk_ref, r_k, t_k, out_dir):
         linewidth=2,
     )
     ax3.axhline(
-        1.0, color="black", linestyle="--", alpha=0.7, label="Risposta Ideale (1.0)"
+        1.0, color="black", linestyle="--", alpha=0.7, label="Ideal value (1.0)"
     )
     ax3.set_xlabel(r"k [1/pixel]")
     ax3.set_ylabel(r"$T(k)$ (Transfer Func)")
