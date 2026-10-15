@@ -8,6 +8,7 @@ from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import numpy as np
 import pandas as pd
 from skimage.metrics import mean_squared_error as mse
@@ -44,6 +45,94 @@ from utils.utils_new import (
 from utils.power_spectrum_new import compute_power_spectrum_and_cross, save_power_spectrum_plots
 from utils.metrics_benchmark import run_astrophysical_benchmarks
 from utils.early_stop import LatentEarlyStopping
+
+
+def plot_zoomed_comparison(
+    target_phys: np.ndarray,
+    synth_phys: np.ndarray,
+    save_path: Path,
+    crop_size_ratio: float = 0.35,
+    filename: str = "sr_zoomed_comparison_paper.png",
+) -> None:
+    """
+    Generates a single high-quality, publication-ready figure comparing HR target
+    and reconstructed SR outputs, with an automatically centered zoomed ROI.
+    """
+    # Extract 2D slice with peak signal if input is 3D cube
+    if target_phys.ndim == 3:
+        max_idx = np.unravel_index(np.argmax(target_phys), target_phys.shape)
+        slice_idx = max_idx[0]
+        target_2d = target_phys[slice_idx]
+        synth_2d = synth_phys[slice_idx]
+    else:
+        target_2d = target_phys
+        synth_2d = synth_phys
+
+    h, w = target_2d.shape
+
+    # Find peak position to center ROI
+    max_y, max_x = np.unravel_index(np.argmax(target_2d), (h, w))
+
+    crop_h = int(h * crop_size_ratio)
+    crop_w = int(w * crop_size_ratio)
+
+    # Ensure box remains within image boundaries
+    y1 = max(0, min(h - crop_h, max_y - crop_h // 2))
+    y2 = min(h, y1 + crop_h)
+    x1 = max(0, min(w - crop_w, max_x - crop_w // 2))
+    x2 = min(w, x1 + crop_w)
+
+    target_crop = target_2d[y1:y2, x1:x2]
+    synth_crop = synth_2d[y1:y2, x1:x2]
+
+    vmin = min(target_2d.min(), synth_2d.min())
+    vmax = max(target_2d.max(), synth_2d.max())
+
+    # Publication style settings
+    plt.rcParams.update({
+        'font.size': 11,
+        'font.family': 'serif',
+        'axes.labelsize': 11,
+        'axes.titlesize': 12,
+        'xtick.labelsize': 10,
+        'ytick.labelsize': 10,
+    })
+
+    fig, axes = plt.subplots(2, 2, figsize=(9.5, 9.0), dpi=300)
+
+    # Top-Left: Full HR Target
+    im0 = axes[0, 0].imshow(target_2d, origin='lower', cmap='inferno', vmin=vmin, vmax=vmax)
+    axes[0, 0].set_title("Ground Truth (Target HR)", fontweight='bold')
+    axes[0, 0].add_patch(patches.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=1.8, edgecolor='cyan', facecolor='none', linestyle='--'))
+    axes[0, 0].set_xlabel("X [pixels]")
+    axes[0, 0].set_ylabel("Y [pixels]")
+
+    # Top-Right: Full SR Reconstructed
+    axes[0, 1].imshow(synth_2d, origin='lower', cmap='inferno', vmin=vmin, vmax=vmax)
+    axes[0, 1].set_title("Reconstructed (SR Model)", fontweight='bold')
+    axes[0, 1].add_patch(patches.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=1.8, edgecolor='cyan', facecolor='none', linestyle='--'))
+    axes[0, 1].set_xlabel("X [pixels]")
+    axes[0, 1].set_ylabel("Y [pixels]")
+
+    # Bottom-Left: Zoomed HR Target
+    axes[1, 0].imshow(target_crop, origin='lower', cmap='inferno', vmin=vmin, vmax=vmax)
+    axes[1, 0].set_title(f"Target Zoom (ROI: [{x1}:{x2}, {y1}:{y2}])", fontweight='bold')
+    axes[1, 0].set_xlabel("X [pixels]")
+    axes[1, 0].set_ylabel("Y [pixels]")
+
+    # Bottom-Right: Zoomed SR Reconstructed
+    axes[1, 1].imshow(synth_crop, origin='lower', cmap='inferno', vmin=vmin, vmax=vmax)
+    axes[1, 1].set_title("Reconstructed Zoom (ROI)", fontweight='bold')
+    axes[1, 1].set_xlabel("X [pixels]")
+    axes[1, 1].set_ylabel("Y [pixels]")
+
+    fig.subplots_adjust(right=0.86, hspace=0.28, wspace=0.25)
+    cbar_ax = fig.add_axes([0.88, 0.15, 0.025, 0.7])
+    cbar = fig.colorbar(im0, cax=cbar_ax)
+    cbar.set_label("Physical Intensity / Flux", rotation=270, labelpad=15)
+
+    fig.savefig(save_path / filename, bbox_inches='tight', dpi=300)
+    plt.close(fig)
 
 
 def load_lr_patch_from_path(
@@ -385,6 +474,10 @@ def project(
     compare_cubes(target_phys, synth_phys, title=f"target_vs_synth_{hparams.norm_data}", save_path=save_path / f"compare_target_vs_synth_{step_str}.png")
     draw_img(synth_img_corrupted_phys, title=f"corrupted_{hparams.norm_data}", step=step_str, output_folder=save_path)
     plot_orthogonal_cuts(synth_phys, title=f"orthogonal_cuts_synth_{hparams.norm_data}", save_path=save_path / f"orthogonal_cuts_synth_{step_str}.png")
+
+    # HIGH-QUALITY PAPER ZOOM COMPARISON PLOT
+    logprint("[INFO] Generating high-resolution zoomed ROI comparison plot for publication...", verbose)
+    plot_zoomed_comparison(target_phys, synth_phys, save_path=save_path, filename="sr_zoomed_comparison_paper.png")
 
     # POWER SPECTRUM
     logprint("[INFO] Computing 3D Power Spectrum and Cross-Spectrum...", verbose)
