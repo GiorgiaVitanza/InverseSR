@@ -217,7 +217,65 @@ def train():
                     'hparams': hparams_dict
                 }, vae_path)
 
-        # ================= GENERAZIONE E SALVATAGGIO GRAFICO LOSS =================
+        # 1. Registrazione del MIGLIOR MODELLO VAE su MLflow
+        if 'best_model_path' in locals() and os.path.exists(best_model_path):
+            print(f"Registrazione su MLflow del BEST MODEL VAE dall'epoca {best_epoch}...")
+            
+            # Carica temporaneamente i pesi migliori nel modello VAE
+            best_ckpt = torch.load(best_model_path)
+            model.load_state_dict(best_ckpt['model_state_dict'])
+            
+            # Log & Save del Best VAE Model
+            mlflow.pytorch.log_model(
+                pytorch_model=model,
+                artifact_path="vae_best",
+                registered_model_name=f"VAE_Best_{hparams.in_channels}ch"
+            )
+            local_vae_best = os.path.join(OUTPUT_DIR, "vae_best_model")
+            mlflow.pytorch.save_model(model, path=local_vae_best)
+
+            # Log & Save del Best Decoder Only
+            best_only_decoder = OnlyDecoder(model)
+            mlflow.pytorch.log_model(
+                pytorch_model=best_only_decoder,
+                artifact_path="decoder_best",
+                registered_model_name=f"Decoder_Best_{hparams.in_channels}ch"
+            )
+            local_decoder_best = os.path.join(OUTPUT_DIR, "decoder_best_model")
+            mlflow.pytorch.save_model(best_only_decoder, path=local_decoder_best)
+
+            # Salva il checkpoint .pth originale del miglior modello come artefatto
+            mlflow.log_artifact(best_model_path, artifact_path="checkpoints")
+
+        # 2. Registrazione del MODELLO FINALE VAE (Ultima epoca) su MLflow
+        print("Registrazione modello VAE finale (ultima epoca)...")
+        
+        # Carica i pesi dell'ultima epoca (se non sono già nel modello)
+        if 'vae_path' in locals() and os.path.exists(vae_path):
+            last_ckpt = torch.load(vae_path)
+            model.load_state_dict(last_ckpt['model_state_dict'])
+            mlflow.log_artifact(vae_path, artifact_path="checkpoints")
+
+        # Log & Save del Final VAE Model
+        mlflow.pytorch.log_model(
+            pytorch_model=model,
+            artifact_path="vae_final",
+            registered_model_name=f"VAE_Final_{hparams.in_channels}ch"
+        )
+        local_vae_final = os.path.join(OUTPUT_DIR, "vae_final_model")
+        mlflow.pytorch.save_model(model, path=local_vae_final)
+
+        # Log & Save del Final Decoder Only
+        final_only_decoder = OnlyDecoder(model)
+        mlflow.pytorch.log_model(
+            pytorch_model=final_only_decoder,
+            artifact_path="decoder_final",
+            registered_model_name=f"Decoder_Final_{hparams.in_channels}ch"
+        )
+        local_decoder_final = os.path.join(OUTPUT_DIR, "decoder_final_model")
+        mlflow.pytorch.save_model(final_only_decoder, path=local_decoder_final)
+
+        # 3. Grafico Loss Curves
         print("Generazione grafico Train vs Validation Loss...")
         fig_loss, ax = plt.subplots(figsize=(10, 6))
         epochs_range = range(1, train_param.epochs + 1)
@@ -226,9 +284,7 @@ def train():
         ax.plot(epochs_range, history_val_loss, label='Validation Loss', color='tab:orange', linewidth=2)
         
         # Evidenzia l'epoca ottimale (minima validation loss)
-        best_epoch = int(np.argmin(history_val_loss)) + 1
-        min_val_loss = np.min(history_val_loss)
-        ax.scatter(best_epoch, min_val_loss, color='red', s=80, zorder=5, label=f'Best Epoch: {best_epoch}')
+        ax.scatter(best_epoch, best_val_loss, color='red', s=80, zorder=5, label=f'Best Epoch: {best_epoch}')
         ax.axvline(x=best_epoch, color='red', linestyle='--', alpha=0.5)
 
         ax.set_title('Training vs Validation Loss', fontsize=14, fontweight='bold')
@@ -239,33 +295,12 @@ def train():
         
         fig_loss.tight_layout()
         
-        # Salvataggio del grafico su disco, TensorBoard 
         loss_plot_path = os.path.join(CHECKPOINT_DIR, "loss_curves.png")
         fig_loss.savefig(loss_plot_path, dpi=300)
         writer.add_figure("Visual/Loss_Curves", fig_loss, global_step=train_param.epochs)
+        mlflow.log_artifact(loss_plot_path, artifact_path="plots")
 
         plt.close(fig_loss)
-
-        # --- SALVATAGGIO FINALE MODELLO (IMPACCHETTAMENTO MLFLOW) ---
-        print("Registrazione modelli su MLflow...")
-        
-        mlflow.pytorch.log_model(
-            pytorch_model=model, 
-            name="vae_full_model",
-            registered_model_name=f"VAE_{hparams.in_channels}ch"
-        )
-        local_vae_pack = os.path.join(OUTPUT_DIR, "VAE_full")
-        mlflow.pytorch.save_model(model, path=local_vae_pack)
-        
-        only_decoder = OnlyDecoder(model)
-        mlflow.pytorch.log_model(
-            pytorch_model=only_decoder, 
-            name="decoder_only_model",
-            registered_model_name=f"Decoder_{hparams.in_channels}ch"
-        )
-        local_decoder_pack = os.path.join(OUTPUT_DIR, "Decoder_only")
-        mlflow.pytorch.save_model(only_decoder, path=local_decoder_pack)
-
     writer.close()
     print(f"Training concluso. Checkpoint fisici in {CHECKPOINT_DIR}, log in {log_dir}")
 
