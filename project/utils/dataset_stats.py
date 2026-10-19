@@ -39,18 +39,14 @@ def compute_dataset_stats(dataset_input: Union[str, Path]):
 
     # Prima passata: Calcolo min, max e percentili globali
     all_data = []
-    global_min = float("inf")
-    global_max = float("-inf")
-
+    
     for f in npy_files:
         data = np.load(f)
-        global_min = min(global_min, float(np.min(data)))
-        global_max = max(global_max, float(np.max(data)))
         all_data.append(data.ravel())
 
-    # Concateniamo i dati per calcoli distribuzionali globali
     concatenated_data = np.concatenate(all_data)
-
+    global_min = float(np.percentile(concatenated_data, 2))
+    global_max = float(np.percentile(concatenated_data, 98))
     p5 = float(np.percentile(concatenated_data, 5))
     p95 = float(np.percentile(concatenated_data, 95))
     mean = float(np.mean(concatenated_data))
