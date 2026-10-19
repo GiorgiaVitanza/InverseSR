@@ -428,7 +428,7 @@ def project(
                 target_img_corrupted_phys = denormalize_data(target_img_corrupted[0, 0].detach().cpu().numpy(), norm_mode=hparams.norm_data, patch_stats=patch_stats)
                 step_str = f"{step}".zfill(4)                      
                 
-                fig = comparison_plots_ok(target_phys, synth_phys, x_lr=target_img_corrupted_phys, title_real=file_names[0], title_lr=file_names[1])
+                fig = comparison_plots_ok(target_phys, synth_phys, x_lr=target_img_corrupted_phys)
                 fig.savefig(save_path / f"comparison_ok_{hparams.norm_data}_{step_str}.png")                
                 
                 writer.add_figure("Reconstruction", fig, global_step=step)

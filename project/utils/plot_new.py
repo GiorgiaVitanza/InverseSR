@@ -108,9 +108,6 @@ def comparison_plots_ok(
     x_real, 
     x_gen, 
     x_lr=None, 
-    title_real="Original", 
-    title_gen="Reconstructed", 
-    title_lr="Low Resolution", 
     sources_coords=None
 ):
     # 1. Input sanitization
@@ -150,15 +147,14 @@ def comparison_plots_ok(
     n_rows = 3 if has_lr else 2
     fig, axes = plt.subplots(n_rows, 3, figsize=(15, 4 * n_rows), gridspec_kw={'height_ratios': [1] * n_rows})
     
-    main_title = f"Real: {title_real}  |  Generated: {title_gen}"
-    if has_lr:
-        main_title = f"Real: {title_real}  |  LR: {title_lr}  |  Generated: {title_gen}"
+    main_title = f"Visual Comparison"
+    
     fig.suptitle(main_title, fontsize=13, fontweight='bold', y=0.99)
 
     # ROW 1: REAL
     im = axes[0, 0].imshow(mip_real_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
     axes[0, 0].set_title("XY (Top View)")
-    axes[0, 0].set_ylabel("Original (Y)")
+    axes[0, 0].set_ylabel(r"$\bf{High resolution}$ (Y)" )
 
     axes[0, 1].imshow(mip_real_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
     axes[0, 1].set_title("XZ (Front View)")
@@ -174,7 +170,7 @@ def comparison_plots_ok(
         gen_row_idx = 2
         axes[1, 0].imshow(mip_lr_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
         axes[1, 0].set_title("XY (Top View)")
-        axes[1, 0].set_ylabel(f"{title_lr} (Y)")
+        axes[1, 0].set_ylabel(r"$\bf{Low resolution}$ (Y)")
 
         axes[1, 1].imshow(mip_lr_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
         axes[1, 1].set_title("XZ (Front View)")
@@ -187,7 +183,7 @@ def comparison_plots_ok(
     # FINAL ROW: GENERATED
     axes[gen_row_idx, 0].imshow(mip_gen_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
     axes[gen_row_idx, 0].set_title("XY (Top View)")
-    axes[gen_row_idx, 0].set_ylabel("Generated (Y)")
+    axes[gen_row_idx, 0].set_ylabel(r"$\bf{Super resolution}$ (Y)")
     axes[gen_row_idx, 0].set_xlabel("X")
 
     axes[gen_row_idx, 1].imshow(mip_gen_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
@@ -250,44 +246,7 @@ def draw_img_in_three_dim(img, title: str, output_folder: Path) -> None:
 
     plt.close(fig)
 
-def draw_corrupted_images(
-    img1: np.ndarray, img2: np.ndarray, img3: np.ndarray, img4: np.ndarray, ssim_: float
-) -> plt.Figure:
-    img1, img2, img3, img4 = safe_clean(img1), safe_clean(img2), safe_clean(img3), safe_clean(img4)
 
-    si, sj, sk = img1.shape
-    si_, sj_, sk_ = img3.shape
-
-    imgs_list = [
-        img1[:, :, sk // 2],  img2[:, :, sk // 2],  img3[:, :, sk_ // 2],  img4[:, :, sk_ // 2],
-        img1[:, sj // 2, :],  img2[:, sj // 2, :],  img3[:, sj_ // 2, :],  img4[:, sj_ // 2, :],
-        img1[si // 2, :, :],  img2[si // 2, :, :],  img3[si_ // 2, :, :],  img4[si_ // 2, :, :]
-    ]
-    titles_list = [
-        "Reconstructed Image", "Original Corrupted",
-        "Reconstructed Image (downsampled)", "Original Corrupted (downsampled)",
-    ]
-
-    vmin, vmax = get_safe_bounds(img2, img4)
-
-    fig = plt.figure(figsize=(16, 18))
-    nrows, ncols = 3, 4
-    gs = gridspec.GridSpec(nrows=nrows, ncols=ncols)
-    for idx in range(nrows):
-        for jdx in range(ncols):
-            curr_img = imgs_list[idx * ncols + jdx]
-            
-            ax = plt.subplot(gs[idx * ncols + jdx])
-            ax.imshow(curr_img, cmap="gray", origin="lower", vmin=vmin, vmax=vmax)
-            ax.grid(False)
-            ax.set_xticks([])
-            ax.set_yticks([])
-            if idx == 0:
-                ax.set_title(titles_list[jdx])
-
-    plt.tight_layout()
-    fig.suptitle(f"SSIM: {ssim_:.4f}", x=0.48, y=0.99, fontsize=12)
-    return fig
 
 def draw_images(
     img1: np.ndarray,
@@ -354,7 +313,7 @@ def draw_img(img: np.ndarray, title: str, step: str, output_folder: Path) -> Non
 
 def plot_orthogonal_cuts(
     cube: np.ndarray, 
-    title: str = "Astro Object", 
+    title: str = "Orthogonal cuts of Data cube", 
     save_path: Optional[Path] = None,
     ssim: Optional[float] = None
 ) -> plt.Figure:
@@ -386,8 +345,7 @@ def plot_orthogonal_cuts(
         plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
     full_title = title
-    if ssim is not None:
-        full_title += f" | SSIM: {ssim:.4f}"
+    
         
     fig.suptitle(full_title, fontsize=14)
     plt.tight_layout()
