@@ -36,9 +36,21 @@ def normalize_dynamic(data, norm_mode, stats=None):
         patch_stats = {'p_min': p_min, 'p_max': p_max}
 
         return torch.clamp(data_norm, 0.0, 1.0), patch_stats
-    elif norm_mode == 'global':
-            p_min = stats['min']
-            p_max = stats['max']
+    elif norm_mode == 'global_1':
+                p_min = stats['p1']
+                p_max = stats['p99']
+                
+                if p_max <= p_min:
+                    p_max = p_min + 1e-8
+        
+                data_norm = (data - p_min) / (p_max - p_min + 1e-8)
+                patch_stats = {'p_min': p_min, 'p_max': p_max}
+        
+                return torch.clamp(data_norm, 0.0, 1.0), patch_stats
+        
+    elif norm_mode == 'global_2':
+            p_min = stats['p2']
+            p_max = stats['p98']
             
             if p_max <= p_min:
                 p_max = p_min + 1e-8
@@ -119,7 +131,7 @@ class RadioPatchDataset(Dataset):
         data_dir,
         catalogue_path=None,  # <-- reso opzionale con default None
         in_channels=1,
-        norm_mode="global_sym",
+        norm_mode="global",
         num_samples_stats=100,
         mask_sigma=1.5,
     ):
