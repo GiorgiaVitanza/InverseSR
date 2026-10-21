@@ -45,20 +45,24 @@ def compute_dataset_stats(dataset_input: Union[str, Path]):
         all_data.append(data.ravel())
 
     concatenated_data = np.concatenate(all_data)
-    global_min = float(np.percentile(concatenated_data, 2))
-    global_max = float(np.percentile(concatenated_data, 98))
+    p2 = float(np.percentile(concatenated_data, 2))
+    p98 = float(np.percentile(concatenated_data, 98))
+    p1 = float(np.percentile(concatenated_data, 1))
+    p99 = float(np.percentile(concatenated_data, 99))
     p5 = float(np.percentile(concatenated_data, 5))
     p95 = float(np.percentile(concatenated_data, 95))
     mean = float(np.mean(concatenated_data))
     std = float(np.std(concatenated_data))
 
     stats = {
-        "min": global_min,
-        "max": global_max,
+        "p2": p2,
+        "p98": p98,
+        "p1": p1,
+        "p99": p99,
         "p5": p5,
         "p95": p95,
-        "min_arcsinh": float(np.arcsinh(global_min)),
-        "max_arcsinh": float(np.arcsinh(global_max)),
+        "min_arcsinh": float(np.arcsinh(p1)),
+        "max_arcsinh": float(np.arcsinh(p98)),
         "p5_arcsinh": float(np.arcsinh(p5)),
         "p95_arcsinh": float(np.arcsinh(p95)),
         "mean": mean,
