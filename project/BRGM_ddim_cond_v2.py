@@ -7,6 +7,7 @@ import os
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
+from datetime import datetime
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
@@ -231,7 +232,7 @@ def project(
         cat_df = pd.DataFrame.from_dict(cat, orient='index')
     
         # Initialize cond and latent_variable
-        cond, latent_variable = setup_noise_inputs(cat, device=device, hparams=hparams)
+        cond, latent_variable = setup_noise_inputs(cat, device=device, hparams=hparams, batch_size=hparams.batch_size)
         
         # SPATIAL MASK PREPARATION FOR CONCAT CONDITIONING
         spatial_mask = (target[:, :1] > 0).float() if target.shape[1] > 1 else (target > 0).float()
@@ -548,8 +549,10 @@ def main(hparams: Namespace) -> None:
     diffusion, decoder = load_pre_trained_model(hparams, device=device)
     ddim = DDIMSampler(diffusion)
     forward = create_corruption_function(hparams=hparams, device=device)
-    
-    writer = SummaryWriter(log_dir=hparams.tensor_board_logger_ddim)
+    current_time = datetime.now().strftime("%b%d_%H-%M-%S")
+    TB_LOG_DIR = hparams.tensor_board_logger_ddim
+    log_dir = f"{TB_LOG_DIR}/run_{current_time}"
+    writer = SummaryWriter(log_dir=log_dir)
     file_names = [target_file, Path(lr_file_path).name]
     final_z, final_cond, _ = project(
         ddim=ddim,
