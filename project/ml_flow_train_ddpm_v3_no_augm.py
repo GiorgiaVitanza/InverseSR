@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+import json
 import copy  # Importato per clonare lo state_dict del miglior modello
 from models.aekl_no_attention import AutoencoderKL
 from models.ddim import DDIMSampler
@@ -26,7 +27,18 @@ hparams, _ = get_hparams()
 BASE_SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/"
 RUN_DIR = train_cfg.output_dir_ddpm
 current_time = datetime.now().strftime("%b%d_%H-%M-%S")
-
+train_stats_path = os.path.join(train_cfg.data_dir, "train")
+val_stats_path = os.path.join(train_cfg.data_dir, "val")
+if os.path.exists(train_stats_path):
+    with open(train_stats_path, "r") as f:
+        train_stats = json.load(f)
+else:
+    raise FileNotFoundError(f"File {train_stats_path} non trovato! Esegui prima precompute_stats.py")
+if os.path.exists(val_stats_path):
+    with open(val_stats_path, "r") as f:
+        val_stats = json.load(f)
+else:
+    raise FileNotFoundError(f"File {train_stats_path} non trovato! Esegui prima precompute_stats.py")
 print("Inizio configurazione MLFlow...")
 db_path = "mlruns_ddpm.db"
 mlflow.set_tracking_uri(f"sqlite:///{db_path}")
@@ -73,12 +85,13 @@ def train():
         catalogue_path=train_cfg.catalogue_path,
         in_channels=hparams.in_channels,
         norm_mode=train_cfg.norm_mode,
+        cached_stats=train_stats,
     )
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=train_cfg.batch_size,
         shuffle=True,
-        num_workers=2,
+        num_workers=1,
         pin_memory=True,
     )
 
@@ -86,12 +99,13 @@ def train():
         data_dir=os.path.join(train_cfg.data_dir, "val/npy_patches"),
         in_channels=hparams.in_channels,
         norm_mode=train_cfg.norm_mode,
+        cached_stats=val_stats,
     )
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=train_cfg.batch_size,
         shuffle=False,
-        num_workers=2,
+        num_workers=1,
         pin_memory=True,
     )
 
