@@ -59,6 +59,7 @@ def inference(
     latent_vectors: torch.Tensor,
 ):
     x_hat = vqvae.reconstruct_ldm_outputs(latent_vectors)
+    
     return x_hat
 
 def load_ddpm_latent_vectors(device: torch.device, hparams: Namespace) -> torch.Tensor:
@@ -236,11 +237,17 @@ def create_corruption_function(hparams: Namespace, device: torch.device) -> Forw
         forward = ForwardFillMask(device=device)
     return forward
 
-# --- CONDITIONING UTILS ---
 
-def setup_noise_inputs(cat, device: torch.device, hparams: Namespace) -> Tuple[torch.Tensor, torch.Tensor]:
+
+def setup_noise_inputs(
+    cat: dict,  
+    device: torch.device, 
+    hparams: Namespace,
+    batch_size: int = 1,
+    target_patch_shape: tuple = None  # <-- NUOVO PARAMETRO (es. (D, pH, pW) -> (32, 128, 128))
+) -> Tuple[Any, torch.Tensor]:
+
     # 1. Valori grezzi (Raw) dal catalogo
-    # Nota: Assicurati che 'patch_000000.npy' sia dinamico o passato correttamente
     if cat != {} and hparams.cond_key != "None":
         obj_data = cat[hparams.object_id] 
         cond_list = [
@@ -252,31 +259,44 @@ def setup_noise_inputs(cat, device: torch.device, hparams: Namespace) -> Tuple[t
         cond_raw = torch.tensor([cond_list], device=device, dtype=torch.float32)
         
         # 2. Calcolo DINAMICO di mins e maxs dal catalogo
-    
         df_cat = pd.DataFrame.from_dict(cat, orient='index')
         feature_cols = ['hi_size', 'line_flux_integral', 'i', 'w20']
         
-        # Calcoliamo i valori reali presenti nel file corrente
         mins = torch.tensor(df_cat[feature_cols].min().values, device=device, dtype=torch.float32)
         maxs = torch.tensor(df_cat[feature_cols].max().values, device=device, dtype=torch.float32)
 
         # 3. Normalizzazione Min-Max (0-1)
-        # Formula: (x - min) / (max - min)
         cond_normalized = (cond_raw - mins) / (maxs - mins + 1e-8)
-
-        # 4. Abilitiamo il gradiente
-        # Tip: Clamping durante l'ottimizzazione aiuterà a non uscire dal range [0, 1]
         cond_normalized.requires_grad_(True)
     else:
         print("Not conditioned model, working on latent only.")
         cond_normalized = {}
 
-    # --- Gestione Latente ---
-    f = hparams.downsample_factor if hparams.corruption == "downsample" else 1
-    latent_shape = (1, hparams.z_channels, hparams.image_size[0]//f, hparams.image_size[1]//f, hparams.image_size[2]//f)
+    # --- Gestione Latente DINAMICA ---
+    # Determiniamo le dimensioni spaziali della patch corrente (pH, pW)
+    if target_patch_shape is not None:
+        # target_patch_shape è 3D: (D, pH, pW), es. (32, 128, 128)
+        D_patch, H_patch, W_patch = target_patch_shape
+    else:
+        # Fallback se non passata
+        D_patch, H_patch, W_patch = hparams.image_size[0], hparams.image_size[1], hparams.image_size[2]
+
+    # Fattore di scala dello spazio latente (es. 4 se la VAE riduce di 4 volte)
+    f = hparams.downsample_factor if hparams.corruption == "downsample" else 4
+
+    # ✅ ORA LA SHAPE DIPENDE DA pH e pW (es. 128 // 4 = 32)!
+    latent_shape = (
+        batch_size, 
+        hparams.z_channels, 
+        D_patch // f, 
+        H_patch // f, 
+        W_patch // f
+    )
+    
     latent_variable = torch.randn(latent_shape, device=device, requires_grad=True)
     
     return cond_normalized, latent_variable
+
 
 def sampling_from_ddim(
     ddim: DDIMSampler,
@@ -289,12 +309,18 @@ def sampling_from_ddim(
     Genera un'immagine campionando dal modello di diffusione DDIM.
     Supporta conditioning di tipo 'concat', 'crossattn' e 'hybrid'.
     """
-    # 1. COSTRUZIONE O VALIDAZIONE DEL CONDITIONING DICTIONARY
+    # 1. ESTRAZIONE DIMENSIONI DINAMICHE DAL LATENTE (Spostato all'inizio)
+    # latent_variable ha forma 5D: [B, C, D, H, W]
+    batch_size = latent_variable.shape[0]
+    C = latent_variable.shape[1]
+    D = latent_variable.shape[2]
+    H = latent_variable.shape[3]
+    W = latent_variable.shape[4]
+
+    # 2. COSTRUZIONE O VALIDAZIONE DEL CONDITIONING DICTIONARY
     if isinstance(cond, dict):
-        # Se cond è già un dizionario (cond_payload preparato nel project script)
         conditioning = cond
     else:
-        # Fallback se viene passato un singolo tensore (es. cond sui parametri fisici)
         conditioning = {}
         cond_key = getattr(hparams, "cond_key", "hybrid")
 
@@ -303,43 +329,41 @@ def sampling_from_ddim(
             cond_crossattn = cond.unsqueeze(1) if cond.ndim == 2 else cond
             conditioning["c_crossattn"] = [cond_crossattn]
 
-        # Gestione Concatenazione Spaziale
+        # Gestione Concatenazione Spaziale DINAMICA (usa H, W, D del latente corrente!)
         if cond_key in ["concat", "hybrid"]:
-            # Se è un tensore 1D/2D, viene espanso nelle dimensioni spaziali
             if cond.ndim <= 2:
-                dim_1 = hparams.image_size[0] // hparams.downsample_factor if hparams.corruption == "downsample" else hparams.image_size[0]
-                dim_2 = hparams.image_size[1] // hparams.downsample_factor if hparams.corruption == "downsample" else hparams.image_size[1]
-                dim_3 = hparams.image_size[2] // hparams.downsample_factor if hparams.corruption == "downsample" else hparams.image_size[2]
-                
-                cond_concat = cond.view(1, cond.shape[-1], 1, 1, 1).expand(-1, -1, dim_1, dim_2, dim_3)
+                # Usa le dimensioni spaziali REALI della variabile latente ricevuta in input
+                cond_concat = cond.view(1, cond.shape[-1], 1, 1, 1).expand(-1, -1, D, H, W)
             else:
                 cond_concat = cond
                 
             conditioning["c_concat"] = [cond_concat]
 
-    # 2. ESTRAZIONE DIMENSIONI LATENTI
-    # Ricaviamo le dimensioni trascinandole dal tensore latente effettivo
-    dim_0, dim_1, dim_2, dim_3 = latent_variable.shape[-4:]
+    # Il tuo DDIMSampler fa: C, H, W, D = shape
+    shape = (C, H, W, D)
+
+    # Reperimento sicuro del numero di step DDIM
+    num_steps = hparams.ddim_num_timesteps
+    eta = hparams.ddim_eta
 
     # 3. CAMPIONAMENTO DDIM
     latent_vectors, _ = ddim.sample(
-        S=hparams.ddim_num_timesteps,
+        S=num_steps,
         conditioning=conditioning,
-        batch_size=latent_variable.shape[0],
-        shape=[dim_0, dim_1, dim_2, dim_3],
+        batch_size=batch_size,
+        shape=shape,
         first_img=latent_variable,
-        eta=hparams.ddim_eta,
+        eta=eta,
         verbose=False,
     )
         
     if hasattr(latent_vectors, "as_tensor"):
         latent_vectors = latent_vectors.as_tensor()
 
-    # Passaggio a FP32/FP16 coerente per il decoding
-    decoder.float()
-    latent_vectors = latent_vectors.float()
-
     # 4. DECODIFICA NEL DOMINIO IMMAGINE
+    if next(decoder.parameters()).dtype == torch.float32:
+        latent_vectors = latent_vectors.float()
+
     astro_img = decoder.reconstruct_ldm_outputs(latent_vectors)
      
     return astro_img
