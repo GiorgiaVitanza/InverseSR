@@ -1,58 +1,64 @@
-import numpy as np
-
-
+import json
+import os
 from pathlib import Path
 from typing import Union
+import numpy as np
+from tqdm import tqdm
 
 
-def compute_dataset_stats(dataset_input: Union[str, Path]):
+def compute_dataset_stats(dataset_input: Union[str, Path], subsample_stride: int = 10):
     input_path = Path(dataset_input)
 
-    # Verifica prima se il percorso esiste
     if not input_path.exists():
-        raise FileNotFoundError(
-            f"Il percorso specificato non esiste: {dataset_input}"
-        )
+        raise FileNotFoundError(f"Il percorso specificato non esiste: {dataset_input}")
 
-    # Gestione del singolo file .npy
     if input_path.is_file():
         if input_path.suffix != ".npy":
-            raise ValueError(
-                f"Il file specificato non ha estensione .npy: {dataset_input}"
-            )
+            raise ValueError(f"Il file specificato non ha estensione .npy: {dataset_input}")
         npy_files = [input_path]
-
-    # Gestione della directory
     elif input_path.is_dir():
         npy_files = list(input_path.glob("*.npy"))
         if not npy_files:
-            raise FileNotFoundError(
-                f"Nessun file .npy trovato nella directory: {dataset_input}"
-            )
-
+            raise FileNotFoundError(f"Nessun file .npy trovato nella directory: {dataset_input}")
     else:
-        raise ValueError(
-            f"Il percorso specificato non è né un file né una directory valida: {dataset_input}"
-        )
+        raise ValueError(f"Percorso non valido: {dataset_input}")
 
-    print(f"Trovati {len(npy_files)} file .npy. Inizio calcolo statistiche...")
+    print(f"Trovati {len(npy_files)} file .npy. Inizio calcolo statistiche in Streaming/Subsampling...")
 
-    # Prima passata: Calcolo min, max e percentili globali
-    all_data = []
-    
-    for f in npy_files:
-        data = np.load(f)
-        all_data.append(data.ravel())
+    sampled_values = []
 
-    concatenated_data = np.concatenate(all_data)
-    p2 = float(np.percentile(concatenated_data, 2))
-    p98 = float(np.percentile(concatenated_data, 98))
-    p1 = float(np.percentile(concatenated_data, 1))
-    p99 = float(np.percentile(concatenated_data, 99))
-    p5 = float(np.percentile(concatenated_data, 5))
-    p95 = float(np.percentile(concatenated_data, 95))
-    mean = float(np.mean(concatenated_data))
-    std = float(np.std(concatenated_data))
+    # Calcolo streaming della media e std per evitare imperfezioni col subsampling
+    total_sum = 0.0
+    total_sq_sum = 0.0
+    total_count = 0
+
+    for f in tqdm(npy_files, desc="Elaborazione file .npy"):
+        data = np.load(f).astype(np.float32)
+        flat_data = data.ravel()
+
+        # Aggiornamento parametri per Media e Deviazione Standard esatte
+        total_sum += float(np.sum(flat_data))
+        total_sq_sum += float(np.sum(flat_data**2))
+        total_count += flat_data.size
+
+        # Sottocampionamento uniforme per il calcolo dei percentili (risparmia RAM)
+        sampled_values.append(flat_data[::subsample_stride])
+
+    print("Concatenazione dei campioni per il calcolo dei percentili...")
+    concatenated_samples = np.concatenate(sampled_values)
+
+    # Media e Std esatte
+    mean = total_sum / total_count
+    var = (total_sq_sum / total_count) - (mean**2)
+    std = float(np.sqrt(max(var, 0.0)))
+
+    # Percentili calcolati sul dataset sottocampionato
+    p1 = float(np.percentile(concatenated_samples, 1))
+    p2 = float(np.percentile(concatenated_samples, 2))
+    p5 = float(np.percentile(concatenated_samples, 5))
+    p95 = float(np.percentile(concatenated_samples, 95))
+    p98 = float(np.percentile(concatenated_samples, 98))
+    p99 = float(np.percentile(concatenated_samples, 99))
 
     stats = {
         "p2": p2,
@@ -73,9 +79,14 @@ def compute_dataset_stats(dataset_input: Union[str, Path]):
 
 
 if __name__ == "__main__":
-    
-    data_dir = "../../data/inputs/16x128x128_cont_ldev_OK/test_augmented"
-    results = compute_dataset_stats(data_dir)
+    data_dir = "./data/inputs/HI_datamix_128x128x128_stride64/val/npy_patches"
+    OUTPUT_JSON = "./data/inputs/HI_datamix_128x128x128_stride64/val/dataset_stat.json"
 
-    print("\n--- Risultato per argparse ---")
-    print("default=" + repr(results))
+    # subsample_stride=10 prende 1 voxel ogni 10 per i percentili
+    results = compute_dataset_stats(data_dir, subsample_stride=10)
+
+    os.makedirs(os.path.dirname(OUTPUT_JSON), exist_ok=True)
+    with open(OUTPUT_JSON, "w") as f:
+        json.dump(results, f, indent=4)
+
+    print(f"\nStatistiche salvate con successo in {OUTPUT_JSON}")
