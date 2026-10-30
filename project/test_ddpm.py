@@ -141,8 +141,6 @@ def quick_test_metrics(model, vae, dataloader, train_param, hparams, unet_cfg):
                 fig = comparison_plots_ok(
                     x_start_denorm, 
                     x_gen_denorm, 
-                    title_real=title_r, 
-                    title_gen=title_g
                 )
                 
                 save_path = os.path.join(train_param.test_fig, f"{train_param.norm_mode}_batch_{batch_idx}.png")
