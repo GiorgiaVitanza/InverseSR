@@ -193,7 +193,7 @@ class Decoder(nn.Module):
                 
                 # Checkpointing
                 if x.requires_grad:
-                    x = checkpoint(block, x, use_reentrant=True)
+                    x = checkpoint(block, x, use_reentrant=False)
                 else:
                     x = block(x)
             train_params, _ = train_config()
@@ -225,6 +225,7 @@ class AutoencoderKL(nn.Module):
         return dec
 
     def reconstruct_ldm_outputs(self, z):
+        z = z.to(dtype=self.post_quant_conv.weight.dtype)
         x_hat = self.decode(z)
         return x_hat
 
