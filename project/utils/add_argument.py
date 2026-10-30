@@ -4,16 +4,40 @@ from html import parser
 import torch
 
 def add_argument(parser: ArgumentParser):
+    parser.add_argument(
+        "--crop_top_y", 
+        type=int, 
+        default=0, 
+        help="Angolo Y superiore da cui ritagliare il cubo grande"
+        )
+    parser.add_argument(
+        "--crop_left_x", 
+        type=int, 
+        default=0, 
+        help="Angolo X sinistro da cui ritagliare il cubo grande"
+        )
+    parser.add_argument(
+        "--crop_h", 
+        type=int, 
+        default=128, 
+        help="Altezza del crop (dimensione di training)"
+        )
+    parser.add_argument(
+        "--crop_w", 
+        type=int, 
+        default=128, 
+        help="Larghezza del crop (dimensione di training)"
+        )
     # --- LOGGING & PATHS ---
     parser.add_argument(
                 "--patience",
-               
+                type=int,
                 default=20,
                 help="Patience for Early stop optimization",
             )
     parser.add_argument(
                     "--min_delta",
-                    
+                    type=float,                    
                     default=1e-4,
                     help = "Threshold for early stop optimization",
                 )
