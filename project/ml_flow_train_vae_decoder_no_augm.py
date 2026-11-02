@@ -1,4 +1,5 @@
 import os
+import json
 from glob import glob
 import torch
 import torch.nn as nn
@@ -18,7 +19,7 @@ from models.aekl_no_attention import AutoencoderKL, OnlyDecoder
 from utils.config_aekl_v3 import get_hparams 
 from utils.config_train import train_config
 from utils.plot_new import comparison_plots_ok, denormalize_data
-
+from data.data_wrapper import FilteredRadioDataset
 
 # --- CONFIGURAZIONE AMBIENTE LEONARDO ---
 hparams, unknown = get_hparams()
@@ -27,6 +28,19 @@ BASE_SCRATCH = f"/leonardo_scratch/large/userexternal/gvitanza/InverseSR/"
 OUTPUT_DIR = train_param.output_dir_vae
 # Crea un nome unico basato sull'orario e sui parametri
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+
+train_stats_path = os.path.join(train_param.data_dir, "train/npy_patches/dataset_filter_stats.json")
+val_stats_path = os.path.join(train_param.data_dir, "val/npy_patches/dataset_filter_stats.json")
+if os.path.exists(train_stats_path):
+    with open(train_stats_path, "r") as f:
+        train_stats = json.load(f)
+else:
+    raise FileNotFoundError(f"File {train_stats_path} non trovato! Esegui prima precompute_stats.py")
+if os.path.exists(val_stats_path):
+    with open(val_stats_path, "r") as f:
+        val_stats = json.load(f)
+else:
+    raise FileNotFoundError(f"File {val_stats_path} non trovato! Esegui prima precompute_stats.py")
 
 print("Inizializzazione MLflow...")
 mlflow.set_tracking_uri(f"sqlite:///mlruns_vae_decoder.db")
@@ -70,34 +84,49 @@ def train():
     log_dir = f"{TB_LOG_DIR}/run_{current_time}_lr_{train_param.learning_rate}_z{hparams.z_channels}"
     
     print("Caricamento dataset...")
-    dataset = RadioPatchDataset( 
-        os.path.join(train_param.data_dir, "train/npy_patches"),
-        in_channels=hparams.z_channels, 
-        norm_mode=train_param.norm_mode
-    )
-    
-    dataloader = DataLoader(
-        dataset, 
-        batch_size=train_param.batch_size, 
-        shuffle=True, 
-        num_workers=1, 
-        pin_memory=True, 
-        persistent_workers=True
-    )
-
-    val_dataset = RadioPatchDataset(
-        data_dir=os.path.join(train_param.data_dir, "val/npy_patches"),
+    DATA_DIR=os.path.join(train_param.data_dir, "train/npy_patches")
+    # 2. Dataset e DataLoader (TRAIN & VALIDATION)
+    raw_dataset = RadioPatchDataset(
+        data_dir=DATA_DIR,
+        catalogue_path=train_param.catalogue_path,
         in_channels=hparams.in_channels,
         norm_mode=train_param.norm_mode,
+        cached_stats=train_stats["flux_statistics_filtered"],
     )
-    
-    val_dataloader = DataLoader(
-        val_dataset,
+    train_dataset = FilteredRadioDataset(
+    base_dataset=raw_dataset,
+    stats_json_path=f"{DATA_DIR}/dataset_filter_stats.json",
+    mode="clip"  # "clip" taglia i picchi al valore max, "zero" li azzera
+    )
+
+
+    dataloader = DataLoader(
+        train_dataset,
         batch_size=train_param.batch_size,
-        shuffle=False,  
+        shuffle=True,
         num_workers=1,
         pin_memory=True,
     )
+
+    raw_val_dataset = RadioPatchDataset(
+        data_dir=os.path.join(train_param.data_dir, "val/npy_patches"),
+        in_channels=hparams.in_channels,
+        norm_mode=train_param.norm_mode,
+        cached_stats=val_stats["flux_statistics_filtered"],
+    )
+    val_dataset = FilteredRadioDataset(
+        base_dataset=raw_val_dataset,
+        stats_json_path=os.path.join(train_param.data_dir, "val/npy_patches/dataset_filter_stats.json"),
+        mode="clip"  # "clip" taglia i picchi al valore max, "zero" li azzera
+        )
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size=train_param.batch_size,
+        shuffle=False,
+        num_workers=1,
+        pin_memory=True,
+    )
+
 
     os.makedirs(CHECKPOINT_DIR, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)

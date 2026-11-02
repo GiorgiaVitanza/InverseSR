@@ -1,24 +1,26 @@
-from datetime import datetime
 import os
 import json
 import copy  # Importato per clonare lo state_dict del miglior modello
-from models.aekl_no_attention import AutoencoderKL
-from models.ddim import DDIMSampler
-from models.ddpm_v2_conditioned import DDPM
-import mlflow
-import numpy as np
-import matplotlib.pyplot as plt
+from datetime import datetime
+from torch.amp import autocast
 from torch.utils.data import DataLoader
 import torch
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+import numpy as np
+import matplotlib.pyplot as plt
+import mlflow
+
+from models.aekl_no_attention import AutoencoderKL
+from models.ddim import DDIMSampler
+from models.ddpm_v2_conditioned import DDPM
 from utils.config_aekl_v3 import get_hparams
 from utils.config_train import train_config
 from utils.config_unet_v3 import get_config
 from utils.dataset_v3 import RadioPatchDataset
 from utils.plot_new import comparison_plots_ok, denormalize_data
-
+from data.data_wrapper import FilteredRadioDataset
 
 # --- CONFIGURAZIONE PERCORSI E DIRECTORY ---
 train_cfg, _ = train_config()
@@ -27,18 +29,21 @@ hparams, _ = get_hparams()
 BASE_SCRATCH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/"
 RUN_DIR = train_cfg.output_dir_ddpm
 current_time = datetime.now().strftime("%b%d_%H-%M-%S")
-train_stats_path = os.path.join(train_cfg.data_dir, "train")
-val_stats_path = os.path.join(train_cfg.data_dir, "val")
+train_stats_path = os.path.join(train_cfg.data_dir, "train/npy_patches/dataset_filter_stats.json")
+val_stats_path = os.path.join(train_cfg.data_dir, "val/npy_patches/dataset_filter_stats.json")
+
 if os.path.exists(train_stats_path):
     with open(train_stats_path, "r") as f:
         train_stats = json.load(f)
 else:
     raise FileNotFoundError(f"File {train_stats_path} non trovato! Esegui prima precompute_stats.py")
+
 if os.path.exists(val_stats_path):
     with open(val_stats_path, "r") as f:
         val_stats = json.load(f)
 else:
-    raise FileNotFoundError(f"File {train_stats_path} non trovato! Esegui prima precompute_stats.py")
+    raise FileNotFoundError(f"File {val_stats_path} non trovato! Esegui prima precompute_stats.py")
+
 print("Inizio configurazione MLFlow...")
 db_path = "mlruns_ddpm.db"
 mlflow.set_tracking_uri(f"sqlite:///{db_path}")
@@ -47,20 +52,26 @@ mlflow.set_experiment(
 )
 
 print(f"Caricamento VAE pre-addestrato da {train_cfg.vae_path}")
-vae = AutoencoderKL(embed_dim=hparams.z_channels, hparams=vars(hparams)).to(
-    train_cfg.device
-)
+vae = AutoencoderKL(embed_dim=hparams.z_channels, hparams=vars(hparams))
+
+# OPTIMIZATION OOM: Caricamento prima su CPU per non occupare VRAM
 checkpoint_vae = torch.load(
-    train_cfg.vae_path, map_location=train_cfg.device, weights_only=False
+    train_cfg.vae_path, map_location="cpu", weights_only=False
 )
 vae.load_state_dict(checkpoint_vae["model_state_dict"])
+
+# OPTIMIZATION OOM: Spostamento su GPU, congelamento gradienti e eval mode
+vae = vae.to(train_cfg.device)
 vae.eval()
+vae.requires_grad_(False)
+del checkpoint_vae
+torch.cuda.empty_cache()
 
 
 def train():
     CHECKPOINT_DIR = os.path.join(
         BASE_SCRATCH,
-        f"ddpm_{train_cfg.cond_key}_{hparams.z_channels}_{train_cfg.epochs}epochs_{train_cfg.norm_mode}_no_augm_{current_time}",
+        f"ddpm_{train_cfg.cond_key}_{hparams.z_channels}_{train_cfg.epochs}epochs_{train_cfg.norm_mode}_{current_time}",
     )
     TB_LOG_DIR = train_cfg.tensor_board_logger_ddpm
     log_dir = f"{TB_LOG_DIR}/run_{current_time}_lr_{train_cfg.learning_rate}_z{hparams.z_channels}"
@@ -78,15 +89,22 @@ def train():
     unet_cfg["params"]["out_channels"] = hparams.z_channels  # Output ricostruisce solo z
     unet_cfg["params"].pop("out_channels_unet", None)
     unet_cfg["params"].pop("in_channels_unet", None)
-
+    
+    DATA_DIR = os.path.join(train_cfg.data_dir, "train/npy_patches")
     # 2. Dataset e DataLoader (TRAIN & VALIDATION)
-    train_dataset = RadioPatchDataset(
-        data_dir=os.path.join(train_cfg.data_dir, "train/npy_patches"),
+    raw_dataset = RadioPatchDataset(
+        data_dir=DATA_DIR,
         catalogue_path=train_cfg.catalogue_path,
         in_channels=hparams.in_channels,
         norm_mode=train_cfg.norm_mode,
-        cached_stats=train_stats,
+        cached_stats=train_stats["flux_statistics_filtered"],
     )
+    train_dataset = FilteredRadioDataset(
+        base_dataset=raw_dataset,
+        stats_json_path=f"{DATA_DIR}/dataset_filter_stats.json",
+        mode=train_cfg.norm_mode
+    )
+
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=train_cfg.batch_size,
@@ -95,11 +113,16 @@ def train():
         pin_memory=True,
     )
 
-    val_dataset = RadioPatchDataset(
+    raw_val_dataset = RadioPatchDataset(
         data_dir=os.path.join(train_cfg.data_dir, "val/npy_patches"),
         in_channels=hparams.in_channels,
         norm_mode=train_cfg.norm_mode,
-        cached_stats=val_stats,
+        cached_stats=val_stats["flux_statistics_filtered"],
+    )
+    val_dataset = FilteredRadioDataset(
+        base_dataset=raw_val_dataset,
+        stats_json_path=os.path.join(train_cfg.data_dir, "val/npy_patches/dataset_filter_stats.json"),
+        mode=train_cfg.norm_mode
     )
     val_dataloader = DataLoader(
         val_dataset,
@@ -153,6 +176,7 @@ def train():
             for batch in pbar:
                 optimizer.zero_grad()
 
+            for step, batch in enumerate(pbar):
                 x_start = batch["x_0"].to(train_cfg.device)
                 spatial_mask = batch["spatial_mask"].to(train_cfg.device)
                 context = batch["context"].to(train_cfg.device)
@@ -253,7 +277,7 @@ def train():
                 best_val_loss = avg_val_loss
                 best_epoch = epoch + 1
                 best_ckpt_path = os.path.join(CHECKPOINT_DIR, "ddpm_best_epoch.pth")
-                
+
                 # Mantiene in memoria lo stato dei pesi migliori per MLFlow
                 best_model_weights = copy.deepcopy(model.state_dict())
 
@@ -275,7 +299,7 @@ def train():
                     val_sample_batch = next(iter(val_dataloader))
                     x_vis = val_sample_batch["x_0"][:2].to(train_cfg.device)
                     patch_stats = {
-                        k: v[:2].to(train_cfg.device) if isinstance(v, torch.Tensor) else v 
+                        k: v[:2].to(train_cfg.device) if isinstance(v, torch.Tensor) else v
                         for k, v in val_sample_batch['stats'].items()
                     }
                     mask_vis = val_sample_batch["spatial_mask"][:2].to(train_cfg.device)
@@ -374,7 +398,7 @@ def train():
         if best_model_weights is not None:
             print(f"Registrazione su MLFlow del BEST MODEL dall'epoca {best_epoch}...")
             model.load_state_dict(best_model_weights)
-            
+
             mlflow.pytorch.log_model(
                 pytorch_model=model,
                 artifact_path="ddpm_best",
@@ -395,15 +419,15 @@ def train():
 
         local_model_path = os.path.join(RUN_DIR, "ddpm_final_model")
         mlflow.pytorch.save_model(model, path=local_model_path)
-        
+
         # 3. Generazione e log del grafico Loss Curves
         print("Generazione grafico Train vs Validation Loss...")
         fig_loss, ax = plt.subplots(figsize=(10, 6))
         epochs_range = range(1, train_cfg.epochs + 1)
-        
+
         ax.plot(epochs_range, history_train_loss, label='Training Loss', color='tab:blue', linewidth=2)
         ax.plot(epochs_range, history_val_loss, label='Validation Loss', color='tab:orange', linewidth=2)
-        
+
         ax.scatter(best_epoch, best_val_loss, color='red', s=80, zorder=5, label=f'Best Epoch: {best_epoch}')
         ax.axvline(x=best_epoch, color='red', linestyle='--', alpha=0.5)
 
@@ -412,9 +436,9 @@ def train():
         ax.set_ylabel('Loss', fontsize=12)
         ax.grid(True, linestyle='--', alpha=0.6)
         ax.legend(fontsize=11)
-        
+
         fig_loss.tight_layout()
-        
+
         loss_plot_path = os.path.join(CHECKPOINT_DIR, "loss_curves.png")
         fig_loss.savefig(loss_plot_path, dpi=300)
         writer.add_figure("Visual/Loss_Curves", fig_loss, global_step=train_cfg.epochs)
@@ -425,6 +449,7 @@ def train():
         writer.close()
         print(f"Training concluso. Checkpoint in {CHECKPOINT_DIR}")
         print(f"Miglior modello salvato all'epoca {best_epoch} con validation loss pari a {best_val_loss:.6f}")
+
 
 if __name__ == "__main__":
     train()
