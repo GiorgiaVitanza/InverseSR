@@ -35,7 +35,7 @@ def get_config():
 
     # --- Parametri Attention & Transformer ---
     # Riduzioni spaziali alle quali applicare l'attenzione
-    parser.add_argument("--attention_resolutions", type=int, nargs='+', default=[2, 1])
+    parser.add_argument("--attention_resolutions", type=int, nargs='+', default=[4])
     
     parser.add_argument("--num_heads", type=int, default=4)
     parser.add_argument("--num_head_channels", type=int, default=64)
