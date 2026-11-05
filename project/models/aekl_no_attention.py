@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from utils.config_train import train_config
-from utils.const import FITS_LIMIT
+
 
 
 @torch.jit.script
@@ -203,9 +203,6 @@ class Decoder(nn.Module):
                 # --- VINCOLO SULLA SCALA FISICA ---
                 # Usiamo Tanh per stabilizzare il range in [-1, 1]
                 x = torch.tanh(x)
-                scale_factor = FITS_LIMIT # massimo del cubo totale
-                x = x * scale_factor
-
                 return x
 
 
