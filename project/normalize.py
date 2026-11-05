@@ -1,65 +1,113 @@
-import matplotlib.pyplot as plt
-import torch
-import numpy as np
 import os
-from torch.utils.data import DataLoader
+import json
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+from glob import glob
 
-# Statistiche dal tuo cubo FITS
-FITS_MAX = 1.52088422e-03
-FITS_MIN = -1.47367257e-03
-FITS_STD = 3.11374637e-05
-LIMIT = 1.6e-03 # Margine di sicurezza
 
-def apply_norm(data, mode='global_sym'):
-    if mode == 'local':
-        # Quella che usi ora: ogni patch ha la sua scala
-        p_min = data.min()
-        p_max = np.percentile(data, 99.8)
-        return (data - p_min) / (p_max - p_min + 1e-8)
+from utils.dataset_v3 import normalize_dynamic
+from utils.plot_new import comparison_plots_ok
+
+
+
+# ------------------------------------------------------------------------------
+# 2. TEST DI TUTTE LE NORMALIZZAZIONI SU DIVERSI SUFFISSI DI PATCH
+# ------------------------------------------------------------------------------
+def test_all_normalizations_multisuffix(patches_dict, json_stats_path, modes=None, output_base_dir="training_plots_preview"):
+    if modes is None:
+        modes = ['global_robust', 'log_minmax', 'zscore_robust', 'minmax_clip']
+
+    if not os.path.exists(json_stats_path):
+        raise FileNotFoundError(f"Impossibile trovare il file JSON: {json_stats_path}")
+
+    with open(json_stats_path, "r") as f:
+        stats = json.load(f)
+
+    for patch_label, data_path in patches_dict.items():
+        patch_output_dir = os.path.join(output_base_dir, patch_label)
+        os.makedirs(patch_output_dir, exist_ok=True)
+
+        raw_data = np.load(data_path).astype(np.float32)
+        if raw_data.ndim > 3: 
+            raw_data = raw_data.squeeze()
+
+        print(f"\n=======================================================")
+        print(f"--- TEST NORM SU TIPO PATCH: [{patch_label}] ---")
+        print(f"File: {os.path.basename(data_path)}")
+        print(f"RAW -> Min: {raw_data.min():.4e} | Max: {raw_data.max():.4e} | Mean: {raw_data.mean():.4e}")
+        print(f"=======================================================")
+
+        for mode in modes:
+            norm_cube, _ = normalize_dynamic(raw_data, norm_mode=mode, stats=stats)
+            
+            if isinstance(norm_cube, torch.Tensor):
+                norm_cube = norm_cube.detach().cpu().numpy()
+
+            x_real = norm_cube
+            # Simula predizione del modello (con un po' di rumore per distinguere le righe)
+            x_gen = norm_cube * 0.9 + np.random.normal(0, 0.01 * norm_cube.std() + 1e-8, norm_cube.shape)
+
+            print(f"Modalità [{mode.upper():<13}] -> Min: {norm_cube.min():.4e} | Max: {norm_cube.max():.4e}")
+
+            fig = comparison_plots_ok(
+                x_real=x_real,
+                x_gen=x_gen,
+                x_lr=None,
+                title_suffix=f"[{patch_label}] - MODE: {mode.upper()}"
+            )
+
+            save_path = os.path.join(patch_output_dir, f"plot_{patch_label}_{mode}.png")
+            fig.savefig(save_path, dpi=200, bbox_inches='tight')
+            plt.close(fig)
+
+    print(f"\n✅ Tutti i plot per tutti i tipi di patch sono stati salvati in: '{output_base_dir}/'")
+
+
+# ------------------------------------------------------------------------------
+# 3. ESECUZIONE CON RICERCA AUTOMATICA DEI SUFFISSI
+# ------------------------------------------------------------------------------
+if __name__ == "__main__":
+    BASE_DIR = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/HI_128x128x128_stride64/train"
+    patches_dir = os.path.join(BASE_DIR, "npy_patches")
     
-    elif mode == 'global_sym':
-        # Consigliata: Zero fisico = 0.5, range [0, 1]
-        x_scaled = data / LIMIT
-        return (x_scaled + 1.0) / 2.0
+    # Cerca il file delle statistiche nel percorso specifico o nella cartella base
+    candidate_json = [
+        os.path.join(patches_dir, "dataset_filter_stats.json"),
+        os.path.join(BASE_DIR, "dataset_filter_stats.json")
+    ]
+    json_stats_path = next((p for p in candidate_json if os.path.exists(p)), None)
+
+    # Trova automaticamente un file di esempio per ciascun tipo/suffisso di patch
+    all_npy = sorted(glob(os.path.join(patches_dir, "*.npy")))
     
-    elif mode == 'zscore':
-        # Media 0, Std 1 (poi compressa per visualizzazione)
-        return (data / FITS_STD) 
+    if len(all_npy) == 0:
+        print(f"Nessun file .npy trovato in: {patches_dir}")
+    elif json_stats_path is None:
+        print(f"File dataset_filter_stats.json non trovato nei percorsi cercati.")
+    else:
+        # Mappa i vari tipi di patch basandosi sui nomi dei file (es. extract suffix dopo 'patch_XXXXXX_')
+        selected_patches = {}
+        for p in all_npy:
+            fname = os.path.basename(p)
+            parts = fname.replace(".npy", "").split("_")
+            
+            # Estrae la chiave del tipo/suffisso (es. 'MEERKAT_ATCA', 'FAST', ecc.)
+            if len(parts) > 2:
+                suffix_key = "_".join(parts[2:])
+            else:
+                suffix_key = "default"
 
-def visualize_normalization_comparison(data_path, num_samples=2):
-    # Carichiamo un file raw .npy per testare le normalizzazioni
-    # Nota: carichiamo il dato "fisico" non ancora normalizzato
-    raw_data = np.load(data_path).astype(np.float32)
-    if raw_data.ndim > 3: raw_data = raw_data.squeeze()
-    
-    modes = ['local', 'global_sym', 'zscore']
-    fig, axes = plt.subplots(len(modes), 2, figsize=(15, 5 * len(modes)))
+            # Salva la prima patch trovata per quel suffisso
+            if suffix_key not in selected_patches:
+                selected_patches[suffix_key] = p
 
-    for row, mode in enumerate(modes):
-        # Applichiamo la normalizzazione
-        norm_cube = apply_norm(raw_data, mode=mode)
-        
-        # Slice centrale e Momento 0
-        slice_idx = norm_cube.shape[0] // 2
-        central_slice = norm_cube[slice_idx, :, :]
-        mom0 = np.sum(norm_cube, axis=0)
-        
-        # Plot Slice
-        im1 = axes[row, 0].imshow(central_slice, cmap='RdBu_r' if mode != 'local' else 'hot', origin='lower')
-        axes[row, 0].set_title(f"MODALITÀ: {mode.upper()} - Slice Centrale")
-        fig.colorbar(im1, ax=axes[row, 0])
-        
-        # Plot Momento 0
-        im2 = axes[row, 1].imshow(mom0, cmap='hot', origin='lower')
-        axes[row, 1].set_title(f"Momento 0 (Somma Z)")
-        fig.colorbar(im2, ax=axes[row, 1])
+        print(f"Tipi di patch identificati nel dataset ({len(selected_patches)}):")
+        for k, path in selected_patches.items():
+            print(f" - {k}: {os.path.basename(path)}")
 
-    plt.tight_layout()
-    plt.savefig('comparison_norms.png')
-    print("Confronto salvato in: comparison_norms.png")
-
-# --- TEST DIRETTO SU UNA PATCH ---
-# Sostituisci con un percorso reale di una tua patch .npy
-patch_test = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/128x128x128_stride128/npy_patches/patch_000000.npy"
-if os.path.exists(patch_test):
-    visualize_normalization_comparison(patch_test)
+        test_all_normalizations_multisuffix(
+            patches_dict=selected_patches,
+            json_stats_path=json_stats_path,
+            output_base_dir="training_plots_preview"
+        )
