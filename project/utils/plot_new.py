@@ -4,41 +4,13 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib.ticker import ScalarFormatter
 
-
+from skimage.metrics import peak_signal_noise_ratio as psnr_metric
+from skimage.metrics import structural_similarity as ssim_metric
 DEFAULT_CMAP = "hot"
 BG_COLOR = "black"
 
-def safe_clean(arr: np.ndarray) -> np.ndarray:
-    """Removes NaN/Inf and ensures a valid NumPy float array for Matplotlib."""
-    if hasattr(arr, 'detach'):
-        arr = arr.detach().cpu().numpy()
-    elif hasattr(arr, 'cpu'):
-        arr = arr.cpu().numpy()
-    
-    arr = np.nan_to_num(arr, nan=0.0, posinf=1.0, neginf=0.0)
-    return arr
-
-def get_safe_bounds(
-    *arrays: np.ndarray, 
-    lower_percentile: float = 1.0, 
-    upper_percentile: float = 99.5, 
-    default_range: float = 1e-5
-) -> tuple[float, float]:
-    """Calculates vmin and vmax safely using percentiles across one or more arrays."""
-    valid_arrays = [a for a in arrays if a.size > 0]
-    if not valid_arrays:
-        return 0.0, default_range
-
-    all_values = np.concatenate([a.ravel() for a in valid_arrays])
-    
-    vmin = float(np.percentile(all_values, lower_percentile))
-    vmax = float(np.percentile(all_values, upper_percentile))
-    
-    if vmin >= vmax:
-        vmax = vmin + default_range
-        
-    return vmin, vmax
 
 def denormalize_data(x, norm_mode: str, patch_stats: dict = None):
     """
@@ -103,108 +75,191 @@ def denormalize_data(x, norm_mode: str, patch_stats: dict = None):
 
     return x
 
-    
+
+# ------------------------------------------------------------------------------
+# 1. UTILS & SAFE BOUNDS PER LA TUA FUNZIONE DI PLOT
+# ------------------------------------------------------------------------------
+
+
+
+def safe_clean(arr):
+    if hasattr(arr, "detach"):
+        arr = arr.detach().cpu().numpy()
+    return np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
+
+
+def get_safe_bounds(data, lower_percentile=1, upper_percentile=99):
+    vmin = np.percentile(data, lower_percentile)
+    vmax = np.percentile(data, upper_percentile)
+    if abs(vmax - vmin) < 1e-7:
+        vmin = float(np.min(data)) - 1e-5
+        vmax = float(np.max(data)) + 1e-5
+    return vmin, vmax
+
+
 def comparison_plots_ok(
     x_real, 
     x_gen, 
     x_lr=None, 
-    sources_coords=None
+    sources_coords=None,
+    title_suffix=""
 ):
-    # 1. Input sanitization
+    # 1. Clean & Squeeze inputs
     x_real = safe_clean(x_real)
     x_gen = safe_clean(x_gen)
     if x_lr is not None:
         x_lr = safe_clean(x_lr)
 
-    # Dimension reduction for x_real and x_gen
     if x_real.ndim == 5: x_real = x_real[0]
     if x_gen.ndim == 5:  x_gen  = x_gen[0]
     if x_real.ndim == 4: x_real = x_real[0] if x_real.shape[0] in [1, 3] else x_real.squeeze()
     if x_gen.ndim == 4:  x_gen  = x_gen[0] if x_gen.shape[0] in [1, 3] else x_gen.squeeze()
 
-    # MIP Projections for Real and Generated
-    mip_real_xy, mip_real_xz, mip_real_yz = np.max(x_real, axis=0), np.max(x_real, axis=1), np.max(x_real, axis=2)
-    mip_gen_xy,  mip_gen_xz,  mip_gen_yz  = np.max(x_gen, axis=0),  np.max(x_gen, axis=1),  np.max(x_gen, axis=2)
-
-    # Concatenate data for visual limits
-    all_volumes = [mip_real_xy.ravel(), mip_real_xz.ravel(), mip_real_yz.ravel()]
-
-    # Handle MIP Projections for Low Resolution (if provided)
     has_lr = x_lr is not None
     if has_lr:
         if x_lr.ndim == 5: x_lr = x_lr[0]
         if x_lr.ndim == 4: x_lr = x_lr[0] if x_lr.shape[0] in [1, 3] else x_lr.squeeze()
-        
+
+    # 2. Metriche (PSNR e SSIM 3D)
+    data_range = x_real.max() - x_real.min()
+    if data_range < 1e-7: data_range = 1.0
+    
+    psnr_val = psnr_metric(x_real, x_gen, data_range=data_range)
+    try:
+        ssim_val = ssim_metric(x_real, x_gen, data_range=data_range)
+    except Exception:
+        ssim_val = 0.0
+
+    # 3. Calcolo Proiezioni MIP e Slice Centrali
+    mip_real_xy, mip_real_xz, mip_real_yz = np.max(x_real, axis=0), np.max(x_real, axis=1), np.max(x_real, axis=2)
+    mip_gen_xy,  mip_gen_xz,  mip_gen_yz  = np.max(x_gen, axis=0),  np.max(x_gen, axis=1),  np.max(x_gen, axis=2)
+
+    cz, cy, cx = x_real.shape[0] // 2, x_real.shape[1] // 2, x_real.shape[2] // 2
+    slice_real_xy, slice_real_xz, slice_real_yz = x_real[cz, :, :], x_real[:, cy, :], x_real[:, :, cx]
+    slice_gen_xy,  slice_gen_xz,  slice_gen_yz  = x_gen[cz, :, :],  x_gen[:, cy, :],  x_gen[:, :, cx]
+
+    # Mappe di errore (Absolute Difference)
+    err_xy = np.abs(mip_real_xy - mip_gen_xy)
+    err_xz = np.abs(mip_real_xz - mip_gen_xz)
+    err_yz = np.abs(mip_real_yz - mip_gen_yz)
+
+    # 4. Calcolo Bounds per Normalizzazione Colormap
+    all_volumes = [
+        mip_real_xy.ravel(), mip_real_xz.ravel(), mip_real_yz.ravel(),
+        mip_gen_xy.ravel(),  mip_gen_xz.ravel(),  mip_gen_yz.ravel()
+    ]
+    if has_lr:
         mip_lr_xy = np.max(x_lr, axis=0)
         mip_lr_xz = np.max(x_lr, axis=1)
         mip_lr_yz = np.max(x_lr, axis=2)
         all_volumes.extend([mip_lr_xy.ravel(), mip_lr_xz.ravel(), mip_lr_yz.ravel()])
 
-    all_real = np.concatenate(all_volumes)
-    vmin, vmax = get_safe_bounds(all_real, lower_percentile=1, upper_percentile=99)
-
-    # Grid setup (3 rows if x_lr is provided, otherwise 2 rows)
-    n_rows = 3 if has_lr else 2
-    fig, axes = plt.subplots(n_rows, 3, figsize=(15, 4 * n_rows), gridspec_kw={'height_ratios': [1] * n_rows})
+    # Calcola vmin e vmax basandosi UNICAMENTE sul volume High Resolution (Target)
+    mip_real_all = np.concatenate([mip_real_xy.ravel(), mip_real_xz.ravel(), mip_real_yz.ravel()])
+    vmin, vmax = get_safe_bounds(mip_real_all, lower_percentile=1, upper_percentile=99)
     
-    main_title = f"Visual Comparison"
-    
-    fig.suptitle(main_title, fontsize=13, fontweight='bold', y=0.99)
 
-    # ROW 1: REAL
-    im = axes[0, 0].imshow(mip_real_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
-    axes[0, 0].set_title("XY (Top View)")
-    axes[0, 0].set_ylabel(r"$\bf{High resolution}$ (Y)" )
+    # 5. Struttura del Plot (5 Righe se c'è LR, altrimenti 4)
+    n_rows = 5 if has_lr else 4
+    fig = plt.figure(figsize=(16, 3.8 * n_rows))
+    gs = fig.add_gridspec(n_rows, 3, height_ratios=[1] * (n_rows - 1) + [0.7])
 
-    axes[0, 1].imshow(mip_real_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-    axes[0, 1].set_title("XZ (Front View)")
-    axes[0, 1].set_ylabel("Z")
+    main_title = f"Validation SR | PSNR: {psnr_val:.2f} dB | SSIM: {ssim_val:.4f} {title_suffix}"
+    fig.suptitle(main_title, fontsize=14, fontweight='bold', y=0.995)
 
-    axes[0, 2].imshow(mip_real_yz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-    axes[0, 2].set_title("YZ (Side View)")
-    axes[0, 2].set_ylabel("Z")
+    row = 0
 
-    # ROW MID: LOW RESOLUTION (If present)
-    gen_row_idx = 1
+    # ROW 1: HIGH RESOLUTION (GT) MIP
+    im_gt = fig.add_subplot(gs[row, 0]).imshow(mip_real_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
+    fig.axes[-1].set_title("MIP XY (Top View)")
+    fig.axes[-1].set_ylabel(r"$\bf{HR\ (Target)}$")
+
+    fig.add_subplot(gs[row, 1]).imshow(mip_real_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
+    fig.axes[-1].set_title("MIP XZ (Front View)")
+
+    fig.add_subplot(gs[row, 2]).imshow(mip_real_yz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
+    fig.axes[-1].set_title("MIP YZ (Side View)")
+    row += 1
+
+    # ROW (OPZIONALE): LOW RESOLUTION
     if has_lr:
-        gen_row_idx = 2
-        axes[1, 0].imshow(mip_lr_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
-        axes[1, 0].set_title("XY (Top View)")
-        axes[1, 0].set_ylabel(r"$\bf{Low resolution}$ (Y)")
+        fig.add_subplot(gs[row, 0]).imshow(mip_lr_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
+        fig.axes[-1].set_title("MIP XY (Top View)")
+        fig.axes[-1].set_ylabel(r"$\bf{Low\ Res}$")
 
-        axes[1, 1].imshow(mip_lr_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-        axes[1, 1].set_title("XZ (Front View)")
-        axes[1, 1].set_ylabel("Z")
+        fig.add_subplot(gs[row, 1]).imshow(mip_lr_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
+        fig.axes[-1].set_title("MIP XZ (Front View)")
 
-        axes[1, 2].imshow(mip_lr_yz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-        axes[1, 2].set_title("YZ (Side View)")
-        axes[1, 2].set_ylabel("Z")
+        fig.add_subplot(gs[row, 2]).imshow(mip_lr_yz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
+        fig.axes[-1].set_title("MIP YZ (Side View)")
+        row += 1
 
-    # FINAL ROW: GENERATED
-    axes[gen_row_idx, 0].imshow(mip_gen_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
-    axes[gen_row_idx, 0].set_title("XY (Top View)")
-    axes[gen_row_idx, 0].set_ylabel(r"$\bf{Super resolution}$ (Y)")
-    axes[gen_row_idx, 0].set_xlabel("X")
+    # ROW 2: SUPER RESOLUTION MIP
+    fig.add_subplot(gs[row, 0]).imshow(mip_gen_xy, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
+    fig.axes[-1].set_title("MIP XY (Top View)")
+    fig.axes[-1].set_ylabel(r"$\bf{Super\ Res}$")
 
-    axes[gen_row_idx, 1].imshow(mip_gen_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-    axes[gen_row_idx, 1].set_title("XZ (Front View)")
-    axes[gen_row_idx, 1].set_xlabel("X")
+    fig.add_subplot(gs[row, 1]).imshow(mip_gen_xz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
+    fig.axes[-1].set_title("MIP XZ (Front View)")
 
-    axes[gen_row_idx, 2].imshow(mip_gen_yz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax, aspect='auto')
-    axes[gen_row_idx, 2].set_title("YZ (Side View)")
-    axes[gen_row_idx, 2].set_xlabel("Y")
+    fig.add_subplot(gs[row, 2]).imshow(mip_gen_yz, origin="lower", cmap="inferno", vmin=vmin, vmax=vmax)
+    fig.axes[-1].set_title("MIP YZ (Side View)")
+    row += 1
 
-    # Source coordinates overlay (if provided)
+    # ROW 3: MAPPA DI ERRORE ASSOLUTO (|HR - SR|)
+    im_err = fig.add_subplot(gs[row, 0]).imshow(err_xy, origin="lower", cmap="hot")
+    fig.axes[-1].set_title("Error MIP XY")
+    fig.axes[-1].set_ylabel(r"$\bf{|HR - SR|}$")
+
+    fig.add_subplot(gs[row, 1]).imshow(err_xz, origin="lower", cmap="hot")
+    fig.axes[-1].set_title("Error MIP XZ")
+
+    fig.add_subplot(gs[row, 2]).imshow(err_yz, origin="lower", cmap="hot")
+    fig.axes[-1].set_title("Error MIP YZ")
+    row += 1
+
+    # ROW 4: PROFILI 1D D'INTENSITÀ (Line Cuts)
+    ax_profile = fig.add_subplot(gs[row, :])
+    line_gt = x_real[cz, cy, :]
+    line_sr = x_gen[cz, cy, :]
+    
+    ax_profile.plot(line_gt, label='High Resolution (GT)', color='black', linewidth=1.5)
+    ax_profile.plot(line_sr, label='Super Resolution (SR)', color='tab:red', linestyle='--', linewidth=1.5)
+    
+    if has_lr:
+        # Se LR ha dimensioni spaziali minori, la ridimensioniamo visivamente sul grafico
+        line_lr = x_lr[x_lr.shape[0]//2, x_lr.shape[1]//2, :]
+        x_lr_coords = np.linspace(0, len(line_gt) - 1, len(line_lr))
+        ax_profile.plot(x_lr_coords, line_lr, label='Low Resolution', color='tab:blue', alpha=0.7, linestyle=':')
+
+    ax_profile.set_title(f"1D Intensity Line Cut (Centered at Z={cz}, Y={cy})", fontsize=11)
+    ax_profile.set_xlabel("X (Pixel Index)")
+    ax_profile.set_ylabel("Intensità")
+    ax_profile.legend(loc='upper right')
+    ax_profile.grid(True, linestyle=':', alpha=0.6)
+
+    # Coordinate sorgenti (se presenti)
     if sources_coords is not None and len(sources_coords) > 0:
         xs = [pt[0] for pt in sources_coords]
         ys = [pt[1] for pt in sources_coords]
-        plot_axes = [axes[i, 0] for i in range(n_rows)]
-        for ax in plot_axes:
-            ax.scatter(xs, ys, color='cyan', marker='o', s=50, facecolors='none', linewidths=1.2)
+        for ax in fig.axes[:3]:
+            ax.scatter(xs, ys, color='cyan', marker='o', s=40, facecolors='none', linewidths=1.2)
 
-    fig.tight_layout(rect=[0, 0, 0.90, 0.96])
-    cbar_ax = fig.add_axes([0.92, 0.15, 0.015, 0.7])
-    fig.colorbar(im, cax=cbar_ax)
+    fig.tight_layout(rect=[0, 0, 0.90, 0.97])
+
+    # Colorbar Principale (Inferno)
+    cbar_ax1 = fig.add_axes([0.91, 0.35, 0.015, 0.55])
+    cbar1 = fig.colorbar(im_gt, cax=cbar_ax1)
+    formatter = ScalarFormatter(useMathText=True)
+    formatter.set_powerlimits((-3, 3))
+    cbar1.formatter = formatter
+    cbar1.update_ticks()
+
+    # Colorbar Errore (Hot)
+    cbar_ax2 = fig.add_axes([0.91, 0.18, 0.015, 0.12])
+    cbar2 = fig.colorbar(im_err, cax=cbar_ax2)
+    cbar2.formatter = formatter
+    cbar2.update_ticks()
 
     return fig
 
