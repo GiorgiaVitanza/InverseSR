@@ -1,15 +1,15 @@
 #!/bin/bash
 
-#SBATCH --job-name=vae_global_arcsinh_scheduler
+#SBATCH --job-name=glob1HInewAct
 #SBATCH --partition=boost_usr_prod
-#SBATCH --qos=normal
+#SBATCH --qos=boost_qos_lprod
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:1
-#SBATCH --time=24:00:00
+#SBATCH --time=4-00:00:00
 #SBATCH --account=IscrC_DATIV-ML
-#SBATCH --output=vae_local_val_Data_mix_OK_%j.out
-#SBATCH --error=vae_local_val_Data_mix_OK_%j.err
+#SBATCH --output=vae_glob1_HI_128_batch2_%j.out
+#SBATCH --error=vae_glob1_HI_128_batch2_%j.err
 #SBATCH --mem=160G
 
 
@@ -23,17 +23,18 @@ HOME=/leonardo/home/userexternal/gvitanza/
 
 source ${HOME}/.venv/bin/activate
 
-DATASET=Data_mix_OK
-EPOCHS=300
+DATASET=HI_128x128x128_stride64
+EPOCHS=100
 Z_CHANNELS=3
-NORM_MODE='local'
-EXPERIMENT_NAME=${EPOCHS}_z${Z_CHANNELS}_${NORM_MODE}_${DATASET}_val
+NORM_MODE='global_1'
+EXPERIMENT_NAME=${EPOCHS}_z${Z_CHANNELS}_${NORM_MODE}_${DATASET}_newActivationFun
 
-python3 ${SCRATCH}/project/ml_flow_train_vae_decoder.py\
+python3 ${SCRATCH}/project/ml_flow_train_vae_decoder_no_augm.py\
     --data_dir "${SCRATCH}/data/inputs/${DATASET}"\
-    --tensor_board_logger_vae "${SCRATCH}/logs_vae/vae_decoder_${EXPERIMENT_NAME}"\
-    --output_dir_vae "${SCRATCH}/data/trained_models_astro/vae_decoder_${EXPERIMENT_NAME}"\
+    --tensor_board_logger_vae "${SCRATCH}/logs_vae_paper/vae_decoder_${EXPERIMENT_NAME}"\
+    --output_dir_vae "${SCRATCH}/data/trained_model_paper/vae_decoder_${EXPERIMENT_NAME}"\
     --z_channels $Z_CHANNELS\
     --norm_mode $NORM_MODE\
     --learning_rate 1e-4\
     --epochs $EPOCHS\
+    --batch_size 2\

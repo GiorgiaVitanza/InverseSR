@@ -24,17 +24,21 @@ LEARNING_RATE=__LR__
 LAMBDA_PERC=__LAMBDA__
 NUM_STEPS=__STEPS__
 EXPERIMENT_NAME="__EXP_NAME__"
+LAMBDA_PRIOR=__PRIOR__
+PRIOR_EVERY=__PRIOR_EVERY__
 
-LOG_DIR=$SCRATCH/generated_jobs/$EXPERIMENT_NAME
+LOG_DIR=$SCRATCH/generated_jobs_proceeding/$EXPERIMENT_NAME
 
-VAE="${SCRATCH}/data/trained_models_astro/vae_decoder_300_z3_global_robust_cont_ldev_augment_5/VAE_full"
-DDPM="${SCRATCH}/data/trained_models_astro/ddpm_None_300_z3_global_robust_cont_ldev_logvarFalse_augment_5/ddpm_final_model"
+DATASET=16x128x128_cont_ldev_OK
+VAE="${SCRATCH}/data/trained_model_proceeding/vae_decoder_3_300epochs_local_no_augm_Oct10_22-29-35_best_val/VAE_full_best"
+DDPM="${SCRATCH}/data/trained_model_proceeding/ddpm_None_3_1000epochs_local_Oct11_19-32-17_NOaugm/ddpm_final_model"
 
 export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True,garbage_collection_threshold:0.8"
 
 
 python3 ${SCRATCH}/project/BRGM_ddim_cond_v2.py \
-    --input_data_dir "${SCRATCH}/data/inputs/16x128x128_stride128_cont_ldev/Inversion"\
+    --hr_path ${SCRATCH}/data/inputs/${DATASET}/test/npy_patches/patch_000033.npy\
+    --lr_path ${SCRATCH}/data/inputs/${DATASET}/test_LR/patch_000033.npy\
     --image_size 16 128 128 \
     --inference \
     --z_channels 3 \
@@ -45,7 +49,8 @@ python3 ${SCRATCH}/project/BRGM_ddim_cond_v2.py \
     --ddim_eta 0.0 \
     --update_latent_variables \
     --mean_latent_vector \
-    --prior_every 15 \
+    --lambda_prior $LAMBDA_PRIOR\
+    --prior_every $PRIOR_EVERY \
     --data_format="npy" \
     --corruption="downsample" \
     --lambda_perc="$LAMBDA_PERC" \
@@ -53,8 +58,8 @@ python3 ${SCRATCH}/project/BRGM_ddim_cond_v2.py \
     --experiment_name=$EXPERIMENT_NAME \
     --downsample_factor 4 \
     --tensor_board_logger_ddim="$LOG_DIR" \
-    --output_dir_BRGM_ddim="${SCRATCH}/data/outputs/BRGM_ddim_${EXPERIMENT_NAME}" \
-    --norm_data "global_robust" \
+    --output_dir_BRGM_ddim="${SCRATCH}/data/outputs_proceeding_parameters_choice/${EXPERIMENT_NAME}" \
+    --norm_data "local" \
     --vae_path_BRGM $VAE\
     --ddpm_path_BRGM $DDPM \
     

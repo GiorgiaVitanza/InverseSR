@@ -332,5 +332,5 @@ def main(path, choice = "4"):
 
 
 if __name__ == "__main__":
-    path = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/16x128x128_stride128_cont_dev/train/npy_patches/patch_000025.npy"
+    path = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/16x128x128_cont_ldev_OK/test/npy_patches/patch_000000.npy"
     main(path, choice="1")

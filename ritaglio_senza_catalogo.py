@@ -90,7 +90,7 @@ def process_radio_blind_split(
     data_name="",
     output_format="npy",
     skip_empty=False,
-    empty_threshold=1e-6
+    empty_threshold=2e-5
 ):
     """Estrae i patch 3D in modalità blind e li suddivide in train, val e test set."""
     assert sum(splits) == 1.0, "La somma delle frazioni di split deve fare 1.0"
@@ -118,9 +118,21 @@ def process_radio_blind_split(
                 else:
                     d_slice = raw_data_ref[z:z+patch_size[0], y:y+patch_size[1], x:x+patch_size[2]]
 
+                # 1. Gestisci prima i NaN
+                nan_mask = np.isnan(d_slice)
+                if np.all(nan_mask):
+                    # Il patch è interamente NaN (fuori mappa)
+                    skipped_count += 1
+                    continue
+
                 p_data = np.nan_to_num(np.array(d_slice, dtype=np.float32), nan=0.0)
 
-                if skip_empty and np.max(np.abs(p_data)) < empty_threshold:
+                # 2. Controllo combinato su RMS/Dev Standard e Valore Massimo
+                rms_val = np.sqrt(np.mean(p_data**2))
+                max_val = np.max(np.abs(p_data))
+
+                # Esempio: un patch è vuoto se sia il rumore RMS che il picco massimo sono sotto la soglia
+                if skip_empty and (rms_val < empty_threshold or max_val < (3 * empty_threshold)):
                     skipped_count += 1
                     continue
 
@@ -203,20 +215,22 @@ def process_radio_blind_split(
 
 
 if __name__ == "__main__":
-    FITS_PATH = "/leonardo_scratch/large/userexternal/gvitanza/MeerKATFornaxSurvey/t06_1kms_NGC1436_image_mos.fits"
-    BASE_OUT_DIR = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/MeerkatNGC1436"
+    FILENAME = "N1566_J0419_54"
+    DATA_DIR_NAME="HI_128x128x128_stride64"
+    FITS_PATH = "/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/comb_N1566_J0419_54_HI_r15_t0_mg095_2.image.fits"
+    BASE_OUT_DIR = f"/leonardo_scratch/large/userexternal/gvitanza/InverseSR/data/inputs/{DATA_DIR_NAME}"
 
     # 1. Generazione e Split dei Patch
     process_radio_blind_split(
         fits_path=FITS_PATH,
         output_dir=BASE_OUT_DIR,
-        patch_size=(16, 128, 128),
-        stride=128,
-        splits=(0.8, 0.1, 0.1),  # 70% Train, 15% Validation, 15% Test
+        patch_size=(128, 128, 128),
+        stride=64,
+        splits=(0.8, 0.1, 0.1),  # 80% Train, 10% Validation, 10% Test
         seed=42,
-        data_name="meerkatNGC1436",
+        data_name=FILENAME,
         output_format="npy",
-        skip_empty=False
+        skip_empty=True
     )
 
     # 2. Generazione GIF animate di verifica dal subset Train
@@ -228,4 +242,4 @@ if __name__ == "__main__":
         patch_dir=NPY_TRAIN_DIR,
         output_gif_dir=PLOT_GIF_DIR,
         num_samples=3
-    )
+    ) 

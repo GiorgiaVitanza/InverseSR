@@ -230,9 +230,9 @@ def process_radio_multiformat(
 
 
 if __name__ == "__main__":
-    FITS_PATH = "/leonardo_scratch/large/userexternal/gvitanza/sky_ldev_v2.fits"
+    FITS_PATH = "/leonardo_scratch/large/userexternal/gvitanza/cont_ldev.fits"
     CATALOG_PATH = "/leonardo_scratch/large/userexternal/gvitanza/sky_ldev_truthcat_v2.txt"
-    BASE_OUT_DIR = "./data/inputs/128x128x128_stride128_sky_ldev"
+    BASE_OUT_DIR = "./data/inputs/16x128x128_stride128_cont_ldev_new"
 
     # 1. Split delle sorgenti
     train_cat, test_cat = split_original_catalog(
@@ -246,7 +246,7 @@ if __name__ == "__main__":
         df_cat=train_cat,
         output_dir=BASE_OUT_DIR,
         subset_name="train",
-        patch_size=(128, 128, 128),
+        patch_size=(16, 128, 128),
         stride=128,
         output_format="npy",
     )
@@ -258,7 +258,7 @@ if __name__ == "__main__":
         df_cat=test_cat,
         output_dir=BASE_OUT_DIR,
         subset_name="test",
-        patch_size=(128, 128, 128),
+        patch_size=(16, 128, 128),
         stride=128,
         output_format="npy",
     )

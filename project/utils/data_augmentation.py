@@ -138,8 +138,8 @@ def offline_augment_dataset(
 
 if __name__ == "__main__":
     offline_augment_dataset(
-        input_dir="../../data/inputs/16x128x128_cont_ldev_OK/test/npy_patches",
-        output_dir="../../data/inputs/16x128x128_cont_ldev_OK/test_augmented",
+        input_dir="../../data/inputs/contldev_256x256x16_stride128/val/npy_patches",
+        output_dir="../../data/inputs/contldev_256x256x16_stride128/val_augmented",
         num_aug_per_patch=5,
         keep_original=True,
         seed=42

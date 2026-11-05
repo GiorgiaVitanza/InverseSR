@@ -1,5 +1,6 @@
 import os
 import torch
+import json
 import torch.nn.functional as F
 import numpy as np
 import matplotlib
@@ -13,6 +14,7 @@ from models.aekl_no_attention import AutoencoderKL
 from utils.config_train import train_config
 from utils.config_aekl_v3 import get_hparams
 from utils.plot_new import denormalize_data, comparison_plots_ok
+from data.data_wrapper import FilteredRadioDataset
 
 import numpy as np
 from skimage.metrics import peak_signal_noise_ratio as skimage_psnr
@@ -95,23 +97,32 @@ def test(hparams, train_param):
     device = train_param.device
     os.makedirs(train_param.test_fig, exist_ok=True)
     print(f"Stai usando il dispositivo: {device}")
-
+    test_stats_path = os.path.join(train_param.test_dir, "dataset_filter_stats.json")
+    if os.path.exists(test_stats_path):
+        with open(test_stats_path, "r") as f:
+            test_stats = json.load(f)
+    else:
+        raise FileNotFoundError(f"File {test_stats_path} non trovato! Esegui prima precompute_stats.py")
     # 2. Dataset di Test
-    test_dataset = RadioPatchDataset(
-        data_dir=train_param.test_dir, 
-        catalogue_path=train_param.catalogue_path,
-        in_channels=hparams.in_channels,
-        norm_mode=train_param.norm_mode
-    )
-    
-    test_loader = DataLoader(
-        dataset=test_dataset, 
-        batch_size=2, 
-        shuffle=False, 
+    raw_test_dataset = RadioPatchDataset(
+            data_dir=train_param.test_dir,
+            in_channels=hparams.in_channels,
+            norm_mode=train_param.norm_mode,
+            cached_stats=test_stats["flux_statistics_filtered"],
+        )
+    test_dataset = FilteredRadioDataset(
+        base_dataset=raw_test_dataset,
+        stats_json_path=os.path.join(train_param.test_dir, "dataset_filter_stats.json"),
+        mode="clip"  # "clip" taglia i picchi al valore max, "zero" li azzera
+        )
+    test_dataloader = DataLoader(
+        test_dataset,
+        batch_size=train_param.batch_size,
+        shuffle=False,
         num_workers=1,
-        pin_memory=True if torch.cuda.is_available() else False
-    )
-
+        pin_memory=True,
+        )
+    
     # 3. Caricamento Modello
     checkpoint_path = os.path.join(train_param.vae_path)
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
@@ -134,7 +145,7 @@ def test(hparams, train_param):
     test_ssim_list = []
 
     with torch.no_grad():
-        for i, batch in enumerate(tqdm(test_loader, desc="Testing VAE")):
+        for i, batch in enumerate(tqdm(test_dataloader, desc="Testing VAE")):
             x = batch["x_0"].to(device)
             patch_stats = {k: v.to(train_param.device) if isinstance(v, torch.Tensor) else v 
                                                 for k, v in batch['stats'].items()
@@ -165,7 +176,7 @@ def test(hparams, train_param):
             test_ssim_list.append(batch_ssim)
 
             # Salvataggio plot ogni 10 batch o all'ultimo
-            if i % 10 == 0 or i == len(test_loader) - 1:
+            if i % 10 == 0 or i == len(test_dataloader) - 1:
                 fig = comparison_plots_ok(
                     x_denorm, 
                     x_hat_denorm
