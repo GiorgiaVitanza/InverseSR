@@ -20,48 +20,84 @@ def normalize_dynamic(data, norm_mode, stats=None):
     if data.numel() == 0:
         return data, stats
 
-    if norm_mode == 'global_robust':
-        p_min = stats['p5']
-        p_max = stats['p95']
+    # --------------------------------------------------------------------------
+    # 1. INTEGRAZIONE FILTRO OUTLIER + RISCALAMENTO (minmax_clip & clip)
+    # --------------------------------------------------------------------------
+    if norm_mode in ['minmax_clip', 'clip']:
+        # Estrazione robusta delle soglie (gestisce JSON sia flat che annidati)
+        if "filtering_bounds" in stats:
+            lower_b = stats["filtering_bounds"]["lower_bound"]
+            upper_b = stats["filtering_bounds"]["upper_bound"]
+        else:
+            lower_b = stats.get("lower_bound", float(data.min()))
+            upper_b = stats.get("upper_bound", float(data.max()))
+
+        # Passaggio 1: Applicazione Clipping per eliminare gli outlier
+        data_clipped = torch.clamp(data, min=lower_b, max=upper_b)
+
+        if norm_mode == 'clip':
+            # Solo clipping nei limiti reali [lower_b, upper_b]
+            return data_clipped, {'lower_bound': lower_b, 'upper_bound': upper_b}
         
+        elif norm_mode == 'minmax_clip':
+            # Passaggio 2: Riscalamento lineare dei dati filtrati nell'intervallo [0.0, 1.0]
+            data_norm = (data_clipped - lower_b) / (upper_b - lower_b + 1e-8)
+            return data_norm, {'lower_bound': lower_b, 'upper_bound': upper_b}
+
+    # --------------------------------------------------------------------------
+    # 2. ALTRE MODALITÀ DI NORMALIZZAZIONE
+    # --------------------------------------------------------------------------
+    
+    
+    elif norm_mode == 'global_robust':
+        # 1. Trova i percentili dal dataset (o calcolali sul dato locale)
+        # Questo elimina gli outlier estremi prima di scalare tra 0 e 1
+        p_low = stats.get('p1', np.percentile(data, 1)) if stats else np.percentile(data, 1)
+        p_high = stats.get('p99', np.percentile(data, 99)) if stats else np.percentile(data, 99)
+        
+        # Clip per rimuovere picchi anomali
+        data_clipped = np.clip(data, p_low, p_high)
+        
+        # Scala l'intervallo compattato tra 0 e 1
+        norm_data = (data_clipped - p_low) / (p_high - p_low + 1e-8)
+        return norm_data, {"p_low": p_low, "p_high": p_high}
+
+    elif norm_mode == 'log_minmax':
+        # Utile se i dati coprono diversi ordini di grandezza (es. segnali di sismica o microtomografia)
+        data_pos = np.maximum(data, 0)
+        log_data = np.log1p(data_pos)  # log(1 + x) evita log(0)
+        
+        vmin, vmax = log_data.min(), log_data.max()
+        norm_data = (log_data - vmin) / (vmax - vmin + 1e-8)
+        return norm_data, {"vmin": vmin, "vmax": vmax}
+
+    elif norm_mode == 'zscore_robust':
+        # Standardizzazione basata su Mediana e IQR (più robusta di Media e Std)
+        med = np.median(data)
+        q25, q75 = np.percentile(data, [25, 75])
+        iqr = q75 - q25
+        norm_data = (data - med) / (iqr + 1e-8)
+        return norm_data, {"median": med, "iqr": iqr}
+    elif norm_mode in ['global_1', 'global_2']:
+        raw_stats = stats.get("flux_statistics_raw", {}).get("percentiles", stats)
+        p_min_key = 'p1' if norm_mode == 'global_1' else 'p2'
+        p_max_key = 'p99' if norm_mode == 'global_1' else 'p98'
+
+        p_min = raw_stats.get(p_min_key, stats.get(p_min_key, 0.0))
+        p_max = raw_stats.get(p_max_key, stats.get(p_max_key, 1.0))
+
         if p_max <= p_min:
             p_max = p_min + 1e-8
 
         data_norm = (data - p_min) / (p_max - p_min + 1e-8)
-        patch_stats = {'p_min': p_min, 'p_max': p_max}
-
-        return torch.clamp(data_norm, 0.0, 1.0), patch_stats
-    elif norm_mode == 'global_1':
-                p_min = stats['p1']
-                p_max = stats['p99']
-                
-                if p_max <= p_min:
-                    p_max = p_min + 1e-8
-        
-                data_norm = (data - p_min) / (p_max - p_min + 1e-8)
-                patch_stats = {'p_min': p_min, 'p_max': p_max}
-        
-                return torch.clamp(data_norm, 0.0, 1.0), patch_stats
-        
-    elif norm_mode == 'global_2':
-            p_min = stats['p2']
-            p_max = stats['p98']
-            
-            if p_max <= p_min:
-                p_max = p_min + 1e-8
-    
-            data_norm = (data - p_min) / (p_max - p_min + 1e-8)
-            patch_stats = {'p_min': p_min, 'p_max': p_max}
-    
-            return torch.clamp(data_norm, 0.0, 1.0), patch_stats
-    
+        return torch.clamp(data_norm, 0.0, 1.0), {'p_min': p_min, 'p_max': p_max}
 
     elif norm_mode == 'global_arcsinh':
-        p_min = stats['p5']
-        p_max = stats['p95']
-
-        p_min_arcsinh = stats['p5_arcsinh']
-        p_max_arcsinh = stats['p95_arcsinh']
+        raw_stats = stats.get("flux_statistics_raw", {}).get("percentiles", stats)
+        p_min = raw_stats.get('p5', stats.get('p5', 0.0))
+        p_max = raw_stats.get('p95', stats.get('p95', 1.0))
+        p_min_arcsinh = raw_stats.get('p5_arcsinh', stats.get('p5_arcsinh', 0.0))
+        p_max_arcsinh = raw_stats.get('p95_arcsinh', stats.get('p95_arcsinh', 1.0))
 
         if p_max_arcsinh <= p_min_arcsinh:
             p_max_arcsinh = p_min_arcsinh + 1e-8
@@ -75,7 +111,6 @@ def normalize_dynamic(data, norm_mode, stats=None):
             'p_min_arcsinh': p_min_arcsinh,
             'p_max_arcsinh': p_max_arcsinh,
         }
-
         return torch.clamp(data_norm, 0.0, 1.0), patch_stats
 
     elif norm_mode == 'local':
@@ -86,20 +121,10 @@ def normalize_dynamic(data, norm_mode, stats=None):
             p_max = p_min + 1e-5
 
         data_norm = (data - p_min) / (p_max - p_min + 1e-8)
-        patch_stats = {'p_min': p_min, 'p_max': p_max}
+        return torch.clamp(data_norm, 0.0, 1.0), {'p_min': p_min, 'p_max': p_max}
 
-        return torch.clamp(data_norm, 0.0, 1.0), patch_stats
-
-    elif norm_mode == 'zscore':
-        mean = stats['mean']
-        std = stats['std']
-        data_norm = (data - mean) / (std + 1e-8)
-        patch_stats = {'mean': mean, 'std': std}
-
-        return torch.clamp(data_norm, -1.0, 1.0), patch_stats
-        
     else:
-        raise ValueError(f"Modalità '{norm_mode}' non supportata.")
+        return data, {}
 
 
 def create_3d_gaussian_mask(shape, x_c, y_c, z_c, sigma=1.5):
@@ -118,7 +143,7 @@ class RadioPatchDataset(Dataset):
         in_channels=1,
         norm_mode="global",
         mask_sigma=1.5,
-        cached_stats=None,  # Consente di passare direttamente un dict o percorso
+        cached_stats=None,
     ):
         super().__init__()
         self.data_dir = data_dir
@@ -150,7 +175,8 @@ class RadioPatchDataset(Dataset):
                 }
                 self.catalog_dict = df_catalog.set_index("patch_id").to_dict(orient="index")
 
-        # 2. CARICAMENTO STATISTICHE (ROBUSTO)
+        # 2. CARICAMENTO STATISTICHE (Cerca sia dataset_filter_stats.json sia dataset_stat.json)
+        self.dataset_stats = {}
         if cached_stats is not None:
             if isinstance(cached_stats, dict):
                 self.dataset_stats = cached_stats
@@ -160,17 +186,21 @@ class RadioPatchDataset(Dataset):
                     self.dataset_stats = json.load(f)
                 print(f"Statistiche caricate dal file indicato in cached_stats: {cached_stats}")
         else:
-            # Lista dei percorsi possibili dove cercare il file JSON
-            candidate_paths = [
-                os.path.join(data_dir, "dataset_stat.json"),                        # dentro la cartella corrente
-                os.path.join(os.path.dirname(data_dir), "dataset_stat.json"),       # nella cartella padre (es. train/ o val/)
-                os.path.join(os.path.dirname(os.path.dirname(data_dir)), "dataset_stat.json") # due livelli sopra
+            candidate_files = ["dataset_filter_stats.json", "dataset_stat.json"]
+            candidate_dirs = [
+                data_dir,
+                os.path.dirname(data_dir),
+                os.path.dirname(os.path.dirname(data_dir))
             ]
 
             found_json = None
-            for path in candidate_paths:
-                if os.path.exists(path):
-                    found_json = path
+            for d in candidate_dirs:
+                for f_name in candidate_files:
+                    full_path = os.path.join(d, f_name)
+                    if os.path.exists(full_path):
+                        found_json = full_path
+                        break
+                if found_json:
                     break
 
             if found_json:
@@ -178,8 +208,7 @@ class RadioPatchDataset(Dataset):
                     self.dataset_stats = json.load(f)
                 print(f"Statistiche del dataset caricate con successo da: {found_json}")
             else:
-                print(f"[Warning] Nessun file 'dataset_stat.json' trovato nei percorsi cercati. Esecuzione calcolo dinamico...")
-                self.dataset_stats = compute_dataset_stats(data_dir)
+                print(f"[Warning] Nessun file di statistiche trovato. Verrà usato un dizionario vuoto.")
 
     def __len__(self):
         return len(self.patch_files)
@@ -196,13 +225,13 @@ class RadioPatchDataset(Dataset):
         elif data_numpy.ndim == 5:
             data_numpy = data_numpy.squeeze()
 
-        # Normalizzazione
+        # Normalizzazione + Filtering
         x_0, _ = normalize_dynamic(data_numpy, self.norm_mode, self.dataset_stats)
 
         if x_0.ndim == 3:
             x_0 = x_0.unsqueeze(0)  # Shape: (1, D, H, W)
 
-        # Usa .expand() al posto di .repeat() per evitare di triplicare l'allocazione RAM
+        # Usa .expand() per risparmiare memoria RAM
         if self.in_channels == 3 and x_0.shape[0] == 1:
             x_0 = x_0.expand(3, -1, -1, -1)
 
@@ -238,7 +267,6 @@ class RadioPatchDataset(Dataset):
 
         context_vector = torch.tensor(params, dtype=torch.float32)
 
-        
         return {
             "x_0": x_0,
             "spatial_mask": spatial_mask,
